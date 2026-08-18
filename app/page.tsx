@@ -4,14 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type Exercise = { id: string; name: string; group: string; equipment: string };
-type TemplateExercise = { exerciseId: string; sets: number; reps: string; group?: string };
-type Template = { id: string; name: string; focus: string; exercises: TemplateExercise[]; color?: string; icon?: string };
-type SetLog = { reps: string; weight: string; rpe: string; done: boolean };
-type WorkoutExercise = { exerciseId: string; sets: SetLog[]; note: string; group?: string };
-type Workout = { id: string; templateId?: string; name: string; date: string; startedAt: string; duration: number; exercises: WorkoutExercise[]; note: string };
-type AppData = { exercises: Exercise[]; templates: Template[]; workouts: Workout[]; scheduled: { date: string; templateId: string }[] };
+type TemplateExercise = { exerciseId: string; sets: number; reps: string; group?: string; note?: string };
+type Template = { id: string; name: string; focus: string; exercises: TemplateExercise[]; color?: string; icon?: string; supersetNames?: Record<string,string> };
+type SetLog = { reps: string; weight: string; rpe: string; done: boolean; note?: string };
+type WorkoutExercise = { exerciseId: string; sets: SetLog[]; note: string; group?: string; loadMode?: "kg"|"text"; planNote?: string; repTarget?: string };
+type Workout = { id: string; templateId?: string; name: string; date: string; startedAt: string; duration: number; exercises: WorkoutExercise[]; note: string; supersetNames?: Record<string,string> };
+type AppData = { exercises: Exercise[]; templates: Template[]; workouts: Workout[]; scheduled: { date: string; templateId: string; skipped?: boolean }[] };
+type PBResult = { exerciseId: string; name: string; weight: number; reps: string };
 
-const today = new Date().toISOString().slice(0, 10);
+const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+const today = localDateKey();
 const daysAgo = (days: number) => { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); };
 
 const sampleExercises: Exercise[] = [
@@ -92,7 +94,7 @@ const sampleTemplates: Template[] = [
   ]},
 ];
 
-const makeSet = (reps = ""): SetLog => ({ reps, weight: "", rpe: "", done: false });
+const makeSet = (reps = ""): SetLog => ({ reps, weight: "", rpe: "", done: false, note: "" });
 const sampleWorkouts: Workout[] = [
   { id: "sample-1", templateId: "lower-a", name: "Lower A", date: daysAgo(4), startedAt: "07:10", duration: 52, note: "Good session. Add 2.5 kg next week.", exercises: [
     { exerciseId: "back-squat", note: "", sets: [[5,60,7],[5,65,7],[5,67.5,8],[5,67.5,8]].map(([r,w,e]) => ({reps:String(r),weight:String(w),rpe:String(e),done:true})) },
@@ -110,7 +112,9 @@ const sampleWorkouts: Workout[] = [
 ];
 
 const initialData: AppData = { exercises: sampleExercises, templates: sampleTemplates, workouts: sampleWorkouts, scheduled: [{ date: today, templateId: "lower-a" }] };
-const motivations = ["Ready when you are.","Built today for what’s next.","A little stronger every session.","Show up. The rest follows.","Today’s work becomes tomorrow’s strength.","Your next strong session starts here.","Progress is waiting for you.","Train today. See further."];
+const motivations = ["Ready when you are.","Built for what’s next.","Strong starts here.","Show up and get stronger.","One set at a time.","Make today count.","Progress starts now.","Your strength is building.","Keep the momentum.","Today is yours.","Put in the work.","Go build something strong.","Small steps. Big strength.","Stronger with every set.","This is your time.","Earn tomorrow’s strength.","Move well. Finish strong.","Start steady. End strong.","You’ve got this.","Ready. Set. Strong.","Build the next version.","Train with purpose.","Make this session count.","Good work starts now.","Own every rep.","Keep showing up.","Strength happens here.","One more strong day.","Begin where you are.","Let’s get stronger."];
+const setraColours = [{name:"Blue",value:"#409ECE"},{name:"Ink",value:"#0F172A"},{name:"Lilac",value:"#7B61FF"},{name:"Coral",value:"#FF6B6B"},{name:"Sand",value:"#F2EFEA"},{name:"Mist",value:"#E6E9EE"}];
+const pbGraphics = [{name:"Trophy",index:0},{name:"Dumbbell",index:1},{name:"Barbell",index:2},{name:"Kettlebell",index:3},{name:"Strength",index:4},{name:"Crown",index:5}];
 const formatDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 
 export default function Home() {
@@ -123,6 +127,8 @@ export default function Home() {
   const [liveAddOpen, setLiveAddOpen] = useState(false);
   const [liveAddQuery, setLiveAddQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [deleteWorkoutId, setDeleteWorkoutId] = useState<string | null>(null);
+  const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [exerciseHistoryId, setExerciseHistoryId] = useState<string | null>(null);
   const [editor, setEditor] = useState<Template | null>(null);
   const [picker, setPicker] = useState(false);
@@ -132,6 +138,17 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [motivation, setMotivation] = useState(motivations[0]);
+  const [newPBs, setNewPBs] = useState<PBResult[]>([]);
+  const [pbTileStyle, setPbTileStyle] = useState<"colour"|"transparent">("colour");
+  const [pbColour, setPbColour] = useState("#409ECE");
+  const [pbGraphic, setPbGraphic] = useState(0);
+  const [selectedPBIndex, setSelectedPBIndex] = useState(0);
+  const [pbShareMessage, setPbShareMessage] = useState("");
+  const [expandedPlanned, setExpandedPlanned] = useState<Set<string>>(new Set());
+  const [scheduleTemplateId, setScheduleTemplateId] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(today);
+  const [scheduleRepeat, setScheduleRepeat] = useState<"once"|"weekly"|"fortnightly">("once");
+  const [scheduleWeeks, setScheduleWeeks] = useState(4);
 
   useEffect(() => {
     try {
@@ -144,7 +161,8 @@ export default function Home() {
   useEffect(() => { if (loaded) localStorage.setItem("form-strength-diary", JSON.stringify(data)); }, [data, loaded]);
 
   const exerciseName = (id: string) => data.exercises.find(exercise => exercise.id === id)?.name ?? "Exercise";
-  const scheduledTemplate = data.templates.find(template => template.id === data.scheduled.find(item => item.date === selectedDate)?.templateId);
+  const scheduledTemplates = data.scheduled.filter(item=>item.date===selectedDate).map(item=>data.templates.find(template=>template.id===item.templateId)).filter((template):template is Template=>Boolean(template)).filter(template=>!(savedDraft?.date===selectedDate&&savedDraft.templateId===template.id));
+  const completedWorkouts = data.workouts.filter(workout => workout.date === selectedDate);
   const latestWorkout = data.workouts[0];
   const detail = data.workouts.find(workout => workout.id === detailId);
   const historyExercise = data.exercises.find(exercise => exercise.id === exerciseHistoryId);
@@ -155,28 +173,78 @@ export default function Home() {
   const previousSets = (exerciseId: string) => data.workouts.find(workout => workout.exercises.some(exercise => exercise.exerciseId === exerciseId))?.exercises.find(exercise => exercise.exerciseId === exerciseId)?.sets ?? [];
 
   function startWorkout(template: Template) {
-    setActive({ id: `workout-${Date.now()}`, templateId: template.id, name: template.name, date: selectedDate, startedAt: "", duration: 0, note: "", exercises: template.exercises.map(item => ({ exerciseId: item.exerciseId, group: item.group, note: "", sets: Array.from({ length: item.sets }, () => makeSet(item.reps.replace(/\D/g, ""))) })) });
+    setEditingWorkoutId(null);
+    setActive({ id: `workout-${selectedDate}-${data.workouts.length+1}-${template.id}`, templateId: template.id, name: template.name, date: selectedDate, startedAt: "", duration: 0, note: "", supersetNames: template.supersetNames, exercises: template.exercises.map(item => {
+      const isRange = (item.reps.match(/\d+/g)?.length ?? 0) > 1;
+      return { exerciseId: item.exerciseId, group: item.group, note: "", planNote:item.note||"", repTarget:item.reps, loadMode:"kg" as const, sets: Array.from({ length: item.sets }, () => makeSet(isRange ? "" : item.reps.replace(/\D/g, ""))) };
+    }) });
+    setPicker(false);
+  }
+  function startBlankWorkout() {
+    setEditingWorkoutId(null);
+    setActive({id:`workout-${selectedDate}-${data.workouts.length+1}-quick`,name:"Add as I go",date:selectedDate,startedAt:"",duration:0,note:"",exercises:[]});
     setPicker(false);
   }
   function saveDraft() {
     if (!active) return;
     localStorage.setItem("form-active-workout", JSON.stringify(active));
+    if(active.templateId)setData(current=>({...current,scheduled:current.scheduled.filter(item=>!(item.date===active.date&&item.templateId===active.templateId))}));
     setSavedDraft(active); setActive(null); setTab("today");
-  }
-  function discardActive() {
-    if (!confirm("Discard this workout?")) return;
-    localStorage.removeItem("form-active-workout"); setSavedDraft(null); setActive(null);
   }
   function saveWorkout() {
     if (!active) return;
     const completed = { ...active, duration: 0 };
-    setData(current => ({ ...current, workouts: [completed, ...current.workouts], scheduled: current.scheduled.filter(item => item.date !== active.date) }));
-    localStorage.removeItem("form-active-workout"); setSavedDraft(null); setActive(null); setTab("history"); setDetailId(completed.id);
+    if (!editingWorkoutId) {
+      const records = completed.exercises.flatMap(exercise => {
+        if (exercise.loadMode === "text") return [];
+        const bestSet = exercise.sets.filter(set=>set.done&&Number(set.weight)>0).sort((a,b)=>Number(b.weight)-Number(a.weight))[0];
+        if (!bestSet) return [];
+        const previousBest = Math.max(0,...data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.exerciseId).flatMap(item=>item.sets.map(set=>Number(set.weight)||0))));
+        return Number(bestSet.weight)>previousBest?[{exerciseId:exercise.exerciseId,name:exerciseName(exercise.exerciseId),weight:Number(bestSet.weight),reps:bestSet.reps}]:[];
+      });
+      if (records.length) { setNewPBs(records); setPbTileStyle("colour"); setPbColour("#409ECE"); setPbGraphic(0); setSelectedPBIndex(0); setPbShareMessage(""); }
+    }
+    setData(current => ({ ...current, workouts: editingWorkoutId ? current.workouts.map(workout=>workout.id===editingWorkoutId?completed:workout) : [completed, ...current.workouts], scheduled: active.templateId?current.scheduled.filter(item => !(item.date===active.date&&item.templateId===active.templateId)):current.scheduled }));
+    localStorage.removeItem("form-active-workout"); setSavedDraft(null); setActive(null); setEditingWorkoutId(null); setSelectedDate(completed.date); setTab("today"); setDetailId(null);
+  }
+  function deleteCompletedWorkout() {
+    if (!deleteWorkoutId) return;
+    setData(current => ({ ...current, workouts: current.workouts.filter(workout => workout.id !== deleteWorkoutId) }));
+    setDetailId(null);
+    setDeleteWorkoutId(null);
+  }
+  function createPBImage(style: "colour"|"transparent") {
+    return new Promise<Blob>((resolve,reject)=>{
+      const canvas=document.createElement("canvas"); canvas.width=1080; canvas.height=1080;
+      const context=canvas.getContext("2d"); if(!context){reject(new Error("Image unavailable"));return;}
+      const pb=newPBs[selectedPBIndex]||newPBs[0]; const light=["#F2EFEA","#E6E9EE"].includes(pbColour); const ink=style==="colour"?(light?"#0F172A":"#FFFFFF"):pbColour;
+      if(style==="colour"){context.fillStyle=pbColour;context.fillRect(0,0,1080,1080);}else context.clearRect(0,0,1080,1080);
+      context.fillStyle=ink;context.textAlign="center";
+      context.font="900 72px Arial";context.fillText("NEW PB",540,370);
+      context.font="800 50px Arial";context.fillText(pb.name.toUpperCase(),540,435,920);
+      context.font="900 144px Arial";context.fillText(`${pb.weight} KG`,540,585,940);
+      context.font="900 68px Arial";context.fillText(`× ${pb.reps || "—"} REPS`,540,670);
+      context.font="900 76px Arial";context.fillText("setra",540,785);
+      context.font="700 33px Arial";context.fillText("TRAIN TODAY. SEE FURTHER.",540,835);
+      context.font="600 25px Arial";context.fillText(formatDate(today).toUpperCase(),540,895);
+      const sprite=new Image();sprite.onload=()=>{const iconCanvas=document.createElement("canvas");iconCanvas.width=360;iconCanvas.height=240;const iconContext=iconCanvas.getContext("2d");if(iconContext){iconContext.drawImage(sprite,pbGraphic*360,0,360,240,0,0,360,240);iconContext.globalCompositeOperation="source-in";iconContext.fillStyle=ink;iconContext.fillRect(0,0,360,240);context.drawImage(iconCanvas,300,35,480,320);}canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Image unavailable")),"image/png");};sprite.onerror=()=>reject(new Error("Graphic unavailable"));sprite.src="/pb-icons.png";
+    });
+  }
+  async function savePBImage() {
+    const blob=await createPBImage(pbTileStyle); const url=URL.createObjectURL(blob); const link=document.createElement("a");link.href=url;link.download=`setra-pb-${today}.png`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setPbShareMessage("Image saved. On iPhone, choose Save Image from the download or share menu.");
+  }
+  async function sharePBImage() {
+    const blob=await createPBImage(pbTileStyle); const file=new File([blob],`setra-pb-${today}.png`,{type:"image/png"});
+    try { if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:"My new Setra PB",text:"A new personal best 💪",files:[file]});}else{await savePBImage();} } catch(error){if((error as Error).name!=="AbortError")setPbShareMessage("Sharing was unavailable. Use Save image instead.");}
   }
   function updateSet(exerciseIndex: number, setIndex: number, key: keyof SetLog, value: string | boolean) {
     if (!active) return;
     const exercises = active.exercises.map((exercise, ei) => ei !== exerciseIndex ? exercise : { ...exercise, sets: exercise.sets.map((set, si) => si !== setIndex ? set : { ...set, [key]: value }) });
     setActive({ ...active, exercises });
+  }
+  function updateWorkoutExercise(exerciseIndex:number, changes:Partial<WorkoutExercise>) {
+    if (!active) return;
+    setActive({...active,exercises:active.exercises.map((exercise,index)=>index===exerciseIndex?{...exercise,...changes}:exercise)});
   }
   function moveLiveExercise(from: number, to: number) {
     if (!active || to < 0 || to >= active.exercises.length) return;
@@ -207,21 +275,47 @@ export default function Home() {
   function toggleSuperset(index: number) {
     if (!editor || index === 0) return;
     const exercises = editor.exercises.map(item => ({ ...item }));
+    const supersetNames = { ...editor.supersetNames };
     if (exercises[index].group) {
       const oldGroup = exercises[index].group;
       delete exercises[index].group;
-      if (exercises.filter(item => item.group === oldGroup).length < 2) exercises.forEach(item => { if (item.group === oldGroup) delete item.group; });
+      const remaining = exercises.filter(item => item.group === oldGroup);
+      if (remaining.length < 2) {
+        exercises.forEach(item => { if (item.group === oldGroup) delete item.group; });
+        delete supersetNames[oldGroup];
+      }
     } else {
       const group = exercises[index - 1].group || `superset-${Date.now()}`;
       exercises[index - 1].group = group; exercises[index].group = group;
     }
-    setEditor({ ...editor, exercises });
+    setEditor({ ...editor, exercises, supersetNames });
   }
-  function schedule(templateId: string) {
-    setData(current => ({ ...current, scheduled: [...current.scheduled.filter(item => item.date !== selectedDate), { date: selectedDate, templateId }] }));
-    setPicker(false); setTab("today");
+  function removeTemplateExercise(index:number) {
+    if (!editor) return;
+    const removedGroup=editor.exercises[index]?.group;
+    const exercises=editor.exercises.filter((_,exerciseIndex)=>exerciseIndex!==index).map(item=>({...item}));
+    const supersetNames={...editor.supersetNames};
+    if(removedGroup&&exercises.filter(item=>item.group===removedGroup).length<2){exercises.forEach(item=>{if(item.group===removedGroup)delete item.group;});delete supersetNames[removedGroup];}
+    setEditor({...editor,exercises,supersetNames});
   }
-
+  function openSchedule(templateId: string) {
+    setScheduleTemplateId(templateId);
+    setScheduleDate(today);
+    setScheduleRepeat("once");
+    setScheduleWeeks(4);
+  }
+  function scheduleWorkout() {
+    if (!scheduleTemplateId) return;
+    const intervalDays=scheduleRepeat==="weekly"?7:scheduleRepeat==="fortnightly"?14:0;
+    const count=intervalDays?Math.max(1,Math.ceil((scheduleWeeks*7)/intervalDays)):1;
+    const dates=Array.from({length:count},(_,index)=>{const date=new Date(`${scheduleDate}T12:00:00`);date.setDate(date.getDate()+index*intervalDays);return date.toISOString().slice(0,10)});
+    setData(current=>{
+      const additions=dates.filter(date=>!current.scheduled.some(item=>item.date===date&&item.templateId===scheduleTemplateId)).map(date=>({date,templateId:scheduleTemplateId}));
+      return {...current,scheduled:[...current.scheduled,...additions]};
+    });
+    setSelectedDate(scheduleDate);
+    setScheduleTemplateId(null);
+  }
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -232,18 +326,20 @@ export default function Home() {
       <section className="content">
         {tab === "today" && <>
           <div className="eyebrow">{formatDate(selectedDate).toUpperCase()}</div>
-          <div className="page-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>2</strong><span>this week</span></div></div>
+          <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>2</strong><span>this week</span></div></div>
           <div className="calendar-controls"><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()-7);setSelectedDate(date.toISOString().slice(0,10))}}>‹</button><button className="calendar-label" onClick={()=>setCalendarOpen(!calendarOpen)}>{new Intl.DateTimeFormat("en-AU",{month:"long",year:"numeric"}).format(new Date(`${selectedDate}T12:00:00`))} <span>{calendarOpen?"⌃":"⌄"}</span></button><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+7);setSelectedDate(date.toISOString().slice(0,10))}}>›</button></div>
-          {!calendarOpen?<div className="week-strip" aria-label="This week">{weekDays.map(date => {const d=new Date(`${date}T12:00:00`);const trained=data.workouts.some(workout=>workout.date===date);const planned=data.scheduled.some(item=>item.date===date);return <button onClick={()=>setSelectedDate(date)} className={`day ${date===selectedDate?"active-day":""} ${trained?"trained":""} ${planned?"planned-day":""}`} key={date}><span>{["S","M","T","W","T","F","S"][d.getDay()]}</span><b>{d.getDate()}</b><i /></button>})}</div>:<div className="month-calendar"><div className="month-weekdays">{["M","T","W","T","F","S","S"].map((day,i)=><span key={`${day}-${i}`}>{day}</span>)}</div><div className="month-grid">{monthDays.map(date=>{const d=new Date(`${date}T12:00:00`);const inMonth=d.getMonth()===new Date(`${selectedDate}T12:00:00`).getMonth();const trained=data.workouts.some(workout=>workout.date===date);const planned=data.scheduled.some(item=>item.date===date);return <button key={date} className={`${date===selectedDate?"selected-date":""} ${!inMonth?"outside-month":""}`} onClick={()=>{setSelectedDate(date);setCalendarOpen(false)}}><span>{d.getDate()}</span>{(trained||planned)&&<i className={trained?"trained-dot":"planned-dot"}/>}</button>})}</div></div>}
+          {!calendarOpen?<div className="week-strip" aria-label="This week">{weekDays.map(date => {const d=new Date(`${date}T12:00:00`);const completedCount=data.workouts.filter(workout=>workout.date===date).length;const plannedCount=data.scheduled.filter(item=>item.date===date).length;return <button onClick={()=>setSelectedDate(date)} className={`day ${date===selectedDate?"active-day":""}`} key={date}><span>{["S","M","T","W","T","F","S"][d.getDay()]}</span><b>{d.getDate()}</b><span className="day-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div>:<div className="month-calendar"><div className="month-weekdays">{["M","T","W","T","F","S","S"].map((day,i)=><span key={`${day}-${i}`}>{day}</span>)}</div><div className="month-grid">{monthDays.map(date=>{const d=new Date(`${date}T12:00:00`);const inMonth=d.getMonth()===new Date(`${selectedDate}T12:00:00`).getMonth();const completedCount=data.workouts.filter(workout=>workout.date===date).length;const plannedCount=data.scheduled.filter(item=>item.date===date).length;return <button key={date} className={`${date===selectedDate?"selected-date":""} ${!inMonth?"outside-month":""}`} onClick={()=>{setSelectedDate(date);setCalendarOpen(false)}}><span>{d.getDate()}</span><span className="month-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div></div>}
 
-          {scheduledTemplate ? <article className="hero-card">
-            <div className="card-top"><span className="status-pill"><i /> PLANNED</span><button className="icon-button" onClick={() => setPicker(true)} aria-label="Change planned workout">•••</button></div>
-            <h2>{scheduledTemplate.name}</h2><p>{scheduledTemplate.focus}</p>
-            <div className="exercise-preview">{scheduledTemplate.exercises.map((item) => {const groups=[...new Set(scheduledTemplate.exercises.map(exercise=>exercise.group).filter(Boolean))];const groupIndex=groups.indexOf(item.group);return <div className={item.group?`preview-superset superset-color-${groupIndex%4}`:""} key={item.exerciseId}><b>{exerciseName(item.exerciseId)}</b><em>{item.sets} × {item.reps}</em>{item.group&&<small>SUPERSET {String.fromCharCode(65+groupIndex)}</small>}</div>})}</div>
-            <button className="primary-button" onClick={() => startWorkout(scheduledTemplate)}>Start workout <span>→</span></button>
-          </article> : <article className="empty-card"><span className="empty-icon">＋</span><h2>No workout planned</h2><p>Choose a template and get moving.</p><button className="secondary-button" onClick={() => setPicker(true)}>Choose workout</button></article>}
+          {savedDraft?.date===selectedDate&&<article className="resume-card"><div><span>WORKOUT IN PROGRESS</span><h2>{savedDraft.name}</h2><p>{savedDraft.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)} of {savedDraft.exercises.reduce((sum,e)=>sum+e.sets.length,0)} sets complete</p></div><button onClick={()=>{setActive(savedDraft);setSavedDraft(null)}}>Resume →</button></article>}
 
-          {savedDraft && <article className="resume-card"><div><span>WORKOUT SAVED</span><h2>{savedDraft.name}</h2><p>{savedDraft.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)} of {savedDraft.exercises.reduce((sum,e)=>sum+e.sets.length,0)} sets complete</p></div><button onClick={()=>{setActive(savedDraft);setSavedDraft(null)}}>Resume →</button></article>}
+          {completedWorkouts.length>0&&<section className="completed-today"><span className="completed-heading">{selectedDate===today?"COMPLETED TODAY":"COMPLETED"}</span>{completedWorkouts.map(workout=><button key={workout.id} className="completed-card" onClick={()=>setDetailId(workout.id)}><span className="completed-check">✓</span><span><b>{workout.name}</b><small>{workout.exercises.length} exercises · {workout.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0)} sets completed</small></span><em>View ›</em></button>)}</section>}
+
+          {scheduledTemplates.length>0?scheduledTemplates.map(template=>{const expanded=expandedPlanned.has(template.id);return <article className={`hero-card planned-card ${expanded?"expanded":""}`} key={template.id}>
+            <button className="planned-expand" onClick={()=>setExpandedPlanned(current=>{const next=new Set(current);if(next.has(template.id))next.delete(template.id);else next.add(template.id);return next})} aria-label={expanded?"Hide workout exercises":"Show workout exercises"}>{expanded?"⌃":"⌄"}</button>
+            <h2>{template.name}</h2><p>{template.focus}</p>
+            {expanded&&<div className="exercise-preview">{template.exercises.map((item) => {const groups=[...new Set(template.exercises.map(exercise=>exercise.group).filter(Boolean))];const groupIndex=groups.indexOf(item.group);const defaultName=`Superset ${String.fromCharCode(65+groupIndex)}`;return <div className={item.group?`preview-superset superset-color-${groupIndex%4}`:""} key={item.exerciseId}><b>{exerciseName(item.exerciseId)}</b><em>{item.sets} × {item.reps}</em>{item.group&&<small>{(template.supersetNames?.[item.group]||defaultName).toUpperCase()}</small>}</div>})}</div>}
+            <button className="primary-button" onClick={() => startWorkout(template)}>Start workout <span>→</span></button>
+          </article>}):<article className="empty-card"><span className="empty-icon">＋</span><h2>No workout planned</h2><p>Choose a template and get moving.</p><button className="secondary-button" onClick={() => setPicker(true)}>Choose workout</button></article>}
 
           <div className="section-title"><div><span>LAST SESSION</span><h2>Recent work</h2></div><button onClick={() => setTab("history")}>See all</button></div>
           {latestWorkout && <button className="recent-card" onClick={() => setDetailId(latestWorkout.id)}><span className="recent-date"><b>{new Date(`${latestWorkout.date}T12:00:00`).getDate()}</b>{new Intl.DateTimeFormat("en",{month:"short"}).format(new Date(`${latestWorkout.date}T12:00:00`))}</span><span className="recent-main"><b>{latestWorkout.name}</b><small>{latestWorkout.exercises.length} exercises</small></span><span className="chevron">›</span></button>}
@@ -253,7 +349,7 @@ export default function Home() {
           <div className="eyebrow">YOUR PROGRAM</div><div className="page-heading"><div><h1>Workout templates</h1><p>Build once. Train without thinking.</p></div><button className="round-add" onClick={() => setEditor({id:`template-${Date.now()}`,name:"",focus:"",color:"#409ECE",icon:"◆",exercises:[]})}>＋</button></div>
           <div className="template-grid">{data.templates.map((template, index) => <article className="template-card" key={template.id}>
             <div className="template-number template-symbol" style={{background:template.color||["#409ECE","#B7C7B3","#FF6B6B"][index%3],color:(template.color||"")==="#F2EFEA"?"#0F172A":"white"}}>{template.icon||"◆"}</div><div className="template-copy"><span>{template.focus.toUpperCase()}</span><h2>{template.name}</h2><p>{template.exercises.length} exercises · {template.exercises.reduce((s,e)=>s+e.sets,0)} sets</p><div>{template.exercises.slice(0,3).map(item => <small key={item.exerciseId}>{exerciseName(item.exerciseId)}</small>)}</div></div>
-            <div className="template-actions"><button onClick={() => startWorkout(template)}>Start</button><button onClick={() => setEditor(structuredClone(template))}>Edit</button><button onClick={() => schedule(template.id)}>Schedule</button></div>
+            <div className="template-actions"><button onClick={() => startWorkout(template)}>Start</button><button onClick={() => setEditor(structuredClone(template))}>Edit</button><button onClick={() => openSchedule(template.id)}>Schedule</button></div>
           </article>)}</div>
         </>}
 
@@ -282,28 +378,56 @@ export default function Home() {
         ["today","⌂","Today"],["plan","▤","Plan"],["history","↗","History"],["pbs","★","PBs"],["library","◇","Library"]
       ] as [Tab,string,string][]).map(([id,icon,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><span>{icon}</span><small>{label}</small></button>)}</nav>
 
-      {picker && <div className="overlay" onMouseDown={()=>setPicker(false)}><section className="sheet picker-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>CHOOSE A SESSION</span><h2>What are we training?</h2></div><button onClick={()=>setPicker(false)}>×</button></div>{data.templates.map(template=><button className="picker-row" key={template.id} onClick={()=>startWorkout(template)}><span><b>{template.name}</b><small>{template.focus} · {template.exercises.length} exercises</small></span><em>Start →</em></button>)}</section></div>}
+      {picker && <div className="overlay" onMouseDown={()=>setPicker(false)}><section className="sheet picker-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>CHOOSE A SESSION</span><h2>What are we training?</h2></div><button onClick={()=>setPicker(false)}>×</button></div><button className="picker-row blank-workout-row" onClick={startBlankWorkout}><span className="blank-workout-icon">＋</span><span><b>Add as I go</b><small>Start blank and add exercises during your session</small></span><em>Start →</em></button>{data.templates.map(template=><button className="picker-row" key={template.id} onClick={()=>startWorkout(template)}><span><b>{template.name}</b><small>{template.focus} · {template.exercises.length} exercises</small></span><em>Start →</em></button>)}</section></div>}
+
+      {scheduleTemplateId && <div className="overlay high-overlay" onMouseDown={()=>setScheduleTemplateId(null)}><section className="sheet schedule-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>SCHEDULE WORKOUT</span><h2>{data.templates.find(template=>template.id===scheduleTemplateId)?.name}</h2></div><button onClick={()=>setScheduleTemplateId(null)} aria-label="Close">×</button></div><label className="schedule-field">START DATE<input type="date" value={scheduleDate} min={today} onChange={event=>setScheduleDate(event.target.value)}/></label><fieldset className="repeat-options"><legend>REPEAT</legend>{([['once','Once'],['weekly','Weekly'],['fortnightly','Fortnightly']] as const).map(([value,label])=><button type="button" key={value} className={scheduleRepeat===value?'selected':''} onClick={()=>setScheduleRepeat(value)}>{label}</button>)}</fieldset>{scheduleRepeat!=="once"&&<label className="schedule-field">SCHEDULE FOR<select value={scheduleWeeks} onChange={event=>setScheduleWeeks(Number(event.target.value))}>{[2,4,6,8,12,16,24,52].map(weeks=><option value={weeks} key={weeks}>{weeks} weeks</option>)}</select></label>}<p className="schedule-summary">{scheduleRepeat==="once"?`Scheduled once on ${formatDate(scheduleDate)}.`:`Schedules ${scheduleRepeat} from ${formatDate(scheduleDate)} for ${scheduleWeeks} weeks.`}</p><button className="primary-button schedule-confirm" onClick={scheduleWorkout}>Add to plan <span>→</span></button></section></div>}
 
       {active && <div className="workout-screen">
-        <header className="workout-header live-header"><button onClick={discardActive}>×</button><div><small>LIVE WORKOUT</small><b>{active.name}</b></div><button className="save-draft-button" onClick={saveDraft}>Save</button><button className="finish-button" onClick={saveWorkout}>Finish</button></header>
-        <div className="live-progress"><span>{active.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)} / {active.exercises.reduce((sum,e)=>sum+e.sets.length,0)} sets</span><div><i style={{width:`${100*active.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)/active.exercises.reduce((sum,e)=>sum+e.sets.length,0)}%`}} /></div></div>
+        <header className="workout-header live-header"><span className="live-header-spacer" aria-hidden="true"/><div><small>{editingWorkoutId?"EDIT WORKOUT":"LIVE WORKOUT"}</small><b>{active.name}</b></div><button className="save-draft-button" onClick={saveDraft}>Save</button><button className="finish-button" onClick={saveWorkout}>{editingWorkoutId?"Update":"Finish"}</button></header>
+        <div className="live-progress"><span>{active.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)} / {active.exercises.reduce((sum,e)=>sum+e.sets.length,0)} sets</span><div><i style={{width:`${active.exercises.reduce((sum,e)=>sum+e.sets.length,0)?100*active.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)/active.exercises.reduce((sum,e)=>sum+e.sets.length,0):0}%`}} /></div></div>
         <div className="workout-body">{active.exercises.map((exercise, exerciseIndex) => { const prev = previousSets(exercise.exerciseId); const groupIndex=[...new Set(active.exercises.map(item=>item.group).filter(Boolean))].indexOf(exercise.group); return <article className={`live-exercise ${exercise.group ? `superset-exercise superset-color-${groupIndex%4}` : ""}`} key={`${exercise.exerciseId}-${exerciseIndex}`}>
-          {exercise.group && <span className="superset-badge">SUPERSET {String.fromCharCode(65+groupIndex)}</span>}<div className="live-exercise-title"><div><span>{String(exerciseIndex+1).padStart(2,"0")}</span><h2>{exerciseName(exercise.exerciseId)}</h2></div><div className="exercise-title-actions"><button onClick={()=>setExerciseHistoryId(exercise.exerciseId)}>History</button><button className="manage-exercise" onClick={()=>setLiveEditIndex(exerciseIndex)} aria-label={`Edit ${exerciseName(exercise.exerciseId)}`}>•••</button></div></div>
-          <div className="set-head"><span>SET</span><span>PREVIOUS</span><span>KG</span><span>REPS</span><span>RPE</span><span /></div>
-          {exercise.sets.map((set,setIndex)=><div className={`set-row ${set.done?"complete":""}`} key={setIndex}><b>{setIndex+1}</b><small>{prev[setIndex] ? `${prev[setIndex].weight} × ${prev[setIndex].reps}` : "—"}</small><input aria-label={`Set ${setIndex+1} weight`} inputMode="decimal" value={set.weight} placeholder={prev[setIndex]?.weight||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"weight",e.target.value)}/><input aria-label={`Set ${setIndex+1} reps`} inputMode="numeric" value={set.reps} onChange={e=>updateSet(exerciseIndex,setIndex,"reps",e.target.value)}/><input aria-label={`Set ${setIndex+1} RPE`} inputMode="decimal" value={set.rpe} placeholder="—" onChange={e=>updateSet(exerciseIndex,setIndex,"rpe",e.target.value)}/><button aria-label={`Complete set ${setIndex+1}`} onClick={()=>updateSet(exerciseIndex,setIndex,"done",!set.done)}>{set.done?"✓":""}</button></div>)}
+          {exercise.group && <span className="superset-badge">{(active.supersetNames?.[exercise.group]||`Superset ${String.fromCharCode(65+groupIndex)}`).toUpperCase()}</span>}<div className="live-exercise-title"><div><span>{String(exerciseIndex+1).padStart(2,"0")}</span><h2>{exerciseName(exercise.exerciseId)}</h2></div><div className="exercise-title-actions"><label className="load-mode"><span>Load</span><select aria-label={`Load entry type for ${exerciseName(exercise.exerciseId)}`} value={exercise.loadMode||"kg"} onChange={event=>updateWorkoutExercise(exerciseIndex,{loadMode:event.target.value as "kg"|"text",sets:exercise.sets.map(set=>({...set,weight:""}))})}><option value="kg">KG</option><option value="text">Text</option></select></label><button onClick={()=>setExerciseHistoryId(exercise.exerciseId)}>History</button><button className="manage-exercise" onClick={()=>setLiveEditIndex(exerciseIndex)} aria-label={`Edit ${exerciseName(exercise.exerciseId)}`}>•••</button></div></div>
+          <div className="set-head"><span>SET</span><span>PREVIOUS</span><span>{exercise.loadMode==="text"?"TEXT":"KG"}</span><span>REPS</span><span>RPE</span><span /></div>
+          {exercise.sets.map((set,setIndex)=><div className={`set-row ${set.done?"complete":""}`} key={setIndex}><b>{setIndex+1}</b><small>{prev[setIndex] ? `${prev[setIndex].weight} × ${prev[setIndex].reps}` : "—"}</small><input aria-label={`Set ${setIndex+1} ${exercise.loadMode==="text"?"text load":"weight"}`} inputMode={exercise.loadMode==="text"?"text":"decimal"} maxLength={exercise.loadMode==="text"?12:undefined} value={set.weight} placeholder={exercise.loadMode==="text"?"Band / level":prev[setIndex]?.weight||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"weight",exercise.loadMode==="text"?e.target.value.slice(0,12):e.target.value)}/><input aria-label={`Set ${setIndex+1} reps`} inputMode="numeric" value={set.reps} placeholder={exercise.repTarget||prev[setIndex]?.reps||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"reps",e.target.value)}/><input aria-label={`Set ${setIndex+1} RPE`} inputMode="decimal" value={set.rpe} placeholder="—" onChange={e=>updateSet(exerciseIndex,setIndex,"rpe",e.target.value)}/><button aria-label={`Complete set ${setIndex+1}`} onClick={()=>updateSet(exerciseIndex,setIndex,"done",!set.done)}>{set.done?"✓":""}</button></div>)}
           <div className="set-actions"><button className="add-set" onClick={()=>setActive({...active,exercises:active.exercises.map((item,i)=>i===exerciseIndex?{...item,sets:[...item.sets,makeSet()]}:item)})}>＋ Add set</button>{exercise.sets.length>1&&<button className="remove-set" onClick={()=>setActive({...active,exercises:active.exercises.map((item,i)=>i===exerciseIndex?{...item,sets:item.sets.slice(0,-1)}:item)})}>− Remove last set</button>}</div>
         </article>})}<button className="add-live-exercise" onClick={()=>{setLiveAddQuery("");setLiveAddOpen(true)}}><span>＋</span><div><b>Add exercise</b><small>Add another movement to this session</small></div><em>→</em></button><label className="workout-note">SESSION NOTE<textarea value={active.note} onChange={e=>setActive({...active,note:e.target.value})} placeholder="How did it feel? Anything to remember?" /></label></div>
       </div>}
 
-      {detail && <div className="overlay" onMouseDown={()=>setDetailId(null)}><section className="sheet detail-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{formatDate(detail.date).toUpperCase()}</span><h2>{detail.name}</h2></div><button onClick={()=>setDetailId(null)}>×</button></div>{detail.exercises.map(exercise=><button className="detail-exercise" key={exercise.exerciseId} onClick={()=>setExerciseHistoryId(exercise.exerciseId)}><span><b>{exerciseName(exercise.exerciseId)}</b><small>{exercise.sets.filter(s=>s.done).length} working sets</small></span><div>{exercise.sets.map((set,i)=><small key={i}>{set.weight || "—"} kg × {set.reps || "—"} {set.rpe&&`@ ${set.rpe}`}</small>)}</div><em>›</em></button>)}{detail.note&&<p className="detail-note">“{detail.note}”</p>}</section></div>}
+      {newPBs.length>0&&<div className="overlay high-overlay pb-overlay"><section className="sheet pb-celebration"><button className="pb-close" onClick={()=>setNewPBs([])} aria-label="Close">×</button><small>NEW PERSONAL BEST</small><h2>Make it share-worthy</h2>{newPBs.length>1&&<div className="pb-record-selector">{newPBs.map((pb,index)=><button className={selectedPBIndex===index?"selected":""} key={pb.exerciseId} onClick={()=>setSelectedPBIndex(index)}>{pb.name}</button>)}</div>}{(()=>{const pb=newPBs[selectedPBIndex]||newPBs[0];const light=["#F2EFEA","#E6E9EE"].includes(pbColour);const previewColour=pbTileStyle==="colour"?(light?"#0F172A":"#FFFFFF"):pbColour;return <div className={`pb-tile-preview ${pbTileStyle}`} style={pbTileStyle==="colour"?{background:pbColour,color:previewColour}:{color:previewColour}}><span className="pb-preview-graphic" style={{WebkitMaskPosition:`${pbGraphic*20}% 50%`,maskPosition:`${pbGraphic*20}% 50%`}}/><b>NEW PB</b><span className="pb-exercise-name">{pb.name}</span><strong>{pb.weight} kg</strong><span className="pb-reps">× {pb.reps||"—"} reps</span><em>setra<small>TRAIN TODAY. SEE FURTHER.</small></em></div>})()}<div className="pb-customise"><span>STYLE</span><div className="pb-style-options"><button className={pbTileStyle==="colour"?"selected":""} onClick={()=>setPbTileStyle("colour")}><i className="colour-swatch"/><b>Colour tile</b></button><button className={pbTileStyle==="transparent"?"selected":""} onClick={()=>setPbTileStyle("transparent")}><i className="transparent-swatch"/><b>Transparent</b></button></div><span>COLOUR</span><div className="pb-colour-options">{setraColours.map(colour=><button key={colour.value} className={pbColour===colour.value?"selected":""} aria-label={colour.name} title={colour.name} style={{background:colour.value}} onClick={()=>setPbColour(colour.value)}/>)}</div><span>GRAPHIC</span><div className="pb-graphic-options">{pbGraphics.map(graphic=><button key={graphic.name} className={pbGraphic===graphic.index?"selected":""} onClick={()=>setPbGraphic(graphic.index)}><b className="pb-option-graphic" style={{WebkitMaskPosition:`${graphic.index*20}% 50%`,maskPosition:`${graphic.index*20}% 50%`}}/><small>{graphic.name}</small></button>)}</div></div><div className="pb-share-actions"><button onClick={savePBImage}>Save image</button><button className="primary-share" onClick={sharePBImage}>Share image ↑</button></div>{pbShareMessage&&<small className="pb-share-message">{pbShareMessage}</small>}</section></div>}
+
+      {detail && <div className="overlay" onMouseDown={()=>setDetailId(null)}><section className="sheet detail-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{formatDate(detail.date).toUpperCase()}</span><h2>{detail.name}</h2></div><div className="detail-title-actions"><button className="edit-workout-button" onClick={()=>{setEditingWorkoutId(detail.id);setActive(structuredClone(detail));setDetailId(null)}}>Edit</button><button onClick={()=>setDetailId(null)} aria-label="Close">×</button></div></div>{detail.exercises.map(exercise=><button className="detail-exercise" key={exercise.exerciseId} onClick={()=>setExerciseHistoryId(exercise.exerciseId)}><span><b>{exerciseName(exercise.exerciseId)}</b><small>{exercise.sets.filter(s=>s.done).length} working sets</small></span><div>{exercise.sets.map((set,i)=><small key={i}>{set.weight || "—"} kg × {set.reps || "—"} {set.rpe&&`@ ${set.rpe}`}</small>)}</div><em>›</em></button>)}{detail.note&&<p className="detail-note">“{detail.note}”</p>}<button className="delete-workout-button" onClick={()=>setDeleteWorkoutId(detail.id)}>Delete workout</button></section></div>}
+      {deleteWorkoutId && <div className="overlay high-overlay confirm-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setDeleteWorkoutId(null)}}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-workout-title"><span className="confirm-icon">!</span><h2 id="delete-workout-title">Delete this workout?</h2><p>This will permanently remove the completed workout and its exercise history.</p><div className="confirm-actions"><button onClick={()=>setDeleteWorkoutId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteCompletedWorkout}>Delete workout</button></div></section></div>}
 
       {active && liveEditIndex !== null && active.exercises[liveEditIndex] && <div className="overlay high-overlay" onMouseDown={()=>setLiveEditIndex(null)}><section className="sheet live-edit-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>EDIT LIVE SESSION</span><h2>{exerciseName(active.exercises[liveEditIndex].exerciseId)}</h2></div><button onClick={()=>setLiveEditIndex(null)}>×</button></div><div className="live-edit-actions"><button disabled={liveEditIndex===0} onClick={()=>moveLiveExercise(liveEditIndex,liveEditIndex-1)}><b>↑</b><span>Move earlier</span></button><button disabled={liveEditIndex===active.exercises.length-1} onClick={()=>moveLiveExercise(liveEditIndex,liveEditIndex+1)}><b>↓</b><span>Move later</span></button>{active.exercises[liveEditIndex].group?<button className="ungroup-action" onClick={()=>ungroupLiveExercise(liveEditIndex)}><b>⊘</b><span>Remove from superset</span></button>:<button disabled={active.exercises.length<2} onClick={()=>groupLiveExercise(liveEditIndex,liveEditIndex>0?liveEditIndex-1:1)}><b>⇄</b><span>Superset with {liveEditIndex>0?"previous":"next"}</span></button>}</div><div className="replace-heading"><span>CHANGE EXERCISE</span><p>Your completed and entered sets will be kept.</p></div><div className="replace-list">{data.exercises.filter(exercise=>exercise.id!==active.exercises[liveEditIndex].exerciseId).map(exercise=><button key={exercise.id} onClick={()=>{setActive({...active,exercises:active.exercises.map((item,index)=>index===liveEditIndex?{...item,exerciseId:exercise.id}:item)});setLiveEditIndex(null)}}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.group} · {exercise.equipment}</small></span><em>Replace</em></button>)}</div></section></div>}
 
-      {active && liveAddOpen && <div className="overlay high-overlay" onMouseDown={()=>setLiveAddOpen(false)}><section className="sheet add-exercise-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>LIVE SESSION</span><h2>Add an exercise</h2></div><button onClick={()=>setLiveAddOpen(false)}>×</button></div><label className="search"><span>⌕</span><input autoFocus value={liveAddQuery} onChange={event=>setLiveAddQuery(event.target.value)} placeholder="Search exercise, equipment or muscle" /></label><div className="replace-list">{data.exercises.filter(exercise=>!active.exercises.some(item=>item.exerciseId===exercise.id)&&`${exercise.name} ${exercise.equipment} ${exercise.group}`.toLowerCase().includes(liveAddQuery.toLowerCase())).map(exercise=><button key={exercise.id} onClick={()=>{setActive({...active,exercises:[...active.exercises,{exerciseId:exercise.id,note:"",sets:Array.from({length:3},()=>makeSet("8"))}]});setLiveAddOpen(false)}}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><em>＋ Add</em></button>)}</div></section></div>}
+      {active && liveAddOpen && <div className="overlay high-overlay" onMouseDown={()=>setLiveAddOpen(false)}><section className="sheet add-exercise-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>LIVE SESSION</span><h2>Add an exercise</h2></div><button onClick={()=>setLiveAddOpen(false)}>×</button></div><label className="search"><span>⌕</span><input autoFocus value={liveAddQuery} onChange={event=>setLiveAddQuery(event.target.value)} placeholder="Search exercise, equipment or muscle" /></label><div className="replace-list">{data.exercises.filter(exercise=>!active.exercises.some(item=>item.exerciseId===exercise.id)&&`${exercise.name} ${exercise.equipment} ${exercise.group}`.toLowerCase().includes(liveAddQuery.toLowerCase())).map(exercise=><button key={exercise.id} onClick={()=>{setActive({...active,exercises:[...active.exercises,{exerciseId:exercise.id,note:"",loadMode:"kg",sets:Array.from({length:3},()=>makeSet("8"))}]});setLiveAddOpen(false)}}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><em>＋ Add</em></button>)}</div></section></div>}
 
       {historyExercise && <div className="overlay high-overlay" onMouseDown={()=>setExerciseHistoryId(null)}><section className="sheet history-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{historyExercise.group.toUpperCase()} · {historyExercise.equipment.toUpperCase()}</span><h2>{historyExercise.name}</h2></div><button onClick={()=>setExerciseHistoryId(null)}>×</button></div>{(() => { const records=data.workouts.flatMap(w=>w.exercises.filter(e=>e.exerciseId===historyExercise.id).map(e=>({workout:w,exercise:e}))); const maxes=records.map(r=>Math.max(...r.exercise.sets.map(s=>Number(s.weight)||0))); return <>{records.length>0&&<div className="progress-chart"><div className="chart-bars">{maxes.slice().reverse().map((max,i)=><i key={i} style={{height:`${25+70*max/Math.max(...maxes)}%`}}><span>{max}</span></i>)}</div><small>Best load by session (kg)</small></div>}<div className="exercise-records">{records.length?records.map(({workout,exercise})=><div key={workout.id}><span><b>{formatDate(workout.date)}</b><small>{workout.name}</small></span><p>{exercise.sets.map((set,i)=><em key={i}>{set.weight || "—"} × {set.reps || "—"}<small>{set.rpe&&` RPE ${set.rpe}`}</small></em>)}</p></div>):<p className="no-records">No completed sets yet. Start a workout to build your history.</p>}</div></>})()}</section></div>}
 
-      {editor && <div className="editor-screen"><header className="workout-header"><button onClick={()=>setEditor(null)}>×</button><div><small>WORKOUT BUILDER</small><b>{editor.id.startsWith("template-")?"New template":"Edit template"}</b></div><button className="finish-button" onClick={saveTemplate}>Save</button></header><div className="editor-body"><label>WORKOUT NAME<input value={editor.name} onChange={e=>setEditor({...editor,name:e.target.value})} placeholder="e.g. Lower B" /></label><label>FOCUS<input value={editor.focus} onChange={e=>setEditor({...editor,focus:e.target.value})} placeholder="e.g. Hinge + single-leg" /></label><div className="template-style-picker"><span>TEMPLATE STYLE</span><div className="style-preview" style={{background:editor.color||"#7B61FF"}}>{editor.icon||"◆"}</div><div><small>COLOUR</small><div className="color-options">{["#7B61FF","#B7C7B3","#F2EFEA","#E6E9EE","#FF6B6B","#0F172A"].map(color=><button aria-label={`Choose ${color}`} className={editor.color===color?"selected":""} style={{background:color}} key={color} onClick={()=>setEditor({...editor,color})}/>)}</div><small>ICON</small><div className="icon-options">{["◆","✦","↗","●","▲","≈","＋","◇"].map(icon=><button className={editor.icon===icon?"selected":""} key={icon} onClick={()=>setEditor({...editor,icon})}>{icon}</button>)}</div></div></div><div className="editor-exercises"><span>EXERCISES</span>{editor.exercises.map((item,index)=>{const groups=[...new Set(editor.exercises.map(exercise=>exercise.group).filter(Boolean))];const groupIndex=groups.indexOf(item.group);return <div className={item.group?`grouped-editor-exercise superset-color-${groupIndex%4}`:""} key={`${item.exerciseId}-${index}`}><b>{exerciseName(item.exerciseId)}</b><label>Sets<input inputMode="numeric" value={item.sets} onChange={e=>setEditor({...editor,exercises:editor.exercises.map((x,i)=>i===index?{...x,sets:Number(e.target.value)}:x)})}/></label><label>Reps<input value={item.reps} onChange={e=>setEditor({...editor,exercises:editor.exercises.map((x,i)=>i===index?{...x,reps:e.target.value}:x)})}/></label><button onClick={()=>setEditor({...editor,exercises:editor.exercises.filter((_,i)=>i!==index)})}>×</button>{item.group&&<small className="editor-superset-label">SUPERSET {String.fromCharCode(65+groupIndex)}</small>}{index>0&&<button className={`superset-toggle ${item.group?"active":""}`} onClick={()=>toggleSuperset(index)}>{item.group?"✓ Grouped with exercise above":"⊕ Group with exercise above (superset)"}</button>}</div>})}</div><div className="exercise-picker"><span>ADD EXERCISE</span><label className="search"><span>⌕</span><input value={editorQuery} onChange={event=>setEditorQuery(event.target.value)} placeholder="Search by exercise, equipment or muscle" /></label><div className="editor-library-list">{data.exercises.filter(ex=>!editor.exercises.some(item=>item.exerciseId===ex.id)&&`${ex.name} ${ex.equipment} ${ex.group}`.toLowerCase().includes(editorQuery.toLowerCase())).map(ex=><button key={ex.id} onClick={()=>setEditor({...editor,exercises:[...editor.exercises,{exerciseId:ex.id,sets:3,reps:"8"}]})}><span className="movement-icon">{ex.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{ex.name}</b><small>{ex.equipment} · {ex.group}</small></span><em>＋ Add</em></button>)}</div></div></div></div>}
+      {editor && <div className="editor-screen">
+        <header className="workout-header"><button onClick={()=>setEditor(null)}>×</button><div><small>WORKOUT BUILDER</small><b>{editor.id.startsWith("template-")?"New template":"Edit template"}</b></div><button className="finish-button" onClick={saveTemplate}>Save</button></header>
+        <div className="editor-body">
+          <label>WORKOUT NAME<input value={editor.name} onChange={event=>setEditor({...editor,name:event.target.value})} placeholder="e.g. Lower B" /></label>
+          <label>FOCUS<input value={editor.focus} onChange={event=>setEditor({...editor,focus:event.target.value})} placeholder="e.g. Hinge + single-leg" /></label>
+          <div className="template-style-picker"><span>TEMPLATE STYLE</span><div className="style-preview" style={{background:editor.color||"#409ECE"}}>{editor.icon||"◆"}</div><div><small>COLOUR</small><div className="color-options">{["#409ECE","#7B61FF","#FF6B6B","#F2EFEA","#E6E9EE","#0F172A"].map(color=><button aria-label={`Choose ${color}`} className={editor.color===color?"selected":""} style={{background:color}} key={color} onClick={()=>setEditor({...editor,color})}/>)}</div><small>ICON</small><div className="icon-options">{["◆","✦","↗","●","▲","≈","＋","◇"].map(icon=><button className={editor.icon===icon?"selected":""} key={icon} onClick={()=>setEditor({...editor,icon})}>{icon}</button>)}</div></div></div>
+          <div className="editor-exercises"><span>EXERCISES</span>{editor.exercises.map((item,index)=>{
+            const groups=[...new Set(editor.exercises.map(exercise=>exercise.group).filter((group):group is string=>Boolean(group)))];
+            const groupIndex=item.group?groups.indexOf(item.group):-1;
+            const firstInGroup=Boolean(item.group)&&editor.exercises.findIndex(exercise=>exercise.group===item.group)===index;
+            const fallbackName=`Superset ${String.fromCharCode(65+groupIndex)}`;
+            return <div className={item.group?`grouped-editor-exercise superset-color-${groupIndex%4}`:""} key={`${item.exerciseId}-${index}`}>
+              <b>{exerciseName(item.exerciseId)}</b>
+              <label>Sets<input inputMode="numeric" value={item.sets} onChange={event=>setEditor({...editor,exercises:editor.exercises.map((exercise,exerciseIndex)=>exerciseIndex===index?{...exercise,sets:Number(event.target.value)}:exercise)})}/></label>
+              <label>Reps<input value={item.reps} onChange={event=>setEditor({...editor,exercises:editor.exercises.map((exercise,exerciseIndex)=>exerciseIndex===index?{...exercise,reps:event.target.value}:exercise)})}/></label>
+              <button className="remove-template-exercise" onClick={()=>removeTemplateExercise(index)} aria-label={`Remove ${exerciseName(item.exerciseId)}`}>×</button>
+              {item.group&&<small className="editor-superset-label">{(editor.supersetNames?.[item.group]||fallbackName).toUpperCase()}</small>}
+              {firstInGroup&&item.group&&<label className="superset-name-input">SUPERSET NAME (OPTIONAL)<input maxLength={30} value={editor.supersetNames?.[item.group]||""} placeholder={fallbackName} onChange={event=>setEditor({...editor,supersetNames:{...editor.supersetNames,[item.group!]:event.target.value}})}/></label>}
+              {index>0&&<button className={`superset-toggle ${item.group?"active":""}`} onClick={()=>toggleSuperset(index)}>{item.group?"✓ Remove from superset":"⊕ Group with exercise above"}</button>}
+            </div>;
+          })}</div>
+          <div className="exercise-picker"><span>ADD EXERCISE</span><label className="search"><span>⌕</span><input value={editorQuery} onChange={event=>setEditorQuery(event.target.value)} placeholder="Search by exercise, equipment or muscle" /></label><div className="editor-library-list">{data.exercises.filter(exercise=>!editor.exercises.some(item=>item.exerciseId===exercise.id)&&`${exercise.name} ${exercise.equipment} ${exercise.group}`.toLowerCase().includes(editorQuery.toLowerCase())).map(exercise=><button key={exercise.id} onClick={()=>setEditor({...editor,exercises:[...editor.exercises,{exerciseId:exercise.id,sets:3,reps:"8"}]})}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><em>＋ Add</em></button>)}</div></div>
+        </div>
+      </div>}
     </main>
   );
 }
