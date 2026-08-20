@@ -117,6 +117,7 @@ const motivations = ["Ready when you are.","Built for what’s next.","Strong st
 const setraColours = [{name:"Blue",value:"#409ECE"},{name:"Ink",value:"#0F172A"},{name:"Lilac",value:"#7B61FF"},{name:"Coral",value:"#FF6B6B"},{name:"Sand",value:"#F2EFEA"},{name:"Mist",value:"#E6E9EE"}];
 const pbGraphics = [{name:"Trophy",index:0},{name:"Dumbbell",index:1},{name:"Barbell",index:2},{name:"Kettlebell",index:3},{name:"Strength",index:4},{name:"Crown",index:5}];
 const formatDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
+const formatLongDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 
 export default function Home() {
   const [data, setData] = useState<AppData>(initialData);
@@ -155,6 +156,10 @@ export default function Home() {
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState("");
   const [sessionFinishTime, setSessionFinishTime] = useState("");
+  const [completedShare, setCompletedShare] = useState<Workout | null>(null);
+  const [sessionShareMessage, setSessionShareMessage] = useState("");
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [sessionTemplateSaved, setSessionTemplateSaved] = useState(false);
 
   useEffect(() => {
     try {
@@ -175,25 +180,25 @@ export default function Home() {
   const weekDays = useMemo(() => { const base=new Date(`${selectedDate}T12:00:00`); const monday=new Date(base); monday.setDate(base.getDate()-((base.getDay()+6)%7)); return Array.from({length:7},(_,i)=>{const day=new Date(monday);day.setDate(monday.getDate()+i);return day.toISOString().slice(0,10)}); },[selectedDate]);
   const monthDays = useMemo(() => { const base=new Date(`${selectedDate}T12:00:00`); const first=new Date(base.getFullYear(),base.getMonth(),1,12); const start=new Date(first);start.setDate(1-((first.getDay()+6)%7));return Array.from({length:42},(_,i)=>{const day=new Date(start);day.setDate(start.getDate()+i);return day.toISOString().slice(0,10)}); },[selectedDate]);
   const personalBests = useMemo(() => data.exercises.map(exercise => { const attempts=data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.id).flatMap(item=>item.sets.map(set=>({set,workout})))); const best=attempts.sort((a,b)=>(Number(b.set.weight)||0)-(Number(a.set.weight)||0))[0]; return best&&Number(best.set.weight)>0?{exercise,best}:null; }).filter(Boolean) as {exercise:Exercise;best:{set:SetLog;workout:Workout}}[],[data]);
-  const workoutInProgress = Boolean(active || savedDraft);
+  const workoutInProgress = Boolean(active || savedDraft?.date === today);
 
   const previousSets = (exerciseId: string) => data.workouts.find(workout => workout.exercises.some(exercise => exercise.exerciseId === exerciseId))?.exercises.find(exercise => exercise.exerciseId === exerciseId)?.sets ?? [];
 
-  function startWorkout(template: Template) {
-    if (workoutInProgress) return;
+  function startWorkout(template: Template, workoutDate = today) {
+    if (workoutInProgress || workoutDate !== today) return;
     setExpandedLiveExercises(new Set());
     setEditingWorkoutId(null);
-    setActive({ id: `workout-${selectedDate}-${data.workouts.length+1}-${template.id}`, templateId: template.id, name: template.name, date: selectedDate, startedAt: localTime(), duration: 0, note: "", supersetNames: template.supersetNames, exercises: template.exercises.map(item => {
+    setActive({ id: `workout-${workoutDate}-${data.workouts.length+1}-${template.id}`, templateId: template.id, name: template.name, date: workoutDate, startedAt: localTime(), duration: 0, note: "", supersetNames: template.supersetNames, exercises: template.exercises.map(item => {
       const isRange = (item.reps.match(/\d+/g)?.length ?? 0) > 1;
       return { exerciseId: item.exerciseId, group: item.group, note: "", planNote:item.note||"", repTarget:item.reps, loadMode:"kg" as const, sets: Array.from({ length: item.sets }, () => makeSet(isRange ? "" : item.reps.replace(/\D/g, ""))) };
     }) });
     setPicker(false);
   }
   function startBlankWorkout() {
-    if (workoutInProgress) return;
+    if (workoutInProgress || selectedDate !== today) return;
     setExpandedLiveExercises(new Set());
     setEditingWorkoutId(null);
-    setActive({id:`workout-${selectedDate}-${data.workouts.length+1}-quick`,name:"Add as I go",date:selectedDate,startedAt:localTime(),duration:0,note:"",exercises:[]});
+    setActive({id:`workout-${today}-${data.workouts.length+1}-quick`,name:"Add as I go",date:today,startedAt:localTime(),duration:0,note:"",exercises:[]});
     setPicker(false);
   }
   function saveDraft() {
@@ -214,6 +219,12 @@ export default function Home() {
         return Number(bestSet.weight)>previousBest?[{exerciseId:exercise.exerciseId,name:exerciseName(exercise.exerciseId),weight:Number(bestSet.weight),reps:bestSet.reps}]:[];
       });
       if (records.length) { setNewPBs(records); setPbTileStyle("colour"); setPbColour("#409ECE"); setPbGraphic(0); setSelectedPBIndex(0); setPbShareMessage(""); }
+    }
+    if (timing && !editingWorkoutId) {
+      setCompletedShare(completed);
+      setSessionShareMessage("");
+      setNewTemplateName("");
+      setSessionTemplateSaved(false);
     }
     setData(current => ({ ...current, workouts: editingWorkoutId ? current.workouts.map(workout=>workout.id===editingWorkoutId?completed:workout) : [completed, ...current.workouts], scheduled: active.templateId?current.scheduled.filter(item => !(item.date===active.date&&item.templateId===active.templateId)):current.scheduled }));
     localStorage.removeItem("form-active-workout"); setSavedDraft(null); setActive(null); setEditingWorkoutId(null); setSelectedDate(completed.date); setTab("today"); setDetailId(null); setFinishDialogOpen(false);
@@ -254,6 +265,40 @@ export default function Home() {
   async function sharePBImage() {
     const blob=await createPBImage(pbTileStyle); const file=new File([blob],`setra-pb-${today}.png`,{type:"image/png"});
     try { if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:"My new Setra PB",text:"A new personal best 💪",files:[file]});}else{await savePBImage();} } catch(error){if((error as Error).name!=="AbortError")setPbShareMessage("Sharing was unavailable. Use Save image instead.");}
+  }
+  function createSessionImage() {
+    return new Promise<Blob>((resolve,reject)=>{
+      if (!completedShare) { reject(new Error("Workout unavailable")); return; }
+      const canvas=document.createElement("canvas");canvas.width=1080;canvas.height=1080;
+      const context=canvas.getContext("2d");if(!context){reject(new Error("Image unavailable"));return;}
+      const completedSets=completedShare.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0);
+      const exercises=completedShare.exercises.filter(exercise=>!exercise.skipped).length;
+      context.fillStyle="#409ECE";context.fillRect(0,0,1080,1080);context.fillStyle="#FFFFFF";context.textAlign="center";
+      context.beginPath();context.arc(540,190,92,0,Math.PI*2);context.fillStyle="#FFFFFF";context.fill();
+      context.strokeStyle="#409ECE";context.lineWidth=22;context.lineCap="round";context.beginPath();context.moveTo(495,190);context.lineTo(530,225);context.lineTo(592,151);context.stroke();
+      context.fillStyle="#FFFFFF";context.font="900 46px Arial";context.fillText("WORKOUT COMPLETE",540,345);
+      context.font="900 82px Arial";context.fillText(completedShare.name.toUpperCase(),540,445,920);
+      context.font="800 43px Arial";context.fillText(formatLongDate(completedShare.date).toUpperCase(),540,530,920);
+      context.font="900 76px Arial";context.fillText(`${completedShare.startedAt} – ${completedShare.endedAt||""}`,540,635);
+      context.font="800 38px Arial";context.fillText(`${exercises} EXERCISES  ·  ${completedSets} SETS`,540,715);
+      context.font="900 76px Arial";context.fillText("setra",540,855);
+      context.font="700 28px Arial";context.fillText("TRAIN TODAY. SEE FURTHER.",540,904);
+      canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Image unavailable")),"image/png");
+    });
+  }
+  async function saveSessionImage() {
+    const blob=await createSessionImage();const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`setra-workout-${completedShare?.date||today}.png`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setSessionShareMessage("Image saved. On iPhone, choose Save Image from the download or share menu.");
+  }
+  async function shareSessionImage() {
+    const blob=await createSessionImage();const file=new File([blob],`setra-workout-${completedShare?.date||today}.png`,{type:"image/png"});
+    try { if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:"My Setra workout",text:"Workout complete ✓",files:[file]});}else await saveSessionImage(); } catch(error){if((error as Error).name!=="AbortError")setSessionShareMessage("Sharing was unavailable. Use Save instead.");}
+  }
+  function saveSessionAsTemplate() {
+    if (!completedShare || !newTemplateName.trim() || sessionTemplateSaved) return;
+    const exercises=completedShare.exercises.filter(exercise=>!exercise.skipped).map(exercise=>({exerciseId:exercise.exerciseId,sets:Math.max(1,exercise.sets.length),reps:exercise.repTarget||exercise.sets.find(set=>set.reps)?.reps||"8",group:exercise.group,note:exercise.planNote||exercise.note||""}));
+    if (!exercises.length) return;
+    const template:Template={id:`template-${Date.now()}`,name:newTemplateName.trim(),focus:"Saved from Add as I go",color:"#409ECE",icon:"◆",exercises,supersetNames:completedShare.supersetNames};
+    setData(current=>({...current,templates:[...current.templates,template]}));setSessionTemplateSaved(true);
   }
   function updateSet(exerciseIndex: number, setIndex: number, key: keyof SetLog, value: string | boolean) {
     if (!active) return;
@@ -371,8 +416,8 @@ export default function Home() {
             <button className="planned-expand" onClick={()=>setExpandedPlanned(current=>{const next=new Set(current);if(next.has(template.id))next.delete(template.id);else next.add(template.id);return next})} aria-label={expanded?"Hide workout exercises":"Show workout exercises"}>{expanded?"⌃":"⌄"}</button>
             <h2>{template.name}</h2><p>{template.focus}</p>
             {expanded&&<div className="exercise-preview">{template.exercises.map((item) => {const groups=[...new Set(template.exercises.map(exercise=>exercise.group).filter(Boolean))];const groupIndex=groups.indexOf(item.group);const defaultName=`Superset ${String.fromCharCode(65+groupIndex)}`;return <div className={item.group?`preview-superset superset-color-${groupIndex%4}`:""} key={item.exerciseId}><b>{exerciseName(item.exerciseId)}</b><em>{item.sets} × {item.reps}</em>{item.group&&<small>{(template.supersetNames?.[item.group]||defaultName).toUpperCase()}</small>}</div>})}</div>}
-            <button className="primary-button" disabled={workoutInProgress} onClick={() => startWorkout(template)}>{workoutInProgress?"Workout in progress":"Start workout"} <span>{workoutInProgress?"":"→"}</span></button>
-          </article>}):<article className="empty-card"><span className="empty-icon">＋</span><h2>No workout planned</h2><p>{workoutInProgress?"Finish your live workout before starting another.":"Choose a template and get moving."}</p><button className="secondary-button" disabled={workoutInProgress} onClick={() => setPicker(true)}>{workoutInProgress?"Workout in progress":"Choose workout"}</button></article>}
+            {selectedDate===today?<button className="primary-button" disabled={workoutInProgress} onClick={() => startWorkout(template,selectedDate)}>{workoutInProgress?"Workout in progress":"Start workout"} <span>{workoutInProgress?"":"→"}</span></button>:<button className="primary-button" onClick={()=>setEditor(structuredClone(template))}>Edit workout <span>→</span></button>}
+          </article>}):<article className="empty-card"><span className="empty-icon">＋</span><h2>No workout planned</h2><p>{selectedDate!==today?"Plan or edit workouts for this day.":workoutInProgress?"Finish your live workout before starting another.":"Choose a template and get moving."}</p><button className="secondary-button" disabled={selectedDate===today&&workoutInProgress} onClick={() => selectedDate===today?setPicker(true):setTab("plan")}>{selectedDate!==today?"View workout plans":workoutInProgress?"Workout in progress":"Choose workout"}</button></article>}
 
           <div className="section-title"><div><span>LAST SESSION</span><h2>Recent work</h2></div><button onClick={() => setTab("history")}>See all</button></div>
           {latestWorkout && <button className="recent-card" onClick={() => setDetailId(latestWorkout.id)}><span className="recent-date"><b>{new Date(`${latestWorkout.date}T12:00:00`).getDate()}</b>{new Intl.DateTimeFormat("en",{month:"short"}).format(new Date(`${latestWorkout.date}T12:00:00`))}</span><span className="recent-main"><b>{latestWorkout.name}</b><small>{latestWorkout.exercises.length} exercises</small></span><span className="chevron">›</span></button>}
@@ -382,7 +427,7 @@ export default function Home() {
           <div className="eyebrow">YOUR PROGRAM</div><div className="page-heading"><div><h1>Workout templates</h1><p>Build once. Train without thinking.</p></div><button className="round-add" onClick={() => setEditor({id:`template-${Date.now()}`,name:"",focus:"",color:"#409ECE",icon:"◆",exercises:[]})}>＋</button></div>
           <div className="template-grid">{data.templates.map((template, index) => <article className="template-card" key={template.id}>
             <div className="template-number template-symbol" style={{background:template.color||["#409ECE","#B7C7B3","#FF6B6B"][index%3],color:(template.color||"")==="#F2EFEA"?"#0F172A":"white"}}>{template.icon||"◆"}</div><div className="template-copy"><span>{template.focus.toUpperCase()}</span><h2>{template.name}</h2><p>{template.exercises.length} exercises · {template.exercises.reduce((s,e)=>s+e.sets,0)} sets</p><div>{template.exercises.slice(0,3).map(item => <small key={item.exerciseId}>{exerciseName(item.exerciseId)}</small>)}</div></div>
-            <div className="template-actions"><button disabled={workoutInProgress} onClick={() => startWorkout(template)}>{workoutInProgress?"Workout live":"Start"}</button><button onClick={() => setEditor(structuredClone(template))}>Edit</button><button onClick={() => openSchedule(template.id)}>Schedule</button></div>
+            <div className="template-actions"><button disabled={workoutInProgress} onClick={() => startWorkout(template,today)}>{workoutInProgress?"Workout live":"Start today"}</button><button onClick={() => setEditor(structuredClone(template))}>Edit</button><button onClick={() => openSchedule(template.id)}>Schedule</button></div>
           </article>)}</div>
         </>}
 
@@ -431,6 +476,7 @@ export default function Home() {
       {active&&finishDialogOpen&&<div className="overlay high-overlay finish-time-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setFinishDialogOpen(false)}}><section className="finish-time-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-time-title"><button className="finish-time-close" onClick={()=>setFinishDialogOpen(false)} aria-label="Close">×</button><span>FINISH WORKOUT</span><h2 id="finish-time-title">Confirm session time</h2><p>{formatDate(active.date)} · {active.name}</p><div className="session-time-fields"><label>START TIME<input type="time" value={sessionStartTime} onChange={event=>setSessionStartTime(event.target.value)}/></label><label>FINISH TIME<input type="time" value={sessionFinishTime} onChange={event=>setSessionFinishTime(event.target.value)}/></label></div><button className="primary-button" disabled={!sessionStartTime||!sessionFinishTime} onClick={()=>saveWorkout({startedAt:sessionStartTime,endedAt:sessionFinishTime})}>Finish workout <span>✓</span></button></section></div>}
 
       {newPBs.length>0&&<div className="overlay high-overlay pb-overlay"><section className="sheet pb-celebration"><button className="pb-close" onClick={()=>setNewPBs([])} aria-label="Close">×</button><small>NEW PERSONAL BEST</small><h2>Make it share-worthy</h2>{newPBs.length>1&&<div className="pb-record-selector">{newPBs.map((pb,index)=><button className={selectedPBIndex===index?"selected":""} key={pb.exerciseId} onClick={()=>setSelectedPBIndex(index)}>{pb.name}</button>)}</div>}{(()=>{const pb=newPBs[selectedPBIndex]||newPBs[0];const light=["#F2EFEA","#E6E9EE"].includes(pbColour);const previewColour=pbTileStyle==="colour"?(light?"#0F172A":"#FFFFFF"):pbColour;return <div className={`pb-tile-preview ${pbTileStyle}`} style={pbTileStyle==="colour"?{background:pbColour,color:previewColour}:{color:previewColour}}><span className="pb-preview-graphic" style={{WebkitMaskPosition:`${pbGraphic*20}% 50%`,maskPosition:`${pbGraphic*20}% 50%`}}/><b>NEW PB</b><span className="pb-exercise-name">{pb.name}</span><strong>{pb.weight} kg</strong><span className="pb-reps">× {pb.reps||"—"} reps</span><em>setra<small>TRAIN TODAY. SEE FURTHER.</small></em></div>})()}<div className="pb-customise"><span>STYLE</span><div className="pb-style-options"><button className={pbTileStyle==="colour"?"selected":""} onClick={()=>setPbTileStyle("colour")}><i className="colour-swatch"/><b>Colour tile</b></button><button className={pbTileStyle==="transparent"?"selected":""} onClick={()=>setPbTileStyle("transparent")}><i className="transparent-swatch"/><b>Transparent</b></button></div><span>COLOUR</span><div className="pb-colour-options">{setraColours.map(colour=><button key={colour.value} className={pbColour===colour.value?"selected":""} aria-label={colour.name} title={colour.name} style={{background:colour.value}} onClick={()=>setPbColour(colour.value)}/>)}</div><span>GRAPHIC</span><div className="pb-graphic-options">{pbGraphics.map(graphic=><button key={graphic.name} className={pbGraphic===graphic.index?"selected":""} onClick={()=>setPbGraphic(graphic.index)}><b className="pb-option-graphic" style={{WebkitMaskPosition:`${graphic.index*20}% 50%`,maskPosition:`${graphic.index*20}% 50%`}}/><small>{graphic.name}</small></button>)}</div></div><div className="pb-share-actions"><button onClick={savePBImage}>Save image</button><button className="primary-share" onClick={sharePBImage}>Share image ↑</button></div>{pbShareMessage&&<small className="pb-share-message">{pbShareMessage}</small>}</section></div>}
+      {completedShare&&<div className="overlay high-overlay session-share-overlay"><section className="session-share-dialog" role="dialog" aria-modal="true"><button className="pb-close" onClick={()=>setCompletedShare(null)} aria-label="Close">×</button><small>SESSION COMPLETE</small><h2>Share the work</h2><div className="session-share-tile"><span className="session-share-check">✓</span><b>WORKOUT COMPLETE</b><strong>{completedShare.name}</strong><span>{formatLongDate(completedShare.date)}</span><em>{completedShare.startedAt} – {completedShare.endedAt}</em><p>{completedShare.exercises.filter(exercise=>!exercise.skipped).length} exercises · {completedShare.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0)} sets</p><footer>setra<small>TRAIN TODAY. SEE FURTHER.</small></footer></div><div className="pb-share-actions"><button onClick={saveSessionImage}>Save</button><button className="primary-share" onClick={shareSessionImage}>Share</button></div>{sessionShareMessage&&<small className="pb-share-message">{sessionShareMessage}</small>}{!completedShare.templateId&&<div className="save-session-template"><span>SAVE FOR NEXT TIME</span><p>Turn this Add as I go session into a reusable workout.</p><input value={newTemplateName} disabled={sessionTemplateSaved} onChange={event=>setNewTemplateName(event.target.value)} maxLength={40} placeholder="Template name"/><button disabled={!newTemplateName.trim()||sessionTemplateSaved||completedShare.exercises.length===0} onClick={saveSessionAsTemplate}>{sessionTemplateSaved?"Added to templates ✓":"Add as template"}</button></div>}</section></div>}
 
       {detail && <div className="overlay" onMouseDown={()=>setDetailId(null)}><section className="sheet detail-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{formatDate(detail.date).toUpperCase()}</span><h2>{detail.name}</h2></div><div className="detail-title-actions"><button className="edit-workout-button" onClick={()=>{setEditingWorkoutId(detail.id);setActive(structuredClone(detail));setDetailId(null)}}>Edit</button><button onClick={()=>setDetailId(null)} aria-label="Close">×</button></div></div>{detail.exercises.map(exercise=><button className="detail-exercise" key={exercise.exerciseId} onClick={()=>setExerciseHistoryId(exercise.exerciseId)}><span><b>{exerciseName(exercise.exerciseId)}</b><small>{exercise.sets.filter(s=>s.done).length} working sets</small></span><div>{exercise.sets.map((set,i)=><small key={i}>{set.weight || "—"} kg × {set.reps || "—"} {set.rpe&&`@ ${set.rpe}`}</small>)}</div><em>›</em></button>)}{detail.note&&<p className="detail-note">“{detail.note}”</p>}<button className="delete-workout-button" onClick={()=>setDeleteWorkoutId(detail.id)}>Delete workout</button></section></div>}
       {deleteWorkoutId && <div className="overlay high-overlay confirm-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setDeleteWorkoutId(null)}}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-workout-title"><span className="confirm-icon">!</span><h2 id="delete-workout-title">Delete this workout?</h2><p>This will permanently remove the completed workout and its exercise history.</p><div className="confirm-actions"><button onClick={()=>setDeleteWorkoutId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteCompletedWorkout}>Delete workout</button></div></section></div>}
