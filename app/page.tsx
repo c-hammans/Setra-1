@@ -174,6 +174,10 @@ const profileInitials = (name?:string,email?:string) => {
   const emailWords=emailName.split(/\s+/).filter(Boolean);
   return emailWords.length>1?`${emailWords[0][0]}${emailWords[emailWords.length-1][0]}`.toUpperCase():(emailWords[0]||"SE").slice(0,2).toUpperCase();
 };
+const workoutInitials = (name:string) => {
+  const words=name.trim().split(/\s+/).filter(Boolean);
+  return (words.length>1?words.map(word=>word[0]).join("").slice(0,3):(words[0]||"W").slice(0,2)).toUpperCase();
+};
 const formatSessionDuration = (start: string, finish?: string) => {
   if (!start || !finish) return "Time not recorded";
   const [startHour,startMinute]=start.split(":").map(Number);const [finishHour,finishMinute]=finish.split(":").map(Number);
@@ -547,7 +551,7 @@ export default function Home() {
         {tab === "plan" && <>
           <div className="eyebrow">YOUR PROGRAM</div><div className="page-heading"><div><h1>Workout templates</h1><p>Build once. Train without thinking.</p></div><button className="round-add" onClick={() => setEditor({id:`template-${Date.now()}`,name:"",focus:"",color:"#409ECE",icon:"◆",exercises:[]})}>＋</button></div>
           <div className="template-grid">{data.templates.map((template, index) => <article className="template-card" key={template.id}>
-            <div className="template-number template-symbol" style={{background:template.color||["#409ECE","#55B96D","#FF6B6B"][index%3],color:isLightColour(template.color)?"#000000":"#FFFFFF",border:template.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{template.icon||"◆"}</div><div className="template-copy"><span>{template.focus.toUpperCase()}</span><h2>{template.name}</h2><p>{template.exercises.length} exercises · {template.exercises.reduce((s,e)=>s+e.sets,0)} sets</p><div>{template.exercises.slice(0,3).map(item => <small key={item.exerciseId}>{exerciseName(item.exerciseId)}</small>)}</div></div>
+            <div className="template-number template-symbol" style={{background:template.color||["#409ECE","#55B96D","#FF6B6B"][index%3],color:isLightColour(template.color)?"#000000":"#FFFFFF",border:template.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{workoutInitials(template.name)}</div><div className="template-copy"><span>{template.focus.toUpperCase()}</span><h2>{template.name}</h2><p>{template.exercises.length} exercises · {template.exercises.reduce((s,e)=>s+e.sets,0)} sets</p><div>{template.exercises.slice(0,3).map(item => <small key={item.exerciseId}>{exerciseName(item.exerciseId)}</small>)}</div></div>
             <div className="template-actions"><button disabled={workoutInProgress} onClick={() => startWorkout(template,today)}>{workoutInProgress?"Workout live":"Start today"}</button><button onClick={() => setEditor(structuredClone(template))}>Edit</button><button onClick={() => openSchedule(template.id)}>Schedule</button></div>
           </article>)}</div>
         </>}
@@ -616,7 +620,7 @@ export default function Home() {
         <div className="editor-body">
           <label>WORKOUT NAME<input value={editor.name} onChange={event=>setEditor({...editor,name:event.target.value})} placeholder="e.g. Lower B" /></label>
           <label>FOCUS<input value={editor.focus} onChange={event=>setEditor({...editor,focus:event.target.value})} placeholder="e.g. Hinge + single-leg" /></label>
-          <div className="template-style-picker"><span>TEMPLATE STYLE</span><div className="style-preview" style={{background:editor.color||"#409ECE",color:isLightColour(editor.color)?"#000000":"#FFFFFF",border:editor.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{editor.icon||"◆"}</div><div><small>COLOUR</small><div className="color-options">{setraColours.map(colour=><button aria-label={`Choose ${colour.name}`} title={colour.name} className={editor.color===colour.value?"selected":""} style={{background:colour.value}} key={colour.value} onClick={()=>setEditor({...editor,color:colour.value})}/>)}</div><small>ICON</small><div className="icon-options">{["◆","✦","↗","●","▲","≈","＋","◇"].map(icon=><button className={editor.icon===icon?"selected":""} key={icon} onClick={()=>setEditor({...editor,icon})}>{icon}</button>)}</div></div></div>
+          <div className="template-style-picker colour-only"><span>WORKOUT COLOUR</span><div className="style-preview" style={{background:editor.color||"#409ECE",color:isLightColour(editor.color)?"#000000":"#FFFFFF",border:editor.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{workoutInitials(editor.name||"Workout")}</div><div className="color-options">{setraColours.map(colour=><button aria-label={`Choose ${colour.name}`} title={colour.name} className={editor.color===colour.value?"selected":""} style={{background:colour.value}} key={colour.value} onClick={()=>setEditor({...editor,color:colour.value})}/>)}</div></div>
           <div className="editor-exercises"><span>EXERCISES</span>{editor.exercises.map((item,index)=>{
             const groups=[...new Set(editor.exercises.map(exercise=>exercise.group).filter((group):group is string=>Boolean(group)))];
             const groupIndex=item.group?groups.indexOf(item.group):-1;
