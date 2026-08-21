@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { AuthGate } from "@/components/auth/auth-gate";
 
 export const metadata: Metadata = {
   title: "setra — Train today. See further.",
@@ -34,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
+        <AuthProvider><AuthGate>{children}</AuthGate></AuthProvider>
       </body>
     </html>
   );
