@@ -78,6 +78,55 @@ const sampleExercises: Exercise[] = [
   { id: "barbell-calf-raise", name: "Barbell Calf Raise", group: "Calves", equipment: "Barbell" },
   { id: "db-calf-raise", name: "Dumbbell Calf Raise", group: "Calves", equipment: "Dumbbell" },
   { id: "kb-calf-raise", name: "Kettlebell Calf Raise", group: "Calves", equipment: "Kettlebell" },
+  { id: "narrow-grip-pull-up", name: "Narrow Grip Pull Up", group: "Back", equipment: "Bodyweight" },
+  { id: "wide-grip-pull-up", name: "Wide Grip Pull Up", group: "Back", equipment: "Bodyweight" },
+  { id: "neutral-grip-pull-up", name: "Neutral Grip Pull Up", group: "Back", equipment: "Bodyweight" },
+  { id: "assisted-pull-up", name: "Assisted Pull Up", group: "Back", equipment: "Machine" },
+  { id: "band-assisted-pull-up", name: "Band Assisted Pull Up", group: "Back", equipment: "Band" },
+  { id: "weighted-pull-up", name: "Weighted Pull Up", group: "Back", equipment: "Bodyweight" },
+  { id: "chin-up", name: "Chin Up", group: "Back", equipment: "Bodyweight" },
+  { id: "narrow-grip-chin-up", name: "Narrow Grip Chin Up", group: "Back", equipment: "Bodyweight" },
+  { id: "machine-pull-up", name: "Machine Pull Up", group: "Back", equipment: "Machine" },
+  { id: "barbell-rdl", name: "Barbell Romanian Deadlift", group: "Hamstrings", equipment: "Barbell" },
+  { id: "single-leg-barbell-rdl", name: "Single Leg Barbell Romanian Deadlift", group: "Hamstrings", equipment: "Barbell" },
+  { id: "single-leg-db-rdl", name: "Single Leg Dumbbell Romanian Deadlift", group: "Hamstrings", equipment: "Dumbbell" },
+  { id: "single-leg-kb-rdl", name: "Single Leg Kettlebell Romanian Deadlift", group: "Hamstrings", equipment: "Kettlebell" },
+  { id: "b-stance-barbell-rdl", name: "B-Stance Barbell Romanian Deadlift", group: "Hamstrings", equipment: "Barbell" },
+  { id: "b-stance-db-rdl", name: "B-Stance Dumbbell Romanian Deadlift", group: "Hamstrings", equipment: "Dumbbell" },
+  { id: "smith-machine-rdl", name: "Smith Machine Romanian Deadlift", group: "Hamstrings", equipment: "Machine" },
+  { id: "landmine-rdl", name: "Landmine Romanian Deadlift", group: "Hamstrings", equipment: "Barbell" },
+  { id: "cable-rdl", name: "Cable Romanian Deadlift", group: "Hamstrings", equipment: "Cable" },
+  { id: "stiff-leg-deadlift", name: "Stiff Leg Barbell Deadlift", group: "Hamstrings", equipment: "Barbell" },
+  { id: "trap-bar-deadlift", name: "Trap Bar Deadlift", group: "Hamstrings", equipment: "Trap Bar" },
+  { id: "hack-squat", name: "Hack Squat", group: "Quads", equipment: "Machine" },
+  { id: "smith-back-squat", name: "Smith Machine Back Squat", group: "Quads", equipment: "Machine" },
+  { id: "heels-elevated-squat", name: "Heels Elevated Dumbbell Squat", group: "Quads", equipment: "Dumbbell" },
+  { id: "single-leg-press", name: "Single Leg Press", group: "Quads", equipment: "Machine" },
+  { id: "barbell-bulgarian-split", name: "Barbell Bulgarian Split Squat", group: "Quads", equipment: "Barbell" },
+  { id: "smith-bulgarian-split", name: "Smith Machine Bulgarian Split Squat", group: "Quads", equipment: "Machine" },
+  { id: "cable-pull-through", name: "Cable Pull Through", group: "Glutes", equipment: "Cable" },
+  { id: "single-leg-hip-thrust", name: "Single Leg Hip Thrust", group: "Glutes", equipment: "Bodyweight" },
+  { id: "smith-hip-thrust", name: "Smith Machine Hip Thrust", group: "Glutes", equipment: "Machine" },
+  { id: "machine-hip-thrust", name: "Machine Hip Thrust", group: "Glutes", equipment: "Machine" },
+  { id: "cable-kickback", name: "Cable Glute Kickback", group: "Glutes", equipment: "Cable" },
+  { id: "machine-chest-press", name: "Machine Chest Press", group: "Chest", equipment: "Machine" },
+  { id: "incline-barbell-press", name: "Incline Barbell Bench Press", group: "Chest", equipment: "Barbell" },
+  { id: "incline-machine-press", name: "Incline Machine Chest Press", group: "Chest", equipment: "Machine" },
+  { id: "cable-chest-fly", name: "Cable Chest Fly", group: "Chest", equipment: "Cable" },
+  { id: "chest-supported-row", name: "Chest Supported Dumbbell Row", group: "Back", equipment: "Dumbbell" },
+  { id: "machine-row", name: "Machine Seated Row", group: "Back", equipment: "Machine" },
+  { id: "t-bar-row", name: "T-Bar Row", group: "Back", equipment: "Machine" },
+  { id: "wide-grip-lat-pulldown", name: "Wide Grip Lat Pulldown", group: "Back", equipment: "Cable" },
+  { id: "narrow-grip-lat-pulldown", name: "Narrow Grip Lat Pulldown", group: "Back", equipment: "Cable" },
+  { id: "single-arm-lat-pulldown", name: "Single Arm Lat Pulldown", group: "Back", equipment: "Cable" },
+  { id: "arnold-press", name: "Arnold Press", group: "Shoulders", equipment: "Dumbbell" },
+  { id: "machine-shoulder-press", name: "Machine Shoulder Press", group: "Shoulders", equipment: "Machine" },
+  { id: "cable-lateral-raise", name: "Cable Lateral Raise", group: "Shoulders", equipment: "Cable" },
+  { id: "rear-delt-fly", name: "Rear Delt Fly", group: "Shoulders", equipment: "Machine" },
+  { id: "ez-bar-curl", name: "EZ Bar Bicep Curl", group: "Biceps", equipment: "EZ Bar" },
+  { id: "cable-bicep-curl", name: "Cable Bicep Curl", group: "Biceps", equipment: "Cable" },
+  { id: "overhead-tricep-extension", name: "Overhead Tricep Extension", group: "Triceps", equipment: "Cable" },
+  { id: "skull-crusher", name: "EZ Bar Skull Crusher", group: "Triceps", equipment: "EZ Bar" },
 ];
 
 const sampleTemplates: Template[] = [
@@ -114,10 +163,18 @@ const sampleWorkouts: Workout[] = [
 
 const initialData: AppData = { exercises: sampleExercises, templates: sampleTemplates, workouts: sampleWorkouts, scheduled: [{ date: today, templateId: "lower-a" }] };
 const motivations = ["Ready when you are.","Built for what’s next.","Strong starts here.","Show up and get stronger.","One set at a time.","Make today count.","Progress starts now.","Your strength is building.","Keep the momentum.","Today is yours.","Put in the work.","Go build something strong.","Small steps. Big strength.","Stronger with every set.","This is your time.","Earn tomorrow’s strength.","Move well. Finish strong.","Start steady. End strong.","You’ve got this.","Ready. Set. Strong.","Build the next version.","Train with purpose.","Make this session count.","Good work starts now.","Own every rep.","Keep showing up.","Strength happens here.","One more strong day.","Begin where you are.","Let’s get stronger."];
-const setraColours = [{name:"Blue",value:"#409ECE"},{name:"Ink",value:"#0F172A"},{name:"Lilac",value:"#7B61FF"},{name:"Coral",value:"#FF6B6B"},{name:"Sand",value:"#F2EFEA"},{name:"Mist",value:"#E6E9EE"}];
+const setraColours = [{name:"Blue",value:"#409ECE"},{name:"Coral",value:"#FF6B6B"},{name:"Yellow",value:"#F6C445"},{name:"Green",value:"#55B96D"},{name:"Purple",value:"#8B72D9"},{name:"Black",value:"#000000"},{name:"White",value:"#FFFFFF"}];
 const pbGraphics = [{name:"Trophy",index:0},{name:"Dumbbell",index:1},{name:"Barbell",index:2},{name:"Kettlebell",index:3},{name:"Strength",index:4},{name:"Crown",index:5}];
 const formatDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 const formatLongDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+const isLightColour = (value?: string) => ["#FFFFFF","#F6C445"].includes((value||"").toUpperCase());
+const formatSessionDuration = (start: string, finish?: string) => {
+  if (!start || !finish) return "Time not recorded";
+  const [startHour,startMinute]=start.split(":").map(Number);const [finishHour,finishMinute]=finish.split(":").map(Number);
+  let minutes=(finishHour*60+finishMinute)-(startHour*60+startMinute);if(minutes<0)minutes+=24*60;
+  const hours=Math.floor(minutes/60);const remainder=minutes%60;
+  return [hours?`${hours} ${hours===1?"hr":"hrs"}`:"",remainder?`${remainder} min`:""].filter(Boolean).join(" ")||"0 min";
+};
 
 export default function Home() {
   const [data, setData] = useState<AppData>(initialData);
@@ -130,6 +187,7 @@ export default function Home() {
   const [liveAddQuery, setLiveAddQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteWorkoutId, setDeleteWorkoutId] = useState<string | null>(null);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [exerciseHistoryId, setExerciseHistoryId] = useState<string | null>(null);
   const [editor, setEditor] = useState<Template | null>(null);
@@ -158,6 +216,7 @@ export default function Home() {
   const [sessionFinishTime, setSessionFinishTime] = useState("");
   const [completedShare, setCompletedShare] = useState<Workout | null>(null);
   const [sessionShareMessage, setSessionShareMessage] = useState("");
+  const [sessionShareColour, setSessionShareColour] = useState("#409ECE");
   const [newTemplateName, setNewTemplateName] = useState("");
   const [sessionTemplateSaved, setSessionTemplateSaved] = useState(false);
 
@@ -223,6 +282,7 @@ export default function Home() {
     if (timing && !editingWorkoutId) {
       setCompletedShare(completed);
       setSessionShareMessage("");
+      setSessionShareColour("#409ECE");
       setNewTemplateName("");
       setSessionTemplateSaved(false);
     }
@@ -242,20 +302,25 @@ export default function Home() {
     setDetailId(null);
     setDeleteWorkoutId(null);
   }
+  function deleteTemplate() {
+    if (!deleteTemplateId) return;
+    setData(current=>({...current,templates:current.templates.filter(template=>template.id!==deleteTemplateId),scheduled:current.scheduled.filter(item=>item.templateId!==deleteTemplateId)}));
+    if (editor?.id===deleteTemplateId) setEditor(null);
+    setDeleteTemplateId(null);
+  }
   function createPBImage(style: "colour"|"transparent") {
     return new Promise<Blob>((resolve,reject)=>{
       const canvas=document.createElement("canvas"); canvas.width=1080; canvas.height=1080;
       const context=canvas.getContext("2d"); if(!context){reject(new Error("Image unavailable"));return;}
-      const pb=newPBs[selectedPBIndex]||newPBs[0]; const light=["#F2EFEA","#E6E9EE"].includes(pbColour); const ink=style==="colour"?(light?"#0F172A":"#FFFFFF"):pbColour;
+      const pb=newPBs[selectedPBIndex]||newPBs[0]; const ink=style==="colour"?(isLightColour(pbColour)?"#000000":"#FFFFFF"):pbColour;
       if(style==="colour"){context.fillStyle=pbColour;context.fillRect(0,0,1080,1080);}else context.clearRect(0,0,1080,1080);
       context.fillStyle=ink;context.textAlign="center";
       context.font="900 72px Arial";context.fillText("NEW PB",540,370);
       context.font="800 50px Arial";context.fillText(pb.name.toUpperCase(),540,435,920);
       context.font="900 144px Arial";context.fillText(`${pb.weight} KG`,540,585,940);
       context.font="900 68px Arial";context.fillText(`× ${pb.reps || "—"} REPS`,540,670);
-      context.font="900 76px Arial";context.fillText("setra",540,785);
-      context.font="700 33px Arial";context.fillText("TRAIN TODAY. SEE FURTHER.",540,835);
-      context.font="600 25px Arial";context.fillText(formatDate(today).toUpperCase(),540,895);
+      context.font="900 76px Arial";context.fillText("setra",540,810);
+      context.font="600 25px Arial";context.fillText(formatDate(today).toUpperCase(),540,875);
       const sprite=new Image();sprite.onload=()=>{const iconCanvas=document.createElement("canvas");iconCanvas.width=360;iconCanvas.height=240;const iconContext=iconCanvas.getContext("2d");if(iconContext){iconContext.drawImage(sprite,pbGraphic*360,0,360,240,0,0,360,240);iconContext.globalCompositeOperation="source-in";iconContext.fillStyle=ink;iconContext.fillRect(0,0,360,240);context.drawImage(iconCanvas,300,35,480,320);}canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Image unavailable")),"image/png");};sprite.onerror=()=>reject(new Error("Graphic unavailable"));sprite.src="/pb-icons.png";
     });
   }
@@ -273,16 +338,15 @@ export default function Home() {
       const context=canvas.getContext("2d");if(!context){reject(new Error("Image unavailable"));return;}
       const completedSets=completedShare.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0);
       const exercises=completedShare.exercises.filter(exercise=>!exercise.skipped).length;
-      context.fillStyle="#409ECE";context.fillRect(0,0,1080,1080);context.fillStyle="#FFFFFF";context.textAlign="center";
-      context.beginPath();context.arc(540,190,92,0,Math.PI*2);context.fillStyle="#FFFFFF";context.fill();
-      context.strokeStyle="#409ECE";context.lineWidth=22;context.lineCap="round";context.beginPath();context.moveTo(495,190);context.lineTo(530,225);context.lineTo(592,151);context.stroke();
-      context.fillStyle="#FFFFFF";context.font="900 46px Arial";context.fillText("WORKOUT COMPLETE",540,345);
-      context.font="900 82px Arial";context.fillText(completedShare.name.toUpperCase(),540,445,920);
-      context.font="800 43px Arial";context.fillText(formatLongDate(completedShare.date).toUpperCase(),540,530,920);
-      context.font="900 76px Arial";context.fillText(`${completedShare.startedAt} – ${completedShare.endedAt||""}`,540,635);
-      context.font="800 38px Arial";context.fillText(`${exercises} EXERCISES  ·  ${completedSets} SETS`,540,715);
-      context.font="900 76px Arial";context.fillText("setra",540,855);
-      context.font="700 28px Arial";context.fillText("TRAIN TODAY. SEE FURTHER.",540,904);
+      const tileInk=isLightColour(sessionShareColour)?"#000000":"#FFFFFF";
+      context.fillStyle=sessionShareColour;context.fillRect(0,0,1080,1080);context.fillStyle=tileInk;context.textAlign="center";
+      context.beginPath();context.arc(540,190,92,0,Math.PI*2);context.fillStyle=tileInk;context.fill();
+      context.strokeStyle=sessionShareColour;context.lineWidth=22;context.lineCap="round";context.beginPath();context.moveTo(495,190);context.lineTo(530,225);context.lineTo(592,151);context.stroke();
+      context.fillStyle=tileInk;context.font="900 52px Arial";context.fillText("WORKOUT COMPLETE",540,365);
+      context.font="800 46px Arial";context.fillText(formatLongDate(completedShare.date).toUpperCase(),540,465,920);
+      context.font="900 96px Arial";context.fillText(formatSessionDuration(completedShare.startedAt,completedShare.endedAt).toUpperCase(),540,600,920);
+      context.font="800 42px Arial";context.fillText(`${exercises} EXERCISES  ·  ${completedSets} SETS`,540,700);
+      context.font="900 84px Arial";context.fillText("setra",540,860);
       canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Image unavailable")),"image/png");
     });
   }
@@ -426,7 +490,7 @@ export default function Home() {
         {tab === "plan" && <>
           <div className="eyebrow">YOUR PROGRAM</div><div className="page-heading"><div><h1>Workout templates</h1><p>Build once. Train without thinking.</p></div><button className="round-add" onClick={() => setEditor({id:`template-${Date.now()}`,name:"",focus:"",color:"#409ECE",icon:"◆",exercises:[]})}>＋</button></div>
           <div className="template-grid">{data.templates.map((template, index) => <article className="template-card" key={template.id}>
-            <div className="template-number template-symbol" style={{background:template.color||["#409ECE","#B7C7B3","#FF6B6B"][index%3],color:(template.color||"")==="#F2EFEA"?"#0F172A":"white"}}>{template.icon||"◆"}</div><div className="template-copy"><span>{template.focus.toUpperCase()}</span><h2>{template.name}</h2><p>{template.exercises.length} exercises · {template.exercises.reduce((s,e)=>s+e.sets,0)} sets</p><div>{template.exercises.slice(0,3).map(item => <small key={item.exerciseId}>{exerciseName(item.exerciseId)}</small>)}</div></div>
+            <div className="template-number template-symbol" style={{background:template.color||["#409ECE","#55B96D","#FF6B6B"][index%3],color:isLightColour(template.color)?"#000000":"#FFFFFF",border:template.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{template.icon||"◆"}</div><div className="template-copy"><span>{template.focus.toUpperCase()}</span><h2>{template.name}</h2><p>{template.exercises.length} exercises · {template.exercises.reduce((s,e)=>s+e.sets,0)} sets</p><div>{template.exercises.slice(0,3).map(item => <small key={item.exerciseId}>{exerciseName(item.exerciseId)}</small>)}</div></div>
             <div className="template-actions"><button disabled={workoutInProgress} onClick={() => startWorkout(template,today)}>{workoutInProgress?"Workout live":"Start today"}</button><button onClick={() => setEditor(structuredClone(template))}>Edit</button><button onClick={() => openSchedule(template.id)}>Schedule</button></div>
           </article>)}</div>
         </>}
@@ -475,11 +539,12 @@ export default function Home() {
 
       {active&&finishDialogOpen&&<div className="overlay high-overlay finish-time-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setFinishDialogOpen(false)}}><section className="finish-time-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-time-title"><button className="finish-time-close" onClick={()=>setFinishDialogOpen(false)} aria-label="Close">×</button><span>FINISH WORKOUT</span><h2 id="finish-time-title">Confirm session time</h2><p>{formatDate(active.date)} · {active.name}</p><div className="session-time-fields"><label>START TIME<input type="time" value={sessionStartTime} onChange={event=>setSessionStartTime(event.target.value)}/></label><label>FINISH TIME<input type="time" value={sessionFinishTime} onChange={event=>setSessionFinishTime(event.target.value)}/></label></div><button className="primary-button" disabled={!sessionStartTime||!sessionFinishTime} onClick={()=>saveWorkout({startedAt:sessionStartTime,endedAt:sessionFinishTime})}>Finish workout <span>✓</span></button></section></div>}
 
-      {newPBs.length>0&&<div className="overlay high-overlay pb-overlay"><section className="sheet pb-celebration"><button className="pb-close" onClick={()=>setNewPBs([])} aria-label="Close">×</button><small>NEW PERSONAL BEST</small><h2>Make it share-worthy</h2>{newPBs.length>1&&<div className="pb-record-selector">{newPBs.map((pb,index)=><button className={selectedPBIndex===index?"selected":""} key={pb.exerciseId} onClick={()=>setSelectedPBIndex(index)}>{pb.name}</button>)}</div>}{(()=>{const pb=newPBs[selectedPBIndex]||newPBs[0];const light=["#F2EFEA","#E6E9EE"].includes(pbColour);const previewColour=pbTileStyle==="colour"?(light?"#0F172A":"#FFFFFF"):pbColour;return <div className={`pb-tile-preview ${pbTileStyle}`} style={pbTileStyle==="colour"?{background:pbColour,color:previewColour}:{color:previewColour}}><span className="pb-preview-graphic" style={{WebkitMaskPosition:`${pbGraphic*20}% 50%`,maskPosition:`${pbGraphic*20}% 50%`}}/><b>NEW PB</b><span className="pb-exercise-name">{pb.name}</span><strong>{pb.weight} kg</strong><span className="pb-reps">× {pb.reps||"—"} reps</span><em>setra<small>TRAIN TODAY. SEE FURTHER.</small></em></div>})()}<div className="pb-customise"><span>STYLE</span><div className="pb-style-options"><button className={pbTileStyle==="colour"?"selected":""} onClick={()=>setPbTileStyle("colour")}><i className="colour-swatch"/><b>Colour tile</b></button><button className={pbTileStyle==="transparent"?"selected":""} onClick={()=>setPbTileStyle("transparent")}><i className="transparent-swatch"/><b>Transparent</b></button></div><span>COLOUR</span><div className="pb-colour-options">{setraColours.map(colour=><button key={colour.value} className={pbColour===colour.value?"selected":""} aria-label={colour.name} title={colour.name} style={{background:colour.value}} onClick={()=>setPbColour(colour.value)}/>)}</div><span>GRAPHIC</span><div className="pb-graphic-options">{pbGraphics.map(graphic=><button key={graphic.name} className={pbGraphic===graphic.index?"selected":""} onClick={()=>setPbGraphic(graphic.index)}><b className="pb-option-graphic" style={{WebkitMaskPosition:`${graphic.index*20}% 50%`,maskPosition:`${graphic.index*20}% 50%`}}/><small>{graphic.name}</small></button>)}</div></div><div className="pb-share-actions"><button onClick={savePBImage}>Save image</button><button className="primary-share" onClick={sharePBImage}>Share image ↑</button></div>{pbShareMessage&&<small className="pb-share-message">{pbShareMessage}</small>}</section></div>}
-      {completedShare&&<div className="overlay high-overlay session-share-overlay"><section className="session-share-dialog" role="dialog" aria-modal="true"><button className="pb-close" onClick={()=>setCompletedShare(null)} aria-label="Close">×</button><small>SESSION COMPLETE</small><h2>Share the work</h2><div className="session-share-tile"><span className="session-share-check">✓</span><b>WORKOUT COMPLETE</b><strong>{completedShare.name}</strong><span>{formatLongDate(completedShare.date)}</span><em>{completedShare.startedAt} – {completedShare.endedAt}</em><p>{completedShare.exercises.filter(exercise=>!exercise.skipped).length} exercises · {completedShare.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0)} sets</p><footer>setra<small>TRAIN TODAY. SEE FURTHER.</small></footer></div><div className="pb-share-actions"><button onClick={saveSessionImage}>Save</button><button className="primary-share" onClick={shareSessionImage}>Share</button></div>{sessionShareMessage&&<small className="pb-share-message">{sessionShareMessage}</small>}{!completedShare.templateId&&<div className="save-session-template"><span>SAVE FOR NEXT TIME</span><p>Turn this Add as I go session into a reusable workout.</p><input value={newTemplateName} disabled={sessionTemplateSaved} onChange={event=>setNewTemplateName(event.target.value)} maxLength={40} placeholder="Template name"/><button disabled={!newTemplateName.trim()||sessionTemplateSaved||completedShare.exercises.length===0} onClick={saveSessionAsTemplate}>{sessionTemplateSaved?"Added to templates ✓":"Add as template"}</button></div>}</section></div>}
+      {newPBs.length>0&&<div className="overlay high-overlay pb-overlay"><section className="sheet pb-celebration"><button className="pb-close" onClick={()=>setNewPBs([])} aria-label="Close">×</button><small>NEW PERSONAL BEST</small><h2>Make it share-worthy</h2>{newPBs.length>1&&<div className="pb-record-selector">{newPBs.map((pb,index)=><button className={selectedPBIndex===index?"selected":""} key={pb.exerciseId} onClick={()=>setSelectedPBIndex(index)}>{pb.name}</button>)}</div>}{(()=>{const pb=newPBs[selectedPBIndex]||newPBs[0];const previewColour=pbTileStyle==="colour"?(isLightColour(pbColour)?"#000000":"#FFFFFF"):pbColour;return <div className={`pb-tile-preview ${pbTileStyle}`} style={pbTileStyle==="colour"?{background:pbColour,color:previewColour}:{color:previewColour}}><span className="pb-preview-graphic" style={{WebkitMaskPosition:`${pbGraphic*20}% 50%`,maskPosition:`${pbGraphic*20}% 50%`}}/><b>NEW PB</b><span className="pb-exercise-name">{pb.name}</span><strong>{pb.weight} kg</strong><span className="pb-reps">× {pb.reps||"—"} reps</span><em>setra</em></div>})()}<div className="pb-customise"><span>STYLE</span><div className="pb-style-options"><button className={pbTileStyle==="colour"?"selected":""} onClick={()=>setPbTileStyle("colour")}><i className="colour-swatch"/><b>Colour tile</b></button><button className={pbTileStyle==="transparent"?"selected":""} onClick={()=>setPbTileStyle("transparent")}><i className="transparent-swatch"/><b>Transparent</b></button></div><span>COLOUR</span><div className="pb-colour-options">{setraColours.map(colour=><button key={colour.value} className={pbColour===colour.value?"selected":""} aria-label={colour.name} title={colour.name} style={{background:colour.value}} onClick={()=>setPbColour(colour.value)}/>)}</div><span>GRAPHIC</span><div className="pb-graphic-options">{pbGraphics.map(graphic=><button key={graphic.name} className={pbGraphic===graphic.index?"selected":""} onClick={()=>setPbGraphic(graphic.index)}><b className="pb-option-graphic" style={{WebkitMaskPosition:`${graphic.index*20}% 50%`,maskPosition:`${graphic.index*20}% 50%`}}/><small>{graphic.name}</small></button>)}</div></div><div className="pb-share-actions"><button onClick={savePBImage}>Save image</button><button className="primary-share" onClick={sharePBImage}>Share image ↑</button></div>{pbShareMessage&&<small className="pb-share-message">{pbShareMessage}</small>}</section></div>}
+      {completedShare&&<div className="overlay high-overlay session-share-overlay"><section className="session-share-dialog" role="dialog" aria-modal="true"><button className="pb-close" onClick={()=>setCompletedShare(null)} aria-label="Close">×</button><small>SESSION COMPLETE</small><h2>Share the work</h2><div className="session-share-tile" style={{background:sessionShareColour,color:isLightColour(sessionShareColour)?"#000000":"#FFFFFF",border:sessionShareColour==="#FFFFFF"?"1px solid #E6E9EE":"none"}}><span className="session-share-check" style={{background:isLightColour(sessionShareColour)?"#000000":"#FFFFFF",color:sessionShareColour}}>✓</span><b>WORKOUT COMPLETE</b><span>{formatLongDate(completedShare.date)}</span><em>{formatSessionDuration(completedShare.startedAt,completedShare.endedAt)}</em><p>{completedShare.exercises.filter(exercise=>!exercise.skipped).length} exercises · {completedShare.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0)} sets</p><footer>setra</footer></div><div className="session-colour-picker"><span>COLOUR</span><div className="pb-colour-options">{setraColours.map(colour=><button key={colour.value} className={sessionShareColour===colour.value?"selected":""} aria-label={colour.name} title={colour.name} style={{background:colour.value}} onClick={()=>setSessionShareColour(colour.value)}/>)}</div></div><div className="pb-share-actions"><button onClick={saveSessionImage}>Save</button><button className="primary-share" onClick={shareSessionImage}>Share</button></div>{sessionShareMessage&&<small className="pb-share-message">{sessionShareMessage}</small>}{!completedShare.templateId&&<div className="save-session-template"><span>SAVE FOR NEXT TIME</span><p>Turn this Add as I go session into a reusable workout.</p><input value={newTemplateName} disabled={sessionTemplateSaved} onChange={event=>setNewTemplateName(event.target.value)} maxLength={40} placeholder="Template name"/><button disabled={!newTemplateName.trim()||sessionTemplateSaved||completedShare.exercises.length===0} onClick={saveSessionAsTemplate}>{sessionTemplateSaved?"Added to templates ✓":"Add as template"}</button></div>}</section></div>}
 
       {detail && <div className="overlay" onMouseDown={()=>setDetailId(null)}><section className="sheet detail-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{formatDate(detail.date).toUpperCase()}</span><h2>{detail.name}</h2></div><div className="detail-title-actions"><button className="edit-workout-button" onClick={()=>{setEditingWorkoutId(detail.id);setActive(structuredClone(detail));setDetailId(null)}}>Edit</button><button onClick={()=>setDetailId(null)} aria-label="Close">×</button></div></div>{detail.exercises.map(exercise=><button className="detail-exercise" key={exercise.exerciseId} onClick={()=>setExerciseHistoryId(exercise.exerciseId)}><span><b>{exerciseName(exercise.exerciseId)}</b><small>{exercise.sets.filter(s=>s.done).length} working sets</small></span><div>{exercise.sets.map((set,i)=><small key={i}>{set.weight || "—"} kg × {set.reps || "—"} {set.rpe&&`@ ${set.rpe}`}</small>)}</div><em>›</em></button>)}{detail.note&&<p className="detail-note">“{detail.note}”</p>}<button className="delete-workout-button" onClick={()=>setDeleteWorkoutId(detail.id)}>Delete workout</button></section></div>}
       {deleteWorkoutId && <div className="overlay high-overlay confirm-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setDeleteWorkoutId(null)}}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-workout-title"><span className="confirm-icon">!</span><h2 id="delete-workout-title">Delete this workout?</h2><p>This will permanently remove the completed workout and its exercise history.</p><div className="confirm-actions"><button onClick={()=>setDeleteWorkoutId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteCompletedWorkout}>Delete workout</button></div></section></div>}
+      {deleteTemplateId && <div className="overlay high-overlay confirm-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setDeleteTemplateId(null)}}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-template-title"><span className="confirm-icon">!</span><h2 id="delete-template-title">Delete this template?</h2><p>This will remove the template and any workouts scheduled from it. Completed workout history will stay untouched.</p><div className="confirm-actions"><button onClick={()=>setDeleteTemplateId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteTemplate}>Delete template</button></div></section></div>}
 
       {active && liveEditIndex !== null && active.exercises[liveEditIndex] && <div className="overlay high-overlay" onMouseDown={()=>setLiveEditIndex(null)}><section className="sheet live-edit-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>EDIT LIVE SESSION</span><h2>{exerciseName(active.exercises[liveEditIndex].exerciseId)}</h2></div><button onClick={()=>setLiveEditIndex(null)}>×</button></div><div className="live-edit-actions"><button disabled={liveEditIndex===0} onClick={()=>moveLiveExercise(liveEditIndex,liveEditIndex-1)}><b>↑</b><span>Move earlier</span></button><button disabled={liveEditIndex===active.exercises.length-1} onClick={()=>moveLiveExercise(liveEditIndex,liveEditIndex+1)}><b>↓</b><span>Move later</span></button>{active.exercises[liveEditIndex].group?<button className="ungroup-action" onClick={()=>ungroupLiveExercise(liveEditIndex)}><b>⊘</b><span>Remove from superset</span></button>:<button disabled={active.exercises.length<2} onClick={()=>groupLiveExercise(liveEditIndex,liveEditIndex>0?liveEditIndex-1:1)}><b>⇄</b><span>Superset with {liveEditIndex>0?"previous":"next"}</span></button>}<button className="skip-menu-action" onClick={()=>{toggleExerciseSkipped(liveEditIndex);setLiveEditIndex(null)}}><b>{active.exercises[liveEditIndex].skipped?"↩":"—"}</b><span>{active.exercises[liveEditIndex].skipped?"Unskip exercise":"Skip for today"}</span></button></div><div className="replace-heading"><span>CHANGE EXERCISE</span><p>Your completed and entered sets will be kept.</p></div><div className="replace-list">{data.exercises.filter(exercise=>exercise.id!==active.exercises[liveEditIndex].exerciseId).map(exercise=><button key={exercise.id} onClick={()=>{setActive({...active,exercises:active.exercises.map((item,index)=>index===liveEditIndex?{...item,exerciseId:exercise.id}:item)});setLiveEditIndex(null)}}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.group} · {exercise.equipment}</small></span><em>Replace</em></button>)}</div></section></div>}
 
@@ -492,7 +557,7 @@ export default function Home() {
         <div className="editor-body">
           <label>WORKOUT NAME<input value={editor.name} onChange={event=>setEditor({...editor,name:event.target.value})} placeholder="e.g. Lower B" /></label>
           <label>FOCUS<input value={editor.focus} onChange={event=>setEditor({...editor,focus:event.target.value})} placeholder="e.g. Hinge + single-leg" /></label>
-          <div className="template-style-picker"><span>TEMPLATE STYLE</span><div className="style-preview" style={{background:editor.color||"#409ECE"}}>{editor.icon||"◆"}</div><div><small>COLOUR</small><div className="color-options">{["#409ECE","#7B61FF","#FF6B6B","#F2EFEA","#E6E9EE","#0F172A"].map(color=><button aria-label={`Choose ${color}`} className={editor.color===color?"selected":""} style={{background:color}} key={color} onClick={()=>setEditor({...editor,color})}/>)}</div><small>ICON</small><div className="icon-options">{["◆","✦","↗","●","▲","≈","＋","◇"].map(icon=><button className={editor.icon===icon?"selected":""} key={icon} onClick={()=>setEditor({...editor,icon})}>{icon}</button>)}</div></div></div>
+          <div className="template-style-picker"><span>TEMPLATE STYLE</span><div className="style-preview" style={{background:editor.color||"#409ECE",color:isLightColour(editor.color)?"#000000":"#FFFFFF",border:editor.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{editor.icon||"◆"}</div><div><small>COLOUR</small><div className="color-options">{setraColours.map(colour=><button aria-label={`Choose ${colour.name}`} title={colour.name} className={editor.color===colour.value?"selected":""} style={{background:colour.value}} key={colour.value} onClick={()=>setEditor({...editor,color:colour.value})}/>)}</div><small>ICON</small><div className="icon-options">{["◆","✦","↗","●","▲","≈","＋","◇"].map(icon=><button className={editor.icon===icon?"selected":""} key={icon} onClick={()=>setEditor({...editor,icon})}>{icon}</button>)}</div></div></div>
           <div className="editor-exercises"><span>EXERCISES</span>{editor.exercises.map((item,index)=>{
             const groups=[...new Set(editor.exercises.map(exercise=>exercise.group).filter((group):group is string=>Boolean(group)))];
             const groupIndex=item.group?groups.indexOf(item.group):-1;
@@ -510,6 +575,7 @@ export default function Home() {
             </div>;
           })}</div>
           <div className="exercise-picker"><span>ADD EXERCISE</span><label className="search"><span>⌕</span><input value={editorQuery} onChange={event=>setEditorQuery(event.target.value)} placeholder="Search by exercise, equipment or muscle" /></label><div className="editor-library-list">{data.exercises.filter(exercise=>!editor.exercises.some(item=>item.exerciseId===exercise.id)&&`${exercise.name} ${exercise.equipment} ${exercise.group}`.toLowerCase().includes(editorQuery.toLowerCase())).map(exercise=><button key={exercise.id} onClick={()=>setEditor({...editor,exercises:[...editor.exercises,{exerciseId:exercise.id,sets:3,reps:"8"}]})}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><em>＋ Add</em></button>)}</div></div>
+          {data.templates.some(template=>template.id===editor.id)&&<button className="delete-template-button" onClick={()=>setDeleteTemplateId(editor.id)}>Delete template</button>}
         </div>
       </div>}
     </main>
