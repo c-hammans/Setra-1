@@ -11,6 +11,19 @@ export class DiaryService {
   private supabase:SupabaseClient;
   constructor(private userId:string){this.supabase=createClient()}
 
+  async loadProfile():Promise<{displayName:string;appColour:string}>{
+    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();
+    if(error){
+      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:"#409ECE"}}
+      throw error;
+    }
+    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE"};
+  }
+
+  async updateAppColour(appColour:string){
+    const {error}=await this.supabase.from("profiles").update({app_colour:appColour}).eq("id",this.userId);if(error)throw error;
+  }
+
   async load():Promise<AppData>{
     const [exerciseResult,templateResult,scheduleResult,workoutResult]=await Promise.all([
       this.supabase.from("exercises").select("id,name,muscle_group,equipment").order("name"),

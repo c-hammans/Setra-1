@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { AppData, Exercise, SetLog, Template, Workout, WorkoutExercise } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
-import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
+import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = { exerciseId: string; name: string; weight: number; reps: string };
@@ -161,10 +161,19 @@ const sampleWorkouts: Workout[] = [
 const initialData: AppData = { exercises: sampleExercises, templates: sampleTemplates, workouts: sampleWorkouts, scheduled: [{ date: today, templateId: "lower-a" }] };
 const motivations = ["Ready when you are.","Built for what’s next.","Strong starts here.","Show up and get stronger.","One set at a time.","Make today count.","Progress starts now.","Your strength is building.","Keep the momentum.","Today is yours.","Put in the work.","Go build something strong.","Small steps. Big strength.","Stronger with every set.","This is your time.","Earn tomorrow’s strength.","Move well. Finish strong.","Start steady. End strong.","You’ve got this.","Ready. Set. Strong.","Build the next version.","Train with purpose.","Make this session count.","Good work starts now.","Own every rep.","Keep showing up.","Strength happens here.","One more strong day.","Begin where you are.","Let’s get stronger."];
 const setraColours = [{name:"Blue",value:"#409ECE"},{name:"Coral",value:"#FF6B6B"},{name:"Yellow",value:"#F6C445"},{name:"Green",value:"#55B96D"},{name:"Purple",value:"#8B72D9"},{name:"Black",value:"#000000"},{name:"White",value:"#FFFFFF"}];
+const lightAppColours=new Set(["#F6C445","#FFFFFF"]);
 const pbGraphics = [{name:"Trophy",index:0},{name:"Dumbbell",index:1},{name:"Barbell",index:2},{name:"Kettlebell",index:3},{name:"Strength",index:4},{name:"Crown",index:5}];
 const formatDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 const formatLongDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 const isLightColour = (value?: string) => ["#FFFFFF","#F6C445"].includes((value||"").toUpperCase());
+const profileInitials = (name?:string,email?:string) => {
+  const words=(name||"").trim().split(/\s+/).filter(Boolean);
+  if(words.length>1)return `${words[0][0]}${words[words.length-1][0]}`.toUpperCase();
+  if(words.length===1)return words[0].slice(0,2).toUpperCase();
+  const emailName=(email||"").split("@")[0].replace(/[^a-z0-9]+/gi," ").trim();
+  const emailWords=emailName.split(/\s+/).filter(Boolean);
+  return emailWords.length>1?`${emailWords[0][0]}${emailWords[emailWords.length-1][0]}`.toUpperCase():(emailWords[0]||"SE").slice(0,2).toUpperCase();
+};
 const formatSessionDuration = (start: string, finish?: string) => {
   if (!start || !finish) return "Time not recorded";
   const [startHour,startMinute]=start.split(":").map(Number);const [finishHour,finishMinute]=finish.split(":").map(Number);
@@ -223,11 +232,14 @@ export default function Home() {
   const [showImport,setShowImport]=useState(false);
   const [importBusy,setImportBusy]=useState(false);
   const [accountOpen,setAccountOpen]=useState(false);
+  const [appColour,setAppColour]=useState("#409ECE");
+  const [draftAppColour,setDraftAppColour]=useState("#409ECE");
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
     if(stored)setData({...stored,templates:stored.templates.map(template=>({...template,color:template.color?.toUpperCase()==="#7B61FF"?"#409ECE":template.color})),exercises:[...stored.exercises,...sampleExercises.filter(sample=>!stored.exercises.some(exercise=>exercise.id===sample.id))]});
     setSavedDraft(loadLocalDraft(user?.id));
+    const cachedColour=loadLocalAppColour(user?.id);if(cachedColour)setAppColour(cachedColour);
     setLoaded(true);
     setMotivation(motivations[Math.floor(Math.random()*motivations.length)]);
   }, [user?.id]);
@@ -235,11 +247,14 @@ export default function Home() {
   useEffect(()=>{
     if(!loaded||!diaryService)return;
     let cancelled=false;setCloudState("loading");
-    Promise.all([diaryService.load(),diaryService.loadDraft()]).then(([cloud,draft])=>{
+    Promise.all([diaryService.load(),diaryService.loadDraft(),diaryService.loadProfile()]).then(([cloud,draft,profile])=>{
       if(cancelled)return;
       const hasCloudData=cloud.templates.length>0||cloud.workouts.length>0||cloud.scheduled.length>0;
       if(hasCloudData)setData({...cloud,exercises:[...cloud.exercises,...sampleExercises.filter(sample=>!cloud.exercises.some(exercise=>exercise.id===sample.id))]});
       if(draft){setSavedDraft(draft);saveLocalDraft(draft,user?.id)}
+      const cachedColour=loadLocalAppColour(user?.id);
+      if(cachedColour){setAppColour(cachedColour);if(cachedColour!==profile.appColour)void diaryService.updateAppColour(cachedColour)}
+      else{setAppColour(profile.appColour);saveLocalAppColour(profile.appColour,user?.id)}
       const local=loadLocalDiary();const summary=local?localImportSummary(local):null;
       if(hasCloudData&&local&&canImportLegacyDiary(user!.id))claimLegacyDiary(user!.id);
       if(!hasCloudData)setData({exercises:cloud.exercises.length?cloud.exercises:sampleExercises,templates:[],scheduled:[],workouts:[]});
@@ -259,6 +274,9 @@ export default function Home() {
     try{await diaryService.importLocal(local);claimLegacyDiary(user.id);const cloud=await diaryService.load();setData({...cloud,exercises:[...cloud.exercises,...sampleExercises.filter(sample=>!cloud.exercises.some(exercise=>exercise.id===sample.id))]});setShowImport(false);setCloudState("synced")}
     catch(error){setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Import failed. Nothing was removed from this browser.")}
     finally{setImportBusy(false)}
+  }
+  function selectAppColour(colour:string){
+    setAppColour(colour);saveLocalAppColour(colour,user?.id);runCloud(service=>service.updateAppColour(colour));
   }
 
   const exerciseName = (id: string) => data.exercises.find(exercise => exercise.id === id)?.name ?? "Exercise";
@@ -493,10 +511,10 @@ export default function Home() {
     setScheduleTemplateId(null);
   }
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-light-accent={lightAppColours.has(appColour)} style={{"--accent":appColour,"--accent-contrast":lightAppColours.has(appColour)?"#0F172A":"#FFFFFF"} as CSSProperties}>
       <header className="topbar">
         <button className="brand" onClick={() => setTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
-        <button className="avatar" aria-label="Account" onClick={()=>setAccountOpen(true)}>{(user?.user_metadata?.display_name||user?.email||"CH").slice(0,2).toUpperCase()}</button>
+        <button className="avatar" aria-label="Account" onClick={()=>{setDraftAppColour(appColour);setAccountOpen(true)}}>{profileInitials(user?.user_metadata?.display_name,user?.email)}</button>
       </header>
 
       <section className="content">
@@ -588,7 +606,7 @@ export default function Home() {
 
       {historyExercise && <div className="overlay high-overlay" onMouseDown={()=>setExerciseHistoryId(null)}><section className="sheet history-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{historyExercise.group.toUpperCase()} · {historyExercise.equipment.toUpperCase()}</span><h2>{historyExercise.name}</h2></div><button onClick={()=>setExerciseHistoryId(null)}>×</button></div>{(() => { const records=data.workouts.flatMap(w=>w.exercises.filter(e=>e.exerciseId===historyExercise.id).map(e=>({workout:w,exercise:e}))); const maxes=records.map(r=>Math.max(...r.exercise.sets.map(s=>Number(s.weight)||0))); return <>{records.length>0&&<div className="progress-chart"><div className="chart-bars">{maxes.slice().reverse().map((max,i)=><i key={i} style={{height:`${25+70*max/Math.max(...maxes)}%`}}><span>{max}</span></i>)}</div><small>Best load by session (kg)</small></div>}<div className="exercise-records">{records.length?records.map(({workout,exercise})=><div key={workout.id}><span><b>{formatDate(workout.date)}</b><small>{workout.name}</small></span><p>{exercise.sets.map((set,i)=><em key={i}>{set.weight || "—"} × {set.reps || "—"}<small>{set.rpe&&` RPE ${set.rpe}`}</small></em>)}</p></div>):<p className="no-records">No completed sets yet. Start a workout to build your history.</p>}</div></>})()}</section></div>}
 
-      {accountOpen&&<div className="overlay high-overlay" onMouseDown={()=>setAccountOpen(false)}><section className="sheet account-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>YOUR ACCOUNT</span><h2>{user?.user_metadata?.display_name||"Setra athlete"}</h2></div><button onClick={()=>setAccountOpen(false)}>×</button></div><p>{user?.email||"Local-only mode"}</p><div className={`account-sync ${cloudState}`}><i/>{configured?(cloudState==="synced"?"Cloud diary connected":cloudState==="loading"?"Syncing your diary…":"Cloud sync needs attention"):"Saved on this device"}</div>{configured&&<button className="account-signout" onClick={async()=>{setAccountOpen(false);await signOut()}}>Sign out</button>}</section></div>}
+      {accountOpen&&<div className="overlay high-overlay" onMouseDown={()=>setAccountOpen(false)}><section className="sheet account-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>YOUR ACCOUNT</span><h2>{user?.user_metadata?.display_name||"Setra athlete"}</h2></div><button onClick={()=>setAccountOpen(false)}>×</button></div><p>{user?.email||"Local-only mode"}</p><div className="profile-colour-picker"><span>APP COLOUR:</span><div>{setraColours.map(colour=><button key={colour.value} type="button" className={draftAppColour===colour.value?"selected":""} aria-label={`Select ${colour.name} as app colour`} title={colour.name} onClick={()=>setDraftAppColour(colour.value)}><i style={{background:colour.value,color:isLightColour(colour.value)?"#0F172A":"#FFFFFF"}}>{draftAppColour===colour.value?"✓":""}</i></button>)}</div></div><button className="save-profile-colour" disabled={draftAppColour===appColour||cloudState==="loading"} onClick={()=>selectAppColour(draftAppColour)}>{cloudState==="loading"?"Saving…":draftAppColour===appColour?"Colour saved ✓":"Save colour"}</button><div className={`account-sync ${cloudState}`}><i/>{configured?(cloudState==="synced"?"Cloud diary connected":cloudState==="loading"?"Syncing your diary…":"Cloud sync needs attention"):"Saved on this device"}</div>{configured&&<button className="account-signout" onClick={async()=>{setAccountOpen(false);await signOut()}}>Sign out</button>}</section></div>}
 
       {editor && <div className="editor-screen">
         <header className="workout-header"><button onClick={()=>setEditor(null)}>×</button><div><small>WORKOUT BUILDER</small><b>{editor.id.startsWith("template-")?"New template":"Edit template"}</b></div><button className="finish-button" onClick={saveTemplate}>Save</button></header>

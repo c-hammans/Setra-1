@@ -3,6 +3,7 @@ import type { AppData, Workout } from "@/lib/setra/types";
 const DIARY_KEY="form-strength-diary";
 const DRAFT_KEY="form-active-workout";
 const OWNER_KEY="form-strength-diary-owner";
+const APP_COLOUR_KEY="form-app-colour";
 const accountKey=(base:string,userId?:string|null)=>userId?`${base}:${userId}`:base;
 
 export function loadLocalDiary(userId?:string|null):AppData|null{
@@ -15,6 +16,8 @@ export function saveLocalDraft(workout:Workout,userId?:string|null){if(typeof wi
 export function clearLocalDraft(userId?:string|null){if(typeof window!=="undefined")window.localStorage.removeItem(accountKey(DRAFT_KEY,userId))}
 export function canImportLegacyDiary(userId:string){if(typeof window==="undefined")return false;const owner=window.localStorage.getItem(OWNER_KEY);return !owner||owner===userId}
 export function claimLegacyDiary(userId:string){if(typeof window!=="undefined")window.localStorage.setItem(OWNER_KEY,userId)}
+export function loadLocalAppColour(userId?:string|null){if(typeof window==="undefined")return null;return window.localStorage.getItem(accountKey(APP_COLOUR_KEY,userId))}
+export function saveLocalAppColour(colour:string,userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(APP_COLOUR_KEY,userId),colour)}
 
 export function localImportSummary(data:AppData){
   const workouts=data.workouts.filter(workout=>!workout.id.startsWith("sample-"));
