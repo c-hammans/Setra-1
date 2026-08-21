@@ -249,6 +249,8 @@ export default function Home() {
     let cancelled=false;setCloudState("loading");
     Promise.all([diaryService.load(),diaryService.loadDraft(),diaryService.loadProfile()]).then(([cloud,draft,profile])=>{
       if(cancelled)return;
+      const reconciledSchedule=cloud.scheduled.filter(item=>!cloud.workouts.some(workout=>workout.date===item.date&&workout.templateId===item.templateId));
+      if(reconciledSchedule.length!==cloud.scheduled.length){cloud.scheduled=reconciledSchedule;void diaryService.replaceSchedule(reconciledSchedule)}
       const hasCloudData=cloud.templates.length>0||cloud.workouts.length>0||cloud.scheduled.length>0;
       if(hasCloudData)setData({...cloud,exercises:[...cloud.exercises,...sampleExercises.filter(sample=>!cloud.exercises.some(exercise=>exercise.id===sample.id))]});
       if(draft){setSavedDraft(draft);saveLocalDraft(draft,user?.id)}
@@ -335,8 +337,9 @@ export default function Home() {
       setNewTemplateName("");
       setSessionTemplateSaved(false);
     }
-    setData(current => ({ ...current, workouts: editingWorkoutId ? current.workouts.map(workout=>workout.id===editingWorkoutId?completed:workout) : [completed, ...current.workouts], scheduled: active.templateId?current.scheduled.filter(item => !(item.date===active.date&&item.templateId===active.templateId)):current.scheduled }));
-    runCloud(service=>service.saveWorkout(completed,"completed"));clearLocalDraft(user?.id); setSavedDraft(null); setActive(null); setEditingWorkoutId(null); setSelectedDate(completed.date); setTab("today"); setDetailId(null); setFinishDialogOpen(false);
+    const nextScheduled=active.templateId?data.scheduled.filter(item=>!(item.date===active.date&&item.templateId===active.templateId)):data.scheduled;
+    setData(current => ({ ...current, workouts: editingWorkoutId ? current.workouts.map(workout=>workout.id===editingWorkoutId?completed:workout) : [completed, ...current.workouts], scheduled: nextScheduled }));
+    runCloud(service=>Promise.all([service.saveWorkout(completed,"completed"),service.replaceSchedule(nextScheduled)]));clearLocalDraft(user?.id); setSavedDraft(null); setActive(null); setEditingWorkoutId(null); setSelectedDate(completed.date); setTab("today"); setDetailId(null); setFinishDialogOpen(false);
   }
   function openFinishDialog() {
     if (!active) return;
