@@ -185,6 +185,13 @@ const formatSessionDuration = (start: string, finish?: string) => {
   const hours=Math.floor(minutes/60);const remainder=minutes%60;
   return [hours?`${hours} ${hours===1?"hr":"hrs"}`:"",remainder?`${remainder} min`:""].filter(Boolean).join(" ")||"0 min";
 };
+const retryCloud = async <T,>(action:()=>Promise<T>,attempts=2):Promise<T> => {
+  let lastError:unknown;
+  for(let attempt=0;attempt<attempts;attempt+=1){
+    try{return await action()}catch(error){lastError=error;if(attempt<attempts-1)await new Promise(resolve=>setTimeout(resolve,650))}
+  }
+  throw lastError;
+};
 
 export default function Home() {
   const {configured,user,signOut}=useAuth();
@@ -251,7 +258,7 @@ export default function Home() {
   useEffect(()=>{
     if(!loaded||!diaryService)return;
     let cancelled=false;setCloudState("loading");
-    Promise.all([diaryService.load(),diaryService.loadDraft(),diaryService.loadProfile()]).then(([cloud,draft,profile])=>{
+    retryCloud(()=>Promise.all([diaryService.load(),diaryService.loadDraft(),diaryService.loadProfile()])).then(([cloud,draft,profile])=>{
       if(cancelled)return;
       const reconciledSchedule=cloud.scheduled.filter(item=>!cloud.workouts.some(workout=>workout.date===item.date&&workout.templateId===item.templateId));
       if(reconciledSchedule.length!==cloud.scheduled.length){cloud.scheduled=reconciledSchedule;void diaryService.replaceSchedule(reconciledSchedule)}
@@ -272,7 +279,7 @@ export default function Home() {
 
   function runCloud(action:(service:DiaryService)=>Promise<unknown>){
     if(!diaryService)return;
-    setCloudState("loading");action(diaryService).then(()=>{setCloudState("synced");setCloudMessage("")}).catch(error=>{setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Cloud save failed. Your local copy is still safe.")});
+    setCloudState("loading");retryCloud(()=>action(diaryService)).then(()=>{setCloudState("synced");setCloudMessage("")}).catch(error=>{setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Cloud save failed. Your local copy is still safe.")});
   }
   async function importBrowserDiary(){
     if(!diaryService||!user||!canImportLegacyDiary(user.id))return;const local=loadLocalDiary();if(!local)return;
@@ -526,7 +533,7 @@ export default function Home() {
 
       <section className="content">
         {tab === "today" && <>
-          {configured&&cloudState==="error"&&<div className="cloud-notice error"><b>Cloud sync needs attention</b><p>{cloudMessage} Your browser copy has not been removed.</p></div>}
+          {configured&&cloudState==="error"&&<button className="cloud-sync-chip" title={cloudMessage} onClick={()=>setAccountOpen(true)}><i/>Sync delayed <span>Details</span></button>}
           {configured&&showImport&&<div className="cloud-notice"><b>Bring your existing diary into your account</b><p>Your templates, schedule and real workout history can be copied safely. Demo workout history is excluded, and the browser copy stays here.</p><button disabled={importBusy} onClick={importBrowserDiary}>{importBusy?"Importing…":"Import browser diary"}</button></div>}
           <div className="eyebrow">{formatDate(selectedDate).toUpperCase()}</div>
           <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>2</strong><span>this week</span></div></div>
