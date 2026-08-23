@@ -32,7 +32,7 @@ export default function PremiumPage(){
   return <main className="premium-shell" style={{"--accent":appColour,"--accent-contrast":contrast} as CSSProperties}>
     <header className="premium-topbar"><Link className="premium-brand" href="/"><span className="premium-brand-mark"/><b>setra</b></Link><PremiumBadge/></header>
 
-    <section className="premium-hero"><span>THE NEXT LAYER OF YOUR TRAINING DIARY</span><h1>Train today.<br/><em>See further.</em></h1><p>Setra Premium is being designed to turn the training you already record into clearer decisions, more personal programming and a coach that understands your history.</p><a href="#early-access">Join early access <b>→</b></a><div className="premium-status"><i/>{subscription.tier==="premium"?"Premium access active":"Premium is in development"}</div></section>
+    <section className="premium-hero"><span>THE NEXT LAYER OF YOUR TRAINING DIARY</span><h1>The work<br/><em>adds up.</em></h1><p>Setra Premium is being designed to turn the training you already record into clearer decisions, more personal programming and a coach that understands your history.</p><a href="#early-access">Join early access <b>→</b></a><div className="premium-status"><i/>{subscription.tier==="premium"?"Premium access active":"Premium is in development"}</div></section>
 
     <section className="premium-vision"><span>THE VISION</span><h2>Your record becomes useful in a new way.</h2><p>Not a generic chatbot. Not another dashboard full of noise. Setra Premium will be built around your sessions, exercises, patterns and goals—with the training diary remaining at the centre.</p></section>
 

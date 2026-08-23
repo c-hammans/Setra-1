@@ -4,7 +4,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { AuthGate } from "@/components/auth/auth-gate";
 
 export const metadata: Metadata = {
-  title: "setra — Train today. See further.",
+  title: "setra — The work adds up.",
   description: "Your training diary for strength and beyond. Plan, log and look back.",
   icons: {
     icon: "/favicon.svg",
