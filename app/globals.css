@@ -78,3 +78,29 @@ body,body *{font-family:var(--font-inter),Inter,Arial,sans-serif!important}.set-
 .app-shell .brand-mark{background:var(--accent);background-image:none;-webkit-mask:url('/setra-mark-v2.png') center/contain no-repeat;mask:url('/setra-mark-v2.png') center/contain no-repeat}.app-shell[data-light-accent="true"] .brand-mark{filter:drop-shadow(0 0 1px #6f7880)}.app-shell .day.active-day,.app-shell .month-grid button.selected-date{color:var(--accent-contrast)}.app-shell .day.active-day span,.app-shell .month-grid button.selected-date span{color:var(--accent-contrast)}.app-shell .day.active-day i,.app-shell .month-grid .selected-date i{background:var(--accent-contrast)}.app-shell .pb-style-options button.selected,.app-shell .pb-graphic-options button.selected,.app-shell .repeat-options button.selected{border-color:var(--accent);background:var(--accent-tint);color:var(--accent-ink)}.app-shell .pb-record-selector button.selected{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}.app-shell .pb-share-actions button{border-color:var(--accent);color:var(--accent-ink)}.app-shell .pb-share-actions .primary-share{background:var(--accent);color:var(--accent-contrast)}.app-shell .schedule-field,.app-shell .repeat-options legend,.app-shell .finish-time-dialog>span,.app-shell .session-time-fields label,.app-shell .session-share-dialog>small{color:var(--accent)}
 .app-shell .section-title button{color:var(--accent)}
 .template-symbol,.style-preview{font-size:14px!important;font-style:normal;font-weight:900;letter-spacing:.03em}.template-style-picker.colour-only{grid-template-columns:62px 1fr;align-items:center}.template-style-picker.colour-only .color-options{margin:0}
+
+/* Keep every live-workout interaction aligned with the athlete's app colour. */
+.workout-screen .workout-header small{color:var(--accent-soft)}
+.workout-screen .finish-button{background:linear-gradient(90deg,var(--accent-soft),var(--accent))!important;color:var(--accent-contrast)!important}
+.workout-screen .live-progress i{background:var(--accent)}
+.workout-screen .live-exercise-title>div:first-child>span{color:var(--accent)}
+.workout-screen .exercise-title-actions>button:not(.manage-exercise){background:var(--accent-tint);color:var(--accent-ink)}
+.workout-screen .load-mode{background:var(--accent-tint)}
+.workout-screen .load-mode select{color:var(--accent-ink)}
+.workout-screen .set-row input:focus,.workout-screen .workout-note textarea:focus{border-color:var(--accent);outline:2px solid var(--accent-tint);outline-offset:1px}
+.workout-screen .set-row.complete{background:var(--accent-tint)}
+.workout-screen .set-row.complete>button{border-color:var(--accent);background:var(--accent);color:var(--accent-contrast)!important}
+.workout-screen .add-set{color:var(--accent-ink)}
+.workout-screen .bodyweight-load{border-color:var(--accent-border);background:var(--accent-tint);color:var(--accent-ink)}
+.workout-screen .add-live-exercise{border-color:var(--accent-border);background:var(--accent-tint)}
+.workout-screen .add-live-exercise>span{background:var(--accent);color:var(--accent-contrast)!important}
+.workout-screen .add-live-exercise>em{color:var(--accent-ink)}
+.workout-screen .minimized-status{background:var(--accent);color:var(--accent-contrast)!important}
+.workout-screen .minimized-exercise-row>em{color:var(--accent-ink)}
+.workout-screen .exercise-state-actions button{background:var(--accent-tint);color:var(--accent-ink)}
+.workout-screen .exercise-state-actions .unskip-exercise{background:var(--accent-tint);color:var(--accent-ink)}
+.workout-screen .workout-note{color:var(--accent-ink)}
+.live-edit-sheet .live-edit-actions button b{background:var(--accent-tint);color:var(--accent-ink)}
+.live-edit-sheet .replace-heading span,.live-edit-sheet .replace-list em{color:var(--accent-ink)}
+.live-edit-sheet .movement-icon,.add-exercise-sheet .movement-icon{background:var(--accent-tint);color:var(--accent-ink)}
+.add-exercise-sheet .replace-list em{color:var(--accent-ink)}
