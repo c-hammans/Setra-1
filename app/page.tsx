@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import Link from "next/link";
 import type { AppData, Exercise, SetLog, Template, Workout, WorkoutExercise } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
@@ -253,6 +254,7 @@ export default function Home() {
     const cachedColour=loadLocalAppColour(user?.id);if(cachedColour)setAppColour(cachedColour);
     setLoaded(true);
     setMotivation(motivations[Math.floor(Math.random()*motivations.length)]);
+    const requestedTab=new URLSearchParams(window.location.search).get("tab");if(requestedTab==="plan"||requestedTab==="history"||requestedTab==="pbs")setTab(requestedTab);
   }, [user?.id]);
   useEffect(() => { if (loaded) saveLocalDiary(data,user?.id); }, [data, loaded,user?.id]);
   useEffect(()=>{
@@ -586,7 +588,7 @@ export default function Home() {
 
       <nav className="bottom-nav" aria-label="Main navigation">{([
         ["today","⌂","Today"],["plan","▤","Plan"],["history","↗","History"],["pbs","★","PBs"]
-      ] as [Tab,string,string][]).map(([id,icon,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><span>{icon}</span><small>{label}</small></button>)}</nav>
+      ] as [Tab,string,string][]).map(([id,icon,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><span>{icon}</span><small>{label}</small></button>)}<Link href="/premium"><span>✦</span><small>Premium</small></Link></nav>
 
       {picker && <div className="overlay" onMouseDown={()=>setPicker(false)}><section className="sheet picker-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>CHOOSE A SESSION</span><h2>What are we training?</h2></div><button onClick={()=>setPicker(false)}>×</button></div><button className="picker-row blank-workout-row" disabled={workoutInProgress} onClick={startBlankWorkout}><span className="blank-workout-icon">＋</span><span><b>Add as I go</b><small>{workoutInProgress?"Finish your live workout first":"Start blank and add exercises during your session"}</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>{data.templates.map(template=><button className="picker-row" disabled={workoutInProgress} key={template.id} onClick={()=>startWorkout(template)}><span><b>{template.name}</b><small>{template.focus} · {template.exercises.length} exercises</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>)}</section></div>}
 

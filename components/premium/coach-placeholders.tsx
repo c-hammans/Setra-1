@@ -1,0 +1,3 @@
+export function CoachConversationPlaceholder(){return <div className="coach-placeholder"><div className="coach-orb">S</div><div><b>Your future training conversation</b><p>Ask about your week, progression or program. This preview does not send messages or use AI yet.</p></div><span>PREVIEW</span></div>}
+export function RecommendationPlaceholder(){return <div className="recommendation-placeholder"><span>NEXT RECOMMENDATION</span><b>Built from your training record</b><div><i/><i/><i/></div></div>}
+export function TrainingInsightPlaceholder(){return <div className="insight-placeholder"><span>WEEKLY TRAINING SIGNAL</span><div className="insight-bars"><i/><i/><i/><i/><i/><i/></div><p>Future insights will explain trends—not just display more numbers.</p></div>}
