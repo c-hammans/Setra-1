@@ -14,6 +14,11 @@ type PBResult = { exerciseId: string; name: string; weight: number; reps: string
 const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const today = localDateKey();
 const betaFeedbackEnabled = true;
+const mixHex=(foreground:string,background:string,amount:number)=>{
+  const read=(colour:string,index:number)=>Number.parseInt(colour.slice(index,index+2),16);
+  const channel=(index:number)=>Math.round(read(foreground,index)*amount+read(background,index)*(1-amount)).toString(16).padStart(2,"0");
+  return `#${channel(1)}${channel(3)}${channel(5)}`;
+};
 const localTime = (date = new Date()) => `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
 const daysAgo = (days: number) => { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); };
 
@@ -562,7 +567,7 @@ export default function Home() {
     finally{setFeedbackBusy(false)}
   }
   return (
-    <main className="app-shell" data-light-accent={lightAppColours.has(appColour)} style={{"--accent":appColour,"--accent-contrast":lightAppColours.has(appColour)?"#0F172A":"#FFFFFF"} as CSSProperties}>
+    <main className="app-shell" data-light-accent={lightAppColours.has(appColour)} style={{"--accent":appColour,"--accent-contrast":lightAppColours.has(appColour)?"#0F172A":"#FFFFFF","--accent-soft":mixHex(appColour,"#FFFFFF",.7),"--accent-ink":mixHex(appColour,"#0F172A",.72),"--accent-tint":mixHex(appColour,"#FFFFFF",.11),"--accent-border":mixHex(appColour,"#FFFFFF",.34)} as CSSProperties}>
       <header className="topbar">
         <button className="brand" onClick={() => setTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
         <button className="avatar" aria-label="Account" onClick={()=>{setDraftAppColour(appColour);setAccountOpen(true)}}>{profileInitials(user?.user_metadata?.display_name,user?.email)}</button>
