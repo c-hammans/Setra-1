@@ -127,6 +127,22 @@ const sampleExercises: Exercise[] = [
   { id: "cable-bicep-curl", name: "Cable Bicep Curl", group: "Biceps", equipment: "Cable" },
   { id: "overhead-tricep-extension", name: "Overhead Tricep Extension", group: "Triceps", equipment: "Cable" },
   { id: "skull-crusher", name: "EZ Bar Skull Crusher", group: "Triceps", equipment: "EZ Bar" },
+  { id: "machine-hip-abduction", name: "Machine Hip Abduction", group: "Glutes", equipment: "Machine" },
+  { id: "machine-hip-adduction", name: "Machine Hip Adduction", group: "Adductors", equipment: "Machine" },
+  { id: "cable-crunches", name: "Cable Crunches", group: "Core", equipment: "Cable" },
+  { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight" },
+  { id: "lying-leg-raise", name: "Lying Leg Raise", group: "Core", equipment: "Bodyweight" },
+  { id: "hanging-leg-raise", name: "Hanging Leg Raise", group: "Core", equipment: "Bodyweight" },
+  { id: "captains-chair-leg-raise", name: "Captain's Chair Leg Raise", group: "Core", equipment: "Machine" },
+  { id: "single-leg-squat", name: "Single Leg Squat", group: "Quads", equipment: "Bodyweight" },
+  { id: "single-leg-squat-to-box", name: "Single Leg Squat to Box", group: "Quads", equipment: "Bodyweight" },
+  { id: "single-leg-squat-off-box", name: "Single Leg Squat off Box", group: "Quads", equipment: "Bodyweight" },
+  { id: "pistol-squat", name: "Pistol Squat", group: "Quads", equipment: "Bodyweight" },
+  { id: "assisted-pistol-squat", name: "Assisted Pistol Squat", group: "Quads", equipment: "Bodyweight" },
+  { id: "trx-single-leg-squat", name: "TRX Single Leg Squat", group: "Quads", equipment: "Suspension Trainer" },
+  { id: "dumbbell-single-leg-squat", name: "Dumbbell Single Leg Squat", group: "Quads", equipment: "Dumbbell" },
+  { id: "kettlebell-single-leg-squat", name: "Kettlebell Single Leg Squat", group: "Quads", equipment: "Kettlebell" },
+  { id: "skater-squat", name: "Skater Squat", group: "Quads", equipment: "Bodyweight" },
 ];
 
 const sampleTemplates: Template[] = [
