@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { AppData, Exercise, SetLog, Template, Workout, WorkoutExercise } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
+import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-service";
 import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
@@ -12,6 +13,7 @@ type PBResult = { exerciseId: string; name: string; weight: number; reps: string
 
 const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const today = localDateKey();
+const betaFeedbackEnabled = true;
 const localTime = (date = new Date()) => `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
 const daysAgo = (days: number) => { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); };
 
@@ -197,6 +199,7 @@ const retryCloud = async <T,>(action:()=>Promise<T>,attempts=2):Promise<T> => {
 export default function Home() {
   const {configured,user,signOut}=useAuth();
   const diaryService=useMemo(()=>user?new DiaryService(user.id):null,[user]);
+  const feedbackService=useMemo(()=>user?new FeedbackService(user.id):null,[user]);
   const [data, setData] = useState<AppData>(initialData);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("today");
@@ -246,6 +249,12 @@ export default function Home() {
   const [accountOpen,setAccountOpen]=useState(false);
   const [appColour,setAppColour]=useState("#409ECE");
   const [draftAppColour,setDraftAppColour]=useState("#409ECE");
+  const [feedbackOpen,setFeedbackOpen]=useState(false);
+  const [feedbackCategory,setFeedbackCategory]=useState<FeedbackCategory>("general");
+  const [feedbackMessage,setFeedbackMessage]=useState("");
+  const [feedbackBusy,setFeedbackBusy]=useState(false);
+  const [feedbackSent,setFeedbackSent]=useState(false);
+  const [feedbackError,setFeedbackError]=useState("");
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
@@ -526,6 +535,16 @@ export default function Home() {
     setSelectedDate(scheduleDate);
     setScheduleTemplateId(null);
   }
+  function openFeedback(){
+    setFeedbackCategory("general");setFeedbackMessage("");setFeedbackError("");setFeedbackSent(false);setFeedbackOpen(true);
+  }
+  async function submitFeedback(event:React.FormEvent){
+    event.preventDefault();if(!feedbackService||feedbackBusy)return;
+    setFeedbackBusy(true);setFeedbackError("");
+    try{await feedbackService.submit(feedbackCategory,feedbackMessage);setFeedbackSent(true);setFeedbackMessage("")}
+    catch(error){setFeedbackError(error instanceof Error?error.message:"We couldn’t send your feedback. Please try again.")}
+    finally{setFeedbackBusy(false)}
+  }
   return (
     <main className="app-shell" data-light-accent={lightAppColours.has(appColour)} style={{"--accent":appColour,"--accent-contrast":lightAppColours.has(appColour)?"#0F172A":"#FFFFFF"} as CSSProperties}>
       <header className="topbar">
@@ -537,6 +556,7 @@ export default function Home() {
         {tab === "today" && <>
           {configured&&cloudState==="error"&&<button className="cloud-sync-chip" title={cloudMessage} onClick={()=>setAccountOpen(true)}><i/>Sync delayed <span>Details</span></button>}
           {configured&&showImport&&<div className="cloud-notice"><b>Bring your existing diary into your account</b><p>Your templates, schedule and real workout history can be copied safely. Demo workout history is excluded, and the browser copy stays here.</p><button disabled={importBusy} onClick={importBrowserDiary}>{importBusy?"Importing…":"Import browser diary"}</button></div>}
+          {betaFeedbackEnabled&&<aside className="beta-feedback-card"><span>BETA</span><div><b>Help shape Setra</b><small>Found something or have an idea?</small></div><button onClick={openFeedback}>Share feedback</button></aside>}
           <div className="eyebrow">{formatDate(selectedDate).toUpperCase()}</div>
           <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>2</strong><span>this week</span></div></div>
           <div className="calendar-controls"><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()-7);setSelectedDate(date.toISOString().slice(0,10))}}>‹</button><button className="calendar-label" onClick={()=>setCalendarOpen(!calendarOpen)}>{new Intl.DateTimeFormat("en-AU",{month:"long",year:"numeric"}).format(new Date(`${selectedDate}T12:00:00`))} <span>{calendarOpen?"⌃":"⌄"}</span></button><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+7);setSelectedDate(date.toISOString().slice(0,10))}}>›</button></div>
@@ -637,6 +657,8 @@ export default function Home() {
       {active && liveAddOpen && <div className="overlay high-overlay" onMouseDown={()=>setLiveAddOpen(false)}><section className="sheet add-exercise-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>LIVE SESSION</span><h2>Add an exercise</h2></div><button onClick={()=>setLiveAddOpen(false)}>×</button></div><label className="search"><span>⌕</span><input autoFocus value={liveAddQuery} onChange={event=>setLiveAddQuery(event.target.value)} placeholder="Search exercise, equipment or muscle" /></label><div className="replace-list">{data.exercises.filter(exercise=>!active.exercises.some(item=>item.exerciseId===exercise.id)&&`${exercise.name} ${exercise.equipment} ${exercise.group}`.toLowerCase().includes(liveAddQuery.toLowerCase())).map(exercise=><button key={exercise.id} onClick={()=>{setActive({...active,exercises:[...active.exercises,{exerciseId:exercise.id,note:"",loadMode:"kg",sets:Array.from({length:3},()=>makeSet("8"))}]});setLiveAddOpen(false)}}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><em>＋ Add</em></button>)}</div></section></div>}
 
       {historyExercise && <div className="overlay high-overlay" onMouseDown={()=>setExerciseHistoryId(null)}><section className="sheet history-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{historyExercise.group.toUpperCase()} · {historyExercise.equipment.toUpperCase()}</span><h2>{historyExercise.name}</h2></div><button onClick={()=>setExerciseHistoryId(null)}>×</button></div>{(() => { const records=data.workouts.flatMap(w=>w.exercises.filter(e=>e.exerciseId===historyExercise.id).map(e=>({workout:w,exercise:e}))); const maxes=records.map(r=>Math.max(...r.exercise.sets.map(s=>Number(s.weight)||0))); return <>{records.length>0&&<div className="progress-chart"><div className="chart-bars">{maxes.slice().reverse().map((max,i)=><i key={i} style={{height:`${25+70*max/Math.max(...maxes)}%`}}><span>{max}</span></i>)}</div><small>Best load by session (kg)</small></div>}<div className="exercise-records">{records.length?records.map(({workout,exercise})=><div key={workout.id}><span><b>{formatDate(workout.date)}</b><small>{workout.name}</small></span><p>{exercise.sets.map((set,i)=><em key={i}>{set.weight || "—"} × {set.reps || "—"}<small>{set.rpe&&` RPE ${set.rpe}`}</small></em>)}</p></div>):<p className="no-records">No completed sets yet. Start a workout to build your history.</p>}</div></>})()}</section></div>}
+
+      {feedbackOpen&&<div className="overlay high-overlay" onMouseDown={()=>setFeedbackOpen(false)}><section className="sheet beta-feedback-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>BETA FEEDBACK</span><h2>{feedbackSent?"Thank you.":"Help shape Setra"}</h2></div><button onClick={()=>setFeedbackOpen(false)} aria-label="Close">×</button></div>{feedbackSent?<div className="feedback-success"><i>✓</i><p>Your feedback has been sent. It will help guide what gets improved next.</p><button onClick={()=>setFeedbackOpen(false)}>Done</button></div>:<form onSubmit={submitFeedback}><fieldset><legend>WHAT IS THIS ABOUT?</legend>{([['general','General'],['bug','Something isn’t working'],['idea','Feature idea']] as const).map(([value,label])=><button type="button" key={value} className={feedbackCategory===value?"selected":""} onClick={()=>setFeedbackCategory(value)}>{label}</button>)}</fieldset><label>YOUR FEEDBACK<textarea autoFocus required minLength={5} maxLength={2000} value={feedbackMessage} onChange={event=>setFeedbackMessage(event.target.value)} placeholder="Tell us what happened or what would make Setra better…"/></label><small>{feedbackMessage.length} / 2000</small>{feedbackError&&<p role="alert">{feedbackError}</p>}<button className="primary-button" disabled={feedbackBusy||feedbackMessage.trim().length<5}>{feedbackBusy?"Sending…":"Send feedback"} <span>→</span></button></form>}</section></div>}
 
       {accountOpen&&<div className="overlay high-overlay" onMouseDown={()=>setAccountOpen(false)}><section className="sheet account-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>YOUR ACCOUNT</span><h2>{user?.user_metadata?.display_name||"Setra athlete"}</h2></div><button onClick={()=>setAccountOpen(false)}>×</button></div><p>{user?.email||"Local-only mode"}</p><div className="profile-colour-picker"><span>APP COLOUR:</span><div>{setraColours.map(colour=><button key={colour.value} type="button" className={draftAppColour===colour.value?"selected":""} aria-label={`Select ${colour.name} as app colour`} title={colour.name} onClick={()=>setDraftAppColour(colour.value)}><i style={{background:colour.value,color:isLightColour(colour.value)?"#0F172A":"#FFFFFF"}}>{draftAppColour===colour.value?"✓":""}</i></button>)}</div></div><button className="save-profile-colour" disabled={draftAppColour===appColour||cloudState==="loading"} onClick={()=>selectAppColour(draftAppColour)}>{cloudState==="loading"?"Saving…":draftAppColour===appColour?"Colour saved ✓":"Save colour"}</button><div className={`account-sync ${cloudState}`}><i/>{configured?(cloudState==="synced"?"Cloud diary connected":cloudState==="loading"?"Syncing your diary…":"Cloud sync needs attention"):"Saved on this device"}</div>{configured&&<button className="account-signout" onClick={async()=>{setAccountOpen(false);await signOut()}}>Sign out</button>}</section></div>}
 
