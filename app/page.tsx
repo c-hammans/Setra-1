@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import type { AppData, Exercise, SetLog, Template, Workout, WorkoutExercise } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -9,6 +9,7 @@ import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-
 import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
 import {contrastColour,useResolvedAppearance,type AppearanceMode} from "@/lib/setra/appearance";
 import {NavIcon,type NavIconName} from "@/components/navigation/nav-icon";
+import {expandedExerciseCatalogue,mergeExerciseCatalogues} from "@/lib/setra/exercise-catalogue";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = { exerciseId: string; name: string; weight: number; reps: string };
@@ -24,7 +25,7 @@ const mixHex=(foreground:string,background:string,amount:number)=>{
 const localTime = (date = new Date()) => `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
 const daysAgo = (days: number) => { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); };
 
-const sampleExercises: Exercise[] = [
+const coreExercises: Exercise[] = [
   { id: "back-squat", name: "Back Squat", group: "Quads", equipment: "Barbell" },
   { id: "bench-press", name: "Bench Press", group: "Chest", equipment: "Barbell" },
   { id: "rdl", name: "Romanian Deadlift", group: "Hamstrings", equipment: "Barbell" },
@@ -114,14 +115,14 @@ const sampleExercises: Exercise[] = [
   { id: "cable-pull-through", name: "Cable Pull Through", group: "Glutes", equipment: "Cable" },
   { id: "single-leg-hip-thrust", name: "Single Leg Hip Thrust", group: "Glutes", equipment: "Bodyweight" },
   { id: "smith-hip-thrust", name: "Smith Machine Hip Thrust", group: "Glutes", equipment: "Machine" },
-  { id: "machine-hip-thrust", name: "Machine Hip Thrust", group: "Glutes", equipment: "Machine" },
+  { id: "machine-hip-thrust", name: "Hip Thrust Machine", group: "Glutes", equipment: "Machine" },
   { id: "cable-kickback", name: "Cable Glute Kickback", group: "Glutes", equipment: "Cable" },
   { id: "machine-chest-press", name: "Machine Chest Press", group: "Chest", equipment: "Machine" },
   { id: "incline-barbell-press", name: "Incline Barbell Bench Press", group: "Chest", equipment: "Barbell" },
   { id: "incline-machine-press", name: "Incline Machine Chest Press", group: "Chest", equipment: "Machine" },
   { id: "cable-chest-fly", name: "Cable Chest Fly", group: "Chest", equipment: "Cable" },
   { id: "chest-supported-row", name: "Chest Supported Dumbbell Row", group: "Back", equipment: "Dumbbell" },
-  { id: "machine-row", name: "Machine Seated Row", group: "Back", equipment: "Machine" },
+  { id: "machine-row", name: "Seated Machine Row", group: "Back", equipment: "Machine" },
   { id: "t-bar-row", name: "T-Bar Row", group: "Back", equipment: "Machine" },
   { id: "wide-grip-lat-pulldown", name: "Wide Grip Lat Pulldown", group: "Back", equipment: "Cable" },
   { id: "narrow-grip-lat-pulldown", name: "Narrow Grip Lat Pulldown", group: "Back", equipment: "Cable" },
@@ -134,9 +135,9 @@ const sampleExercises: Exercise[] = [
   { id: "cable-bicep-curl", name: "Cable Bicep Curl", group: "Biceps", equipment: "Cable" },
   { id: "overhead-tricep-extension", name: "Overhead Tricep Extension", group: "Triceps", equipment: "Cable" },
   { id: "skull-crusher", name: "EZ Bar Skull Crusher", group: "Triceps", equipment: "EZ Bar" },
-  { id: "machine-hip-abduction", name: "Machine Hip Abduction", group: "Glutes", equipment: "Machine" },
-  { id: "machine-hip-adduction", name: "Machine Hip Adduction", group: "Adductors", equipment: "Machine" },
-  { id: "cable-crunches", name: "Cable Crunches", group: "Core", equipment: "Cable" },
+  { id: "machine-hip-abduction", name: "Hip Abduction Machine", group: "Glutes", equipment: "Machine" },
+  { id: "machine-hip-adduction", name: "Hip Adduction Machine", group: "Adductors", equipment: "Machine" },
+  { id: "cable-crunches", name: "Cable Crunch", group: "Core", equipment: "Cable" },
   { id: "leg-raises", name: "Leg Raises", group: "Core", equipment: "Bodyweight" },
   { id: "lying-leg-raise", name: "Lying Leg Raise", group: "Core", equipment: "Bodyweight" },
   { id: "hanging-leg-raise", name: "Hanging Leg Raise", group: "Core", equipment: "Bodyweight" },
@@ -150,7 +151,41 @@ const sampleExercises: Exercise[] = [
   { id: "dumbbell-single-leg-squat", name: "Dumbbell Single Leg Squat", group: "Quads", equipment: "Dumbbell" },
   { id: "kettlebell-single-leg-squat", name: "Kettlebell Single Leg Squat", group: "Quads", equipment: "Kettlebell" },
   { id: "skater-squat", name: "Skater Squat", group: "Quads", equipment: "Bodyweight" },
+  { id: "pec-deck-chest-fly", name: "Machine Chest Fly", group: "Chest", equipment: "Machine" },
+  { id: "dumbbell-chest-fly", name: "Dumbbell Chest Fly", group: "Chest", equipment: "Dumbbell" },
+  { id: "incline-dumbbell-chest-fly", name: "Incline Dumbbell Chest Fly", group: "Chest", equipment: "Dumbbell" },
+  { id: "barbell-shrug", name: "Barbell Shrug", group: "Traps", equipment: "Barbell" },
+  { id: "dumbbell-shrug", name: "Dumbbell Shrug", group: "Traps", equipment: "Dumbbell" },
+  { id: "cable-shrug", name: "Cable Shrug", group: "Traps", equipment: "Cable" },
+  { id: "machine-shrug", name: "Machine Shrug", group: "Traps", equipment: "Machine" },
+  { id: "trap-bar-shrug", name: "Trap Bar Shrug", group: "Traps", equipment: "Trap Bar" },
+  { id: "prone-trap-raise", name: "Prone Trap Raise", group: "Traps", equipment: "Dumbbell" },
+  { id: "side-plank", name: "Side Plank", group: "Obliques", equipment: "Bodyweight" },
+  { id: "side-plank-hip-dip", name: "Side Plank Hip Dip", group: "Obliques", equipment: "Bodyweight" },
+  { id: "russian-twist", name: "Russian Twist", group: "Obliques", equipment: "Bodyweight" },
+  { id: "cable-wood-chop", name: "Cable Wood Chop", group: "Obliques", equipment: "Cable" },
+  { id: "cable-reverse-wood-chop", name: "Cable Reverse Wood Chop", group: "Obliques", equipment: "Cable" },
+  { id: "landmine-rotation", name: "Landmine Rotation", group: "Obliques", equipment: "Barbell" },
+  { id: "dumbbell-side-bend", name: "Dumbbell Side Bend", group: "Obliques", equipment: "Dumbbell" },
+  { id: "pallof-isometric-hold", name: "Pallof Press Isometric Hold", group: "Obliques", equipment: "Cable" },
+  { id: "barbell-wrist-curl", name: "Barbell Wrist Curl", group: "Forearms", equipment: "Barbell" },
+  { id: "dumbbell-wrist-curl", name: "Dumbbell Wrist Curl", group: "Forearms", equipment: "Dumbbell" },
+  { id: "reverse-wrist-curl", name: "Dumbbell Reverse Wrist Curl", group: "Forearms", equipment: "Dumbbell" },
+  { id: "wrist-roller", name: "Wrist Roller", group: "Forearms", equipment: "Other" },
+  { id: "plate-pinch", name: "Plate Pinch", group: "Forearms", equipment: "Plate" },
+  { id: "reverse-barbell-curl", name: "Reverse Barbell Curl", group: "Forearms", equipment: "Barbell" },
+  { id: "dead-hang", name: "Dead Hang", group: "Forearms", equipment: "Bodyweight" },
+  { id: "wall-sit-hold", name: "Wall Sit Isometric Hold", group: "Quads", equipment: "Bodyweight" },
+  { id: "squat-isometric-hold", name: "Squat Isometric Hold", group: "Quads", equipment: "Bodyweight" },
+  { id: "split-squat-isometric-hold", name: "Split Squat Isometric Hold", group: "Quads", equipment: "Bodyweight" },
+  { id: "glute-bridge-isometric-hold", name: "Glute Bridge Isometric Hold", group: "Glutes", equipment: "Bodyweight" },
+  { id: "calf-raise-isometric-hold", name: "Calf Raise Isometric Hold", group: "Calves", equipment: "Bodyweight" },
+  { id: "push-up-isometric-hold", name: "Push Up Isometric Hold", group: "Chest", equipment: "Bodyweight" },
+  { id: "pull-up-isometric-hold", name: "Pull Up Isometric Hold", group: "Back", equipment: "Bodyweight" },
+  { id: "hollow-body-hold", name: "Hollow Body Hold", group: "Core", equipment: "Bodyweight" },
 ];
+
+const sampleExercises = mergeExerciseCatalogues(coreExercises, expandedExerciseCatalogue);
 
 const sampleTemplates: Template[] = [
   { id: "lower-a", name: "Lower A", focus: "Squat strength", color: "#409ECE", icon: "◆", exercises: [
@@ -257,6 +292,7 @@ export default function Home() {
   const [scheduleRepeat, setScheduleRepeat] = useState<"once"|"weekly"|"fortnightly">("once");
   const [scheduleWeeks, setScheduleWeeks] = useState(4);
   const [draggedExerciseIndex, setDraggedExerciseIndex] = useState<number | null>(null);
+  const draggedExerciseRef=useRef<number|null>(null);
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState("");
   const [sessionFinishTime, setSessionFinishTime] = useState("");
@@ -284,7 +320,7 @@ export default function Home() {
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
-    if(stored)setData({...stored,templates:stored.templates.map(template=>({...template,color:template.color?.toUpperCase()==="#7B61FF"?"#409ECE":template.color})),exercises:[...stored.exercises,...sampleExercises.filter(sample=>!stored.exercises.some(exercise=>exercise.id===sample.id))]});
+    if(stored)setData({...stored,templates:stored.templates.map(template=>({...template,color:template.color?.toUpperCase()==="#7B61FF"?"#409ECE":template.color})),exercises:mergeExerciseCatalogues(sampleExercises,stored.exercises)});
     setSavedDraft(loadLocalDraft(user?.id));
     const cachedColour=loadLocalAppColour(user?.id);if(cachedColour)setAppColour(cachedColour);
     const cachedAppearance=loadLocalAppearance(user?.id);if(cachedAppearance)setAppearanceMode(cachedAppearance);
@@ -312,7 +348,7 @@ export default function Home() {
       const reconciledSchedule=cloud.scheduled.filter(item=>!cloud.workouts.some(workout=>workout.date===item.date&&workout.templateId===item.templateId));
       if(reconciledSchedule.length!==cloud.scheduled.length){cloud.scheduled=reconciledSchedule;void diaryService.replaceSchedule(reconciledSchedule)}
       const hasCloudData=cloud.templates.length>0||cloud.workouts.length>0||cloud.scheduled.length>0;
-      if(hasCloudData)setData({...cloud,exercises:[...cloud.exercises,...sampleExercises.filter(sample=>!cloud.exercises.some(exercise=>exercise.id===sample.id))]});
+      if(hasCloudData)setData({...cloud,exercises:mergeExerciseCatalogues(sampleExercises,cloud.exercises)});
       if(draft){setSavedDraft(draft);saveLocalDraft(draft,user?.id)}
       const cachedColour=loadLocalAppColour(user?.id);
       if(cachedColour){setAppColour(cachedColour);if(cachedColour!==profile.appColour)void diaryService.updateAppColour(cachedColour)}
@@ -335,7 +371,7 @@ export default function Home() {
   async function importBrowserDiary(){
     if(!diaryService||!user||!canImportLegacyDiary(user.id))return;const local=loadLocalDiary();if(!local)return;
     setImportBusy(true);setCloudMessage("");
-    try{await diaryService.importLocal(local);claimLegacyDiary(user.id);const cloud=await diaryService.load();setData({...cloud,exercises:[...cloud.exercises,...sampleExercises.filter(sample=>!cloud.exercises.some(exercise=>exercise.id===sample.id))]});setShowImport(false);setCloudState("synced")}
+    try{await diaryService.importLocal(local);claimLegacyDiary(user.id);const cloud=await diaryService.load();setData({...cloud,exercises:mergeExerciseCatalogues(sampleExercises,cloud.exercises)});setShowImport(false);setCloudState("synced")}
     catch(error){setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Import failed. Nothing was removed from this browser.")}
     finally{setImportBusy(false)}
   }
@@ -547,12 +583,26 @@ export default function Home() {
     setEditor({...editor,exercises,supersetNames});
   }
   function reorderTemplateExercise(from:number,to:number) {
-    if (!editor || from===to || from<0 || to<0 || from>=editor.exercises.length || to>=editor.exercises.length) return;
-    const exercises=[...editor.exercises];
-    const [moved]=exercises.splice(from,1);
-    exercises.splice(to,0,moved);
-    setEditor({...editor,exercises});
-    setDraggedExerciseIndex(null);
+    setEditor(current=>{
+      if(!current||from===to||from<0||to<0||from>=current.exercises.length||to>=current.exercises.length)return current;
+      const exercises=[...current.exercises];const [moved]=exercises.splice(from,1);exercises.splice(to,0,moved);
+      return {...current,exercises};
+    });
+  }
+  function beginTemplateReorder(index:number,event:ReactPointerEvent<HTMLButtonElement>){
+    if(event.pointerType==="mouse"&&event.button!==0)return;
+    event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);draggedExerciseRef.current=index;setDraggedExerciseIndex(index);
+  }
+  function moveTemplateReorder(event:ReactPointerEvent<HTMLButtonElement>){
+    const from=draggedExerciseRef.current;if(from===null)return;
+    event.preventDefault();const screen=document.querySelector<HTMLElement>(".editor-screen");if(screen){const edge=90;if(event.clientY<edge)screen.scrollBy({top:-14});else if(event.clientY>window.innerHeight-edge)screen.scrollBy({top:14})}
+    const target=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>("[data-editor-index]");
+    if(!target)return;const to=Number(target.dataset.editorIndex);if(!Number.isInteger(to)||to===from)return;
+    reorderTemplateExercise(from,to);draggedExerciseRef.current=to;setDraggedExerciseIndex(to);
+  }
+  function endTemplateReorder(event:ReactPointerEvent<HTMLButtonElement>){
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+    draggedExerciseRef.current=null;setDraggedExerciseIndex(null);
   }
   function openSchedule(templateId: string) {
     setScheduleTemplateId(templateId);
@@ -675,7 +725,7 @@ export default function Home() {
           {exercise.group && <span className="superset-badge">{(active.supersetNames?.[exercise.group]||`Superset ${String.fromCharCode(65+groupIndex)}`).toUpperCase()}</span>}<div className="live-exercise-title"><div><span>{String(exerciseIndex+1).padStart(2,"0")}</span><h2>{exerciseName(exercise.exerciseId)}</h2></div><div className="exercise-title-actions"><label className="load-mode"><span>Load</span><select aria-label={`Load entry type for ${exerciseName(exercise.exerciseId)}`} value={exercise.loadMode==="text"?"band":exercise.loadMode||"kg"} onChange={event=>{const loadMode=event.target.value as "kg"|"band"|"bw";updateWorkoutExercise(exerciseIndex,{loadMode,sets:exercise.sets.map(set=>({...set,weight:loadMode==="bw"?"BW":""}))})}}><option value="kg">KG</option><option value="band">BAND</option><option value="bw">BW</option></select></label><button onClick={()=>setExerciseHistoryId(exercise.exerciseId)}>History</button><button className="manage-exercise" onClick={()=>setLiveEditIndex(exerciseIndex)} aria-label={`Edit ${exerciseName(exercise.exerciseId)}`}>•••</button></div></div>
           {(exercise.skipped||allDone)&&<div className="exercise-state-actions"><button onClick={()=>setExpandedLiveExercises(current=>{const next=new Set(current);next.delete(exerciseIndex);return next})}>Minimise ↑</button></div>}
           <div className="set-head"><span>SET</span><span>PREVIOUS</span><span>{exercise.loadMode==="band"||exercise.loadMode==="text"?"BAND":exercise.loadMode==="bw"?"BW":"KG"}</span><span>REPS</span><span>RPE</span><span /></div>
-          {exercise.sets.map((set,setIndex)=><div className={`set-row ${set.done?"complete":""}`} key={setIndex}><b>{setIndex+1}</b><small>{prev[setIndex] ? `${prev[setIndex].weight} × ${prev[setIndex].reps}` : "—"}</small>{exercise.loadMode==="bw"?<span className="bodyweight-load" aria-label={`Set ${setIndex+1} bodyweight`}>BW</span>:<input aria-label={`Set ${setIndex+1} ${exercise.loadMode==="band"||exercise.loadMode==="text"?"band":"weight"}`} inputMode={exercise.loadMode==="band"||exercise.loadMode==="text"?"text":"decimal"} maxLength={exercise.loadMode==="band"||exercise.loadMode==="text"?12:undefined} value={set.weight} placeholder={exercise.loadMode==="band"||exercise.loadMode==="text"?"Band / level":prev[setIndex]?.weight||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"weight",exercise.loadMode==="band"||exercise.loadMode==="text"?e.target.value.slice(0,12):e.target.value)}/>}<input aria-label={`Set ${setIndex+1} reps`} inputMode="numeric" value={set.reps} placeholder={exercise.repTarget||prev[setIndex]?.reps||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"reps",e.target.value)}/><input aria-label={`Set ${setIndex+1} RPE`} inputMode="decimal" value={set.rpe} placeholder="—" onChange={e=>updateSet(exerciseIndex,setIndex,"rpe",e.target.value)}/><button aria-label={`Complete set ${setIndex+1}`} onClick={()=>updateSet(exerciseIndex,setIndex,"done",!set.done)}>{set.done?"✓":""}</button></div>)}
+          {exercise.sets.map((set,setIndex)=><div className={`set-row ${set.done?"complete":""}`} key={setIndex}><b>{setIndex+1}</b><small>{prev[setIndex] ? `${prev[setIndex].weight} × ${prev[setIndex].reps}` : "—"}</small>{exercise.loadMode==="bw"?<span className="bodyweight-load" aria-label={`Set ${setIndex+1} bodyweight`}>BW</span>:<input aria-label={`Set ${setIndex+1} ${exercise.loadMode==="band"||exercise.loadMode==="text"?"band":"weight"}`} inputMode={exercise.loadMode==="band"||exercise.loadMode==="text"?"text":"decimal"} pattern={exercise.loadMode==="band"||exercise.loadMode==="text"?undefined:"[0-9]*[.,]?[0-9]*"} enterKeyHint="next" maxLength={exercise.loadMode==="band"||exercise.loadMode==="text"?12:undefined} value={set.weight} placeholder={exercise.loadMode==="band"||exercise.loadMode==="text"?"Band / level":prev[setIndex]?.weight||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"weight",exercise.loadMode==="band"||exercise.loadMode==="text"?e.target.value.slice(0,12):e.target.value)}/>}<input aria-label={`Set ${setIndex+1} reps`} inputMode="numeric" pattern="[0-9]*" enterKeyHint="next" value={set.reps} placeholder={exercise.repTarget||prev[setIndex]?.reps||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"reps",e.target.value)}/><input aria-label={`Set ${setIndex+1} RPE`} inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" enterKeyHint="done" value={set.rpe} placeholder="—" onChange={e=>updateSet(exerciseIndex,setIndex,"rpe",e.target.value)}/><button aria-label={`Complete set ${setIndex+1}`} onClick={()=>updateSet(exerciseIndex,setIndex,"done",!set.done)}>{set.done?"✓":""}</button></div>)}
           <div className="set-actions"><button className="add-set" onClick={()=>setActive({...active,exercises:active.exercises.map((item,i)=>i===exerciseIndex?{...item,sets:[...item.sets,makeSet()]}:item)})}>＋ Add set</button>{exercise.sets.length>1&&<button className="remove-set" onClick={()=>setActive({...active,exercises:active.exercises.map((item,i)=>i===exerciseIndex?{...item,sets:item.sets.slice(0,-1)}:item)})}>− Remove last set</button>}</div></>}
         </article>})}<button className="add-live-exercise" onClick={()=>{setLiveAddQuery("");setLiveAddOpen(true)}}><span>＋</span><div><b>Add exercise</b><small>Add another movement to this session</small></div><em>→</em></button><label className="workout-note">SESSION NOTE<textarea value={active.note} onChange={e=>setActive({...active,note:e.target.value})} placeholder="How did it feel? Anything to remember?" /></label></div>
       </div>}
@@ -712,16 +762,16 @@ export default function Home() {
           <label>WORKOUT NAME<input value={editor.name} onChange={event=>setEditor({...editor,name:event.target.value})} placeholder="e.g. Lower B" /></label>
           <label>FOCUS<input value={editor.focus} onChange={event=>setEditor({...editor,focus:event.target.value})} placeholder="e.g. Hinge + single-leg" /></label>
           <div className="template-style-picker colour-only"><span>WORKOUT COLOUR</span><div className="style-preview" style={{background:editor.color||"#409ECE",color:isLightColour(editor.color)?"#000000":"#FFFFFF",border:editor.color==="#FFFFFF"?"1px solid #E6E9EE":"none"}}>{workoutInitials(editor.name||"Workout")}</div><div className="color-options">{setraColours.map(colour=><button aria-label={`Choose ${colour.name}`} title={colour.name} className={editor.color===colour.value?"selected":""} style={{background:colour.value}} key={colour.value} onClick={()=>setEditor({...editor,color:colour.value})}/>)}</div></div>
-          <div className="editor-exercises"><span>EXERCISES</span>{editor.exercises.map((item,index)=>{
+          <div className="editor-exercises"><span>EXERCISES <small>PRESS AND DRAG TO REORDER</small></span>{editor.exercises.map((item,index)=>{
             const groups=[...new Set(editor.exercises.map(exercise=>exercise.group).filter((group):group is string=>Boolean(group)))];
             const groupIndex=item.group?groups.indexOf(item.group):-1;
             const firstInGroup=Boolean(item.group)&&editor.exercises.findIndex(exercise=>exercise.group===item.group)===index;
             const fallbackName=`Superset ${String.fromCharCode(65+groupIndex)}`;
-            return <div draggable className={`${item.group?`grouped-editor-exercise superset-color-${groupIndex%4}`:""} ${draggedExerciseIndex===index?"dragging-exercise":""}`} key={`${item.exerciseId}-${index}`} onDragStart={event=>{setDraggedExerciseIndex(index);event.dataTransfer.effectAllowed="move"}} onDragOver={event=>{event.preventDefault();event.dataTransfer.dropEffect="move"}} onDrop={event=>{event.preventDefault();if(draggedExerciseIndex!==null)reorderTemplateExercise(draggedExerciseIndex,index)}} onDragEnd={()=>setDraggedExerciseIndex(null)}>
-              <span className="drag-handle" aria-hidden="true">⋮⋮</span>
+            return <div data-editor-index={index} className={`${item.group?`grouped-editor-exercise superset-color-${groupIndex%4}`:""} ${draggedExerciseIndex===index?"dragging-exercise":""}`} key={item.exerciseId}>
+              <button type="button" className="drag-handle" aria-label={`Reorder ${exerciseName(item.exerciseId)}`} title="Press and drag to reorder" onPointerDown={event=>beginTemplateReorder(index,event)} onPointerMove={moveTemplateReorder} onPointerUp={endTemplateReorder} onPointerCancel={endTemplateReorder} onKeyDown={event=>{if(event.key==="ArrowUp"&&index>0){event.preventDefault();reorderTemplateExercise(index,index-1)}if(event.key==="ArrowDown"&&index<editor.exercises.length-1){event.preventDefault();reorderTemplateExercise(index,index+1)}}}>⠿</button>
               <b>{exerciseName(item.exerciseId)}</b>
-              <label>Sets<input inputMode="numeric" value={item.sets} onChange={event=>setEditor({...editor,exercises:editor.exercises.map((exercise,exerciseIndex)=>exerciseIndex===index?{...exercise,sets:Number(event.target.value)}:exercise)})}/></label>
-              <label>Reps<input value={item.reps} onChange={event=>setEditor({...editor,exercises:editor.exercises.map((exercise,exerciseIndex)=>exerciseIndex===index?{...exercise,reps:event.target.value}:exercise)})}/></label>
+              <label>Sets<input inputMode="numeric" pattern="[0-9]*" enterKeyHint="next" value={item.sets} onChange={event=>setEditor({...editor,exercises:editor.exercises.map((exercise,exerciseIndex)=>exerciseIndex===index?{...exercise,sets:Number(event.target.value)}:exercise)})}/></label>
+              <label>Reps<input inputMode="numeric" pattern="[0-9-]*" enterKeyHint="next" value={item.reps} onChange={event=>setEditor({...editor,exercises:editor.exercises.map((exercise,exerciseIndex)=>exerciseIndex===index?{...exercise,reps:event.target.value}:exercise)})}/></label>
               <button className="remove-template-exercise" onClick={()=>removeTemplateExercise(index)} aria-label={`Remove ${exerciseName(item.exerciseId)}`}>×</button>
               {item.group&&<small className="editor-superset-label">{(editor.supersetNames?.[item.group]||fallbackName).toUpperCase()}</small>}
               {firstInGroup&&item.group&&<label className="superset-name-input">SUPERSET NAME (OPTIONAL)<input maxLength={30} value={editor.supersetNames?.[item.group]||""} placeholder={fallbackName} onChange={event=>setEditor({...editor,supersetNames:{...editor.supersetNames,[item.group!]:event.target.value}})}/></label>}
