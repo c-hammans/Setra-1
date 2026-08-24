@@ -8,6 +8,7 @@ import {loadLocalAppearance,loadLocalAppColour} from "@/lib/data/local-diary";
 import {usePremiumAccess} from "@/lib/premium/use-premium-access";
 import {contrastColour,useResolvedAppearance,type AppearanceMode} from "@/lib/setra/appearance";
 import "./premium.css";
+import {NavIcon} from "@/components/navigation/nav-icon";
 
 export default function PremiumPage(){
   const {user}=useAuth();
@@ -45,6 +46,6 @@ export default function PremiumPage(){
 
     <section className="premium-waitlist" id="early-access"><span>EARLY ACCESS</span>{joined?<div className="waitlist-success"><i>✓</i><h2>You’re on the list.</h2><p>We’ll use your account email to keep you informed as Setra Premium develops.</p></div>:<><h2>Help shape what comes next.</h2><p>Register your interest in AI Coach, deeper insights and future Premium tools. There is no payment and no subscription yet.</p><form onSubmit={submitWaitlist}><label>EMAIL<input type="email" required value={email} readOnly={Boolean(user?.email)} onChange={event=>setEmail(event.target.value)} placeholder="you@example.com"/></label><button disabled={busy}>{busy?"Joining…":"Join early access"} <b>→</b></button></form>{message&&<small role="alert">{message}</small>}<em>Coming soon · No payment details required</em></>}</section>
 
-    <nav className="premium-bottom-nav" aria-label="Main navigation"><Link href="/"><span>⌂</span><small>Today</small></Link><Link href="/?tab=plan"><span>▤</span><small>Plan</small></Link><Link href="/?tab=history"><span>↗</span><small>History</small></Link><Link href="/?tab=pbs"><span>★</span><small>PBs</small></Link><Link className="selected" href="/premium"><span>✦</span><small>Premium</small></Link></nav>
+    <nav className="premium-bottom-nav" aria-label="Main navigation"><Link href="/"><NavIcon name="today"/><small>Today</small></Link><Link href="/?tab=plan"><NavIcon name="plan"/><small>Plan</small></Link><Link href="/?tab=history"><NavIcon name="history"/><small>History</small></Link><Link href="/?tab=pbs"><NavIcon name="pbs"/><small>PBs</small></Link><Link className="selected" href="/premium"><NavIcon name="premium"/><small>Premium</small></Link></nav>
   </main>;
 }

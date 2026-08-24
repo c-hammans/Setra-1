@@ -8,6 +8,7 @@ import { DiaryService } from "@/lib/data/diary-service";
 import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-service";
 import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
 import {contrastColour,useResolvedAppearance,type AppearanceMode} from "@/lib/setra/appearance";
+import {NavIcon,type NavIconName} from "@/components/navigation/nav-icon";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = { exerciseId: string; name: string; weight: number; reps: string };
@@ -279,6 +280,7 @@ export default function Home() {
   const [feedbackSent,setFeedbackSent]=useState(false);
   const [feedbackError,setFeedbackError]=useState("");
   const resolvedAppearance=useResolvedAppearance(appearanceMode);
+  const prominentLayerOpen=Boolean(active||editor||picker||scheduleTemplateId||finishDialogOpen||newPBs.length||completedShare||detailId||deleteWorkoutId||deleteTemplateId||liveEditIndex!==null||liveAddOpen||exerciseHistoryId||feedbackOpen);
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
@@ -292,6 +294,16 @@ export default function Home() {
   }, [user?.id]);
   useEffect(() => { if (loaded) saveLocalDiary(data,user?.id); }, [data, loaded,user?.id]);
   useEffect(()=>{if(liveEditIndex!==null)setLiveSwapQuery("")},[liveEditIndex]);
+  useEffect(()=>{
+    if(!prominentLayerOpen)return;
+    const scrollY=window.scrollY;
+    const body=document.body;
+    const root=document.documentElement;
+    const previous={position:body.style.position,top:body.style.top,width:body.style.width,overflow:body.style.overflow,rootOverflow:root.style.overflow,rootOverscroll:root.style.overscrollBehavior};
+    body.style.position="fixed";body.style.top=`-${scrollY}px`;body.style.width="100%";body.style.overflow="hidden";
+    root.style.overflow="hidden";root.style.overscrollBehavior="none";
+    return()=>{body.style.position=previous.position;body.style.top=previous.top;body.style.width=previous.width;body.style.overflow=previous.overflow;root.style.overflow=previous.rootOverflow;root.style.overscrollBehavior=previous.rootOverscroll;window.scrollTo(0,scrollY)};
+  },[prominentLayerOpen]);
   useEffect(()=>{
     if(!loaded||!diaryService)return;
     let cancelled=false;setCloudState("loading");
@@ -632,8 +644,8 @@ export default function Home() {
       </section>
 
       <nav className="bottom-nav" aria-label="Main navigation">{([
-        ["today","⌂","Today"],["plan","▤","Plan"],["history","↗","History"],["pbs","★","PBs"]
-      ] as [Tab,string,string][]).map(([id,icon,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><span>{icon}</span><small>{label}</small></button>)}<Link href="/premium"><span>✦</span><small>Premium</small></Link></nav>
+        ["today","Today"],["plan","Plan"],["history","History"],["pbs","PBs"]
+      ] as [Tab,string][]).map(([id,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><NavIcon name={id as NavIconName}/><small>{label}</small></button>)}<Link href="/premium"><NavIcon name="premium"/><small>Premium</small></Link></nav>
 
       {picker && <div className="overlay" onMouseDown={()=>setPicker(false)}><section className="sheet picker-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>CHOOSE A SESSION</span><h2>What are we training?</h2></div><button onClick={()=>setPicker(false)}>×</button></div><button className="picker-row blank-workout-row" disabled={workoutInProgress} onClick={startBlankWorkout}><span className="blank-workout-icon">＋</span><span><b>Add as I go</b><small>{workoutInProgress?"Finish your live workout first":"Start blank and add exercises during your session"}</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>{data.templates.map(template=><button className="picker-row" disabled={workoutInProgress} key={template.id} onClick={()=>startWorkout(template)}><span><b>{template.name}</b><small>{template.focus} · {template.exercises.length} exercises</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>)}</section></div>}
 
