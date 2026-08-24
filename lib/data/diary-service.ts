@@ -11,13 +11,13 @@ export class DiaryService {
   private supabase:SupabaseClient;
   constructor(private userId:string){this.supabase=createClient()}
 
-  async loadProfile():Promise<{displayName:string;appColour:string}>{
-    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();
+  async loadProfile():Promise<{displayName:string;appColour:string;showWorkoutTimingPopup:boolean;showPbPopup:boolean}>{
+    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour,show_workout_timing_popup,show_pb_popup").eq("id",this.userId).single();
     if(error){
-      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:"#409ECE"}}
+      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:fallback.data.app_colour||"#409ECE",showWorkoutTimingPopup:true,showPbPopup:true}}
       throw error;
     }
-    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE"};
+    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE",showWorkoutTimingPopup:data.show_workout_timing_popup!==false,showPbPopup:data.show_pb_popup!==false};
   }
 
   async updateAppColour(appColour:string){
