@@ -152,3 +152,9 @@ body,body *{font-family:var(--font-inter),Inter,Arial,sans-serif!important}.set-
 .app-shell[data-theme="dark"] .picker-row small{color:var(--muted)}
 .app-shell[data-theme="dark"] .delete-workout-button,
 .app-shell[data-theme="dark"] .delete-template-button{background:#2a171b;color:#ff9a9a;border-color:#63323a}
+.app-shell[data-theme="dark"] .round-add{border:1px solid color-mix(in srgb,var(--accent) 70%,white);background:var(--accent);color:var(--accent-contrast);box-shadow:0 5px 18px #0005}
+.app-shell[data-theme="dark"] .template-actions button:not(:first-child){border-color:#48515f;background:#232a34;color:#f4f6f8;box-shadow:inset 0 0 0 1px #ffffff08}
+.app-shell[data-theme="dark"] .template-actions button:not(:first-child):active{border-color:var(--accent);background:var(--accent-tint);color:var(--accent-ink)}
+.app-shell[data-theme="dark"] .template-actions button:disabled{border-color:#343b45!important;background:#202630!important;color:#8f99a5!important}
+.app-shell[data-theme="dark"] .editor-exercises .remove-template-exercise{border:1px solid #63323a;background:#2a171b;color:#ff9a9a}
+.app-shell[data-theme="dark"] .drag-handle{color:#b1bbc6}
