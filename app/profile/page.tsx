@@ -32,7 +32,7 @@ export default function ProfilePage(){
   const theme={"--accent":settings.appColour,"--accent-contrast":contrast,"--accent-soft":mixHex(settings.appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(settings.appColour,"#FFFFFF",.76):mixHex(settings.appColour,"#0F172A",.72),"--accent-tint":mixHex(settings.appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(settings.appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34)} as CSSProperties;
 
   return <main className="profile-screen" style={theme} data-light-accent={contrast==="#0F172A"} data-theme={resolvedAppearance}>
-    <header className="profile-header"><Link href="/" aria-label="Back to Setra">‹</Link><b>Profile</b><span/></header>
+    <header className="profile-header"><Link href="/" aria-label="Back to Setra"><span aria-hidden="true">‹</span></Link><b>Profile</b><span/></header>
     <div className="profile-content">
       <section className="profile-identity"><span>{initials(settings.displayName,user?.email)}</span><div><small>{subscription.tier==="premium"?"SETRA PREMIUM":"SETRA ATHLETE"}</small><h1>{settings.displayName||"Your profile"}</h1><p>{user?.email}</p></div></section>
 
