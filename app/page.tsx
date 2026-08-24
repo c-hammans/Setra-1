@@ -6,7 +6,8 @@ import type { AppData, Exercise, SetLog, Template, Workout, WorkoutExercise } fr
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
 import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-service";
-import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
+import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
+import {contrastColour,useResolvedAppearance,type AppearanceMode} from "@/lib/setra/appearance";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = { exerciseId: string; name: string; weight: number; reps: string };
@@ -185,7 +186,6 @@ const sampleWorkouts: Workout[] = [
 const initialData: AppData = { exercises: sampleExercises, templates: sampleTemplates, workouts: sampleWorkouts, scheduled: [{ date: today, templateId: "lower-a" }] };
 const motivations = ["Ready when you are.","Built for what’s next.","Strong starts here.","Show up and get stronger.","One set at a time.","Make today count.","Progress starts now.","Your strength is building.","Keep the momentum.","Today is yours.","Put in the work.","Go build something strong.","Small steps. Big goals.","Stronger with every set.","This is your time.","Earn tomorrow’s strength.","Move with purpose.","Start steady. End strong.","You’ve got this.","Ready. Set. Build.","Build the next version.","Train with purpose.","Make this session count.","The work starts now.","Own every rep.","Keep showing up.","Strength happens here.","One more strong day.","Begin where you are.","Let’s get stronger."];
 const setraColours = [{name:"Blue",value:"#409ECE"},{name:"Coral",value:"#FF6B6B"},{name:"Yellow",value:"#F6C445"},{name:"Green",value:"#55B96D"},{name:"Purple",value:"#8B72D9"},{name:"Black",value:"#000000"},{name:"White",value:"#FFFFFF"}];
-const lightAppColours=new Set(["#F6C445","#FFFFFF"]);
 const pbGraphics = [{name:"Trophy",index:0},{name:"Dumbbell",index:1},{name:"Barbell",index:2},{name:"Kettlebell",index:3},{name:"Strength",index:4},{name:"Crown",index:5}];
 const formatDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 const formatLongDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`));
@@ -269,6 +269,7 @@ export default function Home() {
   const [showImport,setShowImport]=useState(false);
   const [importBusy,setImportBusy]=useState(false);
   const [appColour,setAppColour]=useState("#409ECE");
+  const [appearanceMode,setAppearanceMode]=useState<AppearanceMode>("system");
   const [showWorkoutTimingPopup,setShowWorkoutTimingPopup]=useState(true);
   const [showPbPopup,setShowPbPopup]=useState(true);
   const [feedbackOpen,setFeedbackOpen]=useState(false);
@@ -277,12 +278,14 @@ export default function Home() {
   const [feedbackBusy,setFeedbackBusy]=useState(false);
   const [feedbackSent,setFeedbackSent]=useState(false);
   const [feedbackError,setFeedbackError]=useState("");
+  const resolvedAppearance=useResolvedAppearance(appearanceMode);
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
     if(stored)setData({...stored,templates:stored.templates.map(template=>({...template,color:template.color?.toUpperCase()==="#7B61FF"?"#409ECE":template.color})),exercises:[...stored.exercises,...sampleExercises.filter(sample=>!stored.exercises.some(exercise=>exercise.id===sample.id))]});
     setSavedDraft(loadLocalDraft(user?.id));
     const cachedColour=loadLocalAppColour(user?.id);if(cachedColour)setAppColour(cachedColour);
+    const cachedAppearance=loadLocalAppearance(user?.id);if(cachedAppearance)setAppearanceMode(cachedAppearance);
     setLoaded(true);
     setMotivation(motivations[Math.floor(Math.random()*motivations.length)]);
     const requestedTab=new URLSearchParams(window.location.search).get("tab");if(requestedTab==="plan"||requestedTab==="history"||requestedTab==="pbs")setTab(requestedTab);
@@ -302,6 +305,7 @@ export default function Home() {
       const cachedColour=loadLocalAppColour(user?.id);
       if(cachedColour){setAppColour(cachedColour);if(cachedColour!==profile.appColour)void diaryService.updateAppColour(cachedColour)}
       else{setAppColour(profile.appColour);saveLocalAppColour(profile.appColour,user?.id)}
+      setAppearanceMode(profile.appearanceMode);saveLocalAppearance(profile.appearanceMode,user?.id);
       setShowWorkoutTimingPopup(profile.showWorkoutTimingPopup);setShowPbPopup(profile.showPbPopup);
       const local=loadLocalDiary();const summary=local?localImportSummary(local):null;
       if(hasCloudData&&local&&canImportLegacyDiary(user!.id))claimLegacyDiary(user!.id);
@@ -567,7 +571,7 @@ export default function Home() {
     finally{setFeedbackBusy(false)}
   }
   return (
-    <main className="app-shell" data-light-accent={lightAppColours.has(appColour)} style={{"--accent":appColour,"--accent-contrast":lightAppColours.has(appColour)?"#0F172A":"#FFFFFF","--accent-soft":mixHex(appColour,"#FFFFFF",.7),"--accent-ink":mixHex(appColour,"#0F172A",.72),"--accent-tint":mixHex(appColour,"#FFFFFF",.11),"--accent-border":mixHex(appColour,"#FFFFFF",.34)} as CSSProperties}>
+    <main className="app-shell" data-light-accent={contrastColour(appColour)==="#0F172A"} data-theme={resolvedAppearance} style={{"--accent":appColour,"--accent-contrast":contrastColour(appColour),"--accent-soft":mixHex(appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(appColour,"#FFFFFF",.76):mixHex(appColour,"#0F172A",.72),"--accent-tint":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34)} as CSSProperties}>
       <header className="topbar">
         <button className="brand" onClick={() => setTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
         <Link className="avatar" href="/profile" aria-label="Open profile">{profileInitials(user?.user_metadata?.display_name,user?.email)}</Link>

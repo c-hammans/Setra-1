@@ -1,9 +1,11 @@
 import type { AppData, Workout } from "@/lib/setra/types";
+import type {AppearanceMode} from "@/lib/setra/appearance";
 
 const DIARY_KEY="form-strength-diary";
 const DRAFT_KEY="form-active-workout";
 const OWNER_KEY="form-strength-diary-owner";
 const APP_COLOUR_KEY="form-app-colour";
+const APPEARANCE_KEY="form-appearance";
 const accountKey=(base:string,userId?:string|null)=>userId?`${base}:${userId}`:base;
 
 export function loadLocalDiary(userId?:string|null):AppData|null{
@@ -18,6 +20,8 @@ export function canImportLegacyDiary(userId:string){if(typeof window==="undefine
 export function claimLegacyDiary(userId:string){if(typeof window!=="undefined")window.localStorage.setItem(OWNER_KEY,userId)}
 export function loadLocalAppColour(userId?:string|null){if(typeof window==="undefined")return null;return window.localStorage.getItem(accountKey(APP_COLOUR_KEY,userId))}
 export function saveLocalAppColour(colour:string,userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(APP_COLOUR_KEY,userId),colour)}
+export function loadLocalAppearance(userId?:string|null):AppearanceMode|null{if(typeof window==="undefined")return null;const value=window.localStorage.getItem(accountKey(APPEARANCE_KEY,userId));return value==="light"||value==="dark"||value==="system"?value:null}
+export function saveLocalAppearance(mode:AppearanceMode,userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(APPEARANCE_KEY,userId),mode)}
 
 export function localImportSummary(data:AppData){
   const workouts=data.workouts.filter(workout=>!workout.id.startsWith("sample-"));

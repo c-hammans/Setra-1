@@ -106,3 +106,49 @@ body,body *{font-family:var(--font-inter),Inter,Arial,sans-serif!important}.set-
 .add-exercise-sheet .replace-list em{color:var(--accent-ink)}
 .live-edit-sheet .live-swap-search{flex:none;margin-bottom:9px}.live-swap-results{max-height:min(600px,42dvh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.live-swap-results>button{min-height:60px}.live-swap-results>button:focus-visible{position:relative;z-index:1;outline:2px solid var(--accent);outline-offset:-2px}
 .avatar{display:grid;place-items:center;color:var(--ink);text-decoration:none}
+.picker-sheet .picker-row em{color:var(--accent-ink)}.picker-sheet .blank-workout-icon{background:var(--accent);color:var(--accent-contrast)!important}.picker-sheet .blank-workout-row{border-color:var(--accent-border);background:var(--accent-tint)}
+.app-shell[data-theme="dark"]{--ink:#f4f6f8;--muted:#a1abb6;--paper:#0b0f16;--card:#151a22;--line:#2d333d;min-height:100dvh;background:linear-gradient(145deg,#111821,#080b10);color:var(--ink)}.app-shell[data-theme="dark"] .topbar{border-color:#ffffff12}.app-shell[data-theme="dark"] .week-strip,.app-shell[data-theme="dark"] .history-tabs{background:#1a2029}.app-shell[data-theme="dark"] .month-calendar,.app-shell[data-theme="dark"] .recent-card,.app-shell[data-theme="dark"] .history-row,.app-shell[data-theme="dark"] .template-card,.app-shell[data-theme="dark"] .library-list,.app-shell[data-theme="dark"] .library-row,.app-shell[data-theme="dark"] .search,.app-shell[data-theme="dark"] .sheet,.app-shell[data-theme="dark"] .live-exercise,.app-shell[data-theme="dark"] .editor-exercises>div,.app-shell[data-theme="dark"] .editor-library-list,.app-shell[data-theme="dark"] .editor-library-list>button,.app-shell[data-theme="dark"] .replace-list,.app-shell[data-theme="dark"] .replace-list>button,.app-shell[data-theme="dark"] .minimized-exercise-row{border-color:var(--line);background:var(--card);color:var(--ink)}.app-shell[data-theme="dark"] .workout-screen,.app-shell[data-theme="dark"] .editor-screen{background:var(--paper);color:var(--ink)}.app-shell[data-theme="dark"] .set-row input,.app-shell[data-theme="dark"] .workout-note textarea,.app-shell[data-theme="dark"] .editor-body input,.app-shell[data-theme="dark"] .editor-exercises input,.app-shell[data-theme="dark"] .schedule-field input,.app-shell[data-theme="dark"] .schedule-field select,.app-shell[data-theme="dark"] .schedule-date-control,.app-shell[data-theme="dark"] .session-time-fields input,.app-shell[data-theme="dark"] .beta-feedback-sheet textarea{border-color:#353c47;background:#0f141c;color:#f4f6f8}.app-shell[data-theme="dark"] .picker-row{border-color:var(--line);color:var(--ink)}.app-shell[data-theme="dark"] .picker-row:not(.blank-workout-row){background:transparent}.app-shell[data-theme="dark"] .template-copy small,.app-shell[data-theme="dark"] .recent-date,.app-shell[data-theme="dark"] .history-date,.app-shell[data-theme="dark"] .bodyweight-load{background:#202630;color:#dce2e8}.app-shell[data-theme="dark"] .sheet-title button,.app-shell[data-theme="dark"] .finish-time-close,.app-shell[data-theme="dark"] .pb-close{background:#272e38;color:#f4f6f8}.app-shell[data-theme="dark"] .empty-card{border-color:#414955}.app-shell[data-theme="dark"] .stats-row,.app-shell[data-theme="dark"] .resume-card,.app-shell[data-theme="dark"] .hero-card{background:#111720}.app-shell[data-theme="dark"] .day.active-day,.app-shell[data-theme="dark"] .month-grid button.selected-date{background:var(--accent);color:var(--accent-contrast)}.app-shell[data-theme="dark"] .cloud-sync-chip{border-color:#303741;background:#181e26;color:#b9c2cb}.app-shell[data-theme="dark"] .cloud-sync-chip span{color:#c7cfd7}.app-shell[data-theme="dark"] .beta-feedback-card,.app-shell[data-theme="dark"] .completed-card,.app-shell[data-theme="dark"] .picker-sheet .blank-workout-row{color:var(--ink)}.app-shell[data-theme="dark"] input::placeholder,.app-shell[data-theme="dark"] textarea::placeholder{color:#7e8995}
+
+/* User-selected accent and accessible dark appearance */
+.picker-sheet .picker-row em{color:var(--accent)!important}
+.app-shell[data-theme="dark"]{color-scheme:dark}
+.app-shell[data-theme="dark"] .template-style-picker,
+.app-shell[data-theme="dark"] .pb-list,
+.app-shell[data-theme="dark"] .pb-list>button,
+.app-shell[data-theme="dark"] .detail-note,
+.app-shell[data-theme="dark"] .exercise-records em,
+.app-shell[data-theme="dark"] .schedule-date-control,
+.app-shell[data-theme="dark"] .finish-time-dialog,
+.app-shell[data-theme="dark"] .session-share-dialog,
+.app-shell[data-theme="dark"] .confirm-dialog,
+.app-shell[data-theme="dark"] .save-session-template,
+.app-shell[data-theme="dark"] .schedule-summary,
+.app-shell[data-theme="dark"] .feedback-success{border-color:var(--line);background:var(--card);color:var(--ink)}
+.app-shell[data-theme="dark"] .calendar-controls button,
+.app-shell[data-theme="dark"] .month-grid button,
+.app-shell[data-theme="dark"] .history-tabs button,
+.app-shell[data-theme="dark"] .template-actions button:not(:first-child),
+.app-shell[data-theme="dark"] .detail-exercise,
+.app-shell[data-theme="dark"] .live-edit-actions button,
+.app-shell[data-theme="dark"] .repeat-options button,
+.app-shell[data-theme="dark"] .pb-style-options button,
+.app-shell[data-theme="dark"] .pb-graphic-options button,
+.app-shell[data-theme="dark"] .pb-record-selector button{color:var(--ink)}
+.app-shell[data-theme="dark"] .history-tabs button.active,
+.app-shell[data-theme="dark"] .repeat-options button.active,
+.app-shell[data-theme="dark"] .pb-style-options button.active,
+.app-shell[data-theme="dark"] .pb-graphic-options button.active,
+.app-shell[data-theme="dark"] .pb-record-selector button.active{border-color:var(--accent);background:var(--accent-tint);color:var(--accent-ink)}
+.app-shell[data-theme="dark"] .search input,
+.app-shell[data-theme="dark"] .superset-name-input,
+.app-shell[data-theme="dark"] .save-session-template input{background:transparent;color:var(--ink)}
+.app-shell[data-theme="dark"] .add-live-exercise,
+.app-shell[data-theme="dark"] .manage-exercise,
+.app-shell[data-theme="dark"] .live-exercise-title button{background:#202630;color:var(--accent-ink)}
+.app-shell[data-theme="dark"] .set-row.complete{background:var(--accent-tint)}
+.app-shell[data-theme="dark"] .set-head,
+.app-shell[data-theme="dark"] .set-row>small,
+.app-shell[data-theme="dark"] .detail-exercise small,
+.app-shell[data-theme="dark"] .picker-row small{color:var(--muted)}
+.app-shell[data-theme="dark"] .delete-workout-button,
+.app-shell[data-theme="dark"] .delete-template-button{background:#2a171b;color:#ff9a9a;border-color:#63323a}
