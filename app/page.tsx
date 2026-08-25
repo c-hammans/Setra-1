@@ -6,8 +6,8 @@ import type { AppData, Exercise, SetLog, Template, Workout, WorkoutExercise } fr
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
 import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-service";
-import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft } from "@/lib/data/local-diary";
-import {contrastColour,useResolvedAppearance,type AppearanceMode} from "@/lib/setra/appearance";
+import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, loadLocalTextScale, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft, saveLocalTextScale } from "@/lib/data/local-diary";
+import {contrastColour,textScalePercent,useResolvedAppearance,type AppearanceMode,type TextScale} from "@/lib/setra/appearance";
 import {NavIcon,type NavIconName} from "@/components/navigation/nav-icon";
 import {expandedExerciseCatalogue,mergeExerciseCatalogues} from "@/lib/setra/exercise-catalogue";
 
@@ -307,6 +307,7 @@ export default function Home() {
   const [importBusy,setImportBusy]=useState(false);
   const [appColour,setAppColour]=useState("#409ECE");
   const [appearanceMode,setAppearanceMode]=useState<AppearanceMode>("system");
+  const [textScale,setTextScale]=useState<TextScale>(1);
   const [showWorkoutTimingPopup,setShowWorkoutTimingPopup]=useState(true);
   const [showPbPopup,setShowPbPopup]=useState(true);
   const [feedbackOpen,setFeedbackOpen]=useState(false);
@@ -324,6 +325,7 @@ export default function Home() {
     setSavedDraft(loadLocalDraft(user?.id));
     const cachedColour=loadLocalAppColour(user?.id);if(cachedColour)setAppColour(cachedColour);
     const cachedAppearance=loadLocalAppearance(user?.id);if(cachedAppearance)setAppearanceMode(cachedAppearance);
+    const cachedTextScale=loadLocalTextScale(user?.id);if(cachedTextScale)setTextScale(cachedTextScale);
     setLoaded(true);
     setMotivation(motivations[Math.floor(Math.random()*motivations.length)]);
     const requestedTab=new URLSearchParams(window.location.search).get("tab");if(requestedTab==="plan"||requestedTab==="history"||requestedTab==="pbs")setTab(requestedTab);
@@ -354,6 +356,7 @@ export default function Home() {
       if(cachedColour){setAppColour(cachedColour);if(cachedColour!==profile.appColour)void diaryService.updateAppColour(cachedColour)}
       else{setAppColour(profile.appColour);saveLocalAppColour(profile.appColour,user?.id)}
       setAppearanceMode(profile.appearanceMode);saveLocalAppearance(profile.appearanceMode,user?.id);
+      setTextScale(profile.textScale);saveLocalTextScale(profile.textScale,user?.id);
       setShowWorkoutTimingPopup(profile.showWorkoutTimingPopup);setShowPbPopup(profile.showPbPopup);
       const local=loadLocalDiary();const summary=local?localImportSummary(local):null;
       if(hasCloudData&&local&&canImportLegacyDiary(user!.id))claimLegacyDiary(user!.id);
@@ -633,7 +636,7 @@ export default function Home() {
     finally{setFeedbackBusy(false)}
   }
   return (
-    <main className="app-shell" data-light-accent={contrastColour(appColour)==="#0F172A"} data-theme={resolvedAppearance} style={{"--accent":appColour,"--accent-contrast":contrastColour(appColour),"--accent-soft":mixHex(appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(appColour,"#FFFFFF",.76):mixHex(appColour,"#0F172A",.72),"--accent-tint":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34)} as CSSProperties}>
+    <main className="app-shell" data-light-accent={contrastColour(appColour)==="#0F172A"} data-theme={resolvedAppearance} style={{"--accent":appColour,"--accent-contrast":contrastColour(appColour),"--accent-soft":mixHex(appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(appColour,"#FFFFFF",.76):mixHex(appColour,"#0F172A",.72),"--accent-tint":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34),"--text-scale-percent":textScalePercent(textScale),"--text-scale-number":textScale} as CSSProperties}>
       <header className="topbar">
         <button className="brand" onClick={() => setTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
         <Link className="avatar" href="/profile" aria-label="Open profile">{profileInitials(user?.user_metadata?.display_name,user?.email)}</Link>

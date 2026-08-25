@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import type { AppData, Exercise, LoadMode, ScheduledWorkout, Template, Workout } from "@/lib/setra/types";
-import type {AppearanceMode} from "@/lib/setra/appearance";
+import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
 import { localImportSummary } from "./local-diary";
 
 // Supabase rows remain runtime-validated by the mapping below until generated DB types are added.
@@ -12,13 +12,13 @@ export class DiaryService {
   private supabase:SupabaseClient;
   constructor(private userId:string){this.supabase=createClient()}
 
-  async loadProfile():Promise<{displayName:string;appColour:string;appearanceMode:AppearanceMode;showWorkoutTimingPopup:boolean;showPbPopup:boolean}>{
-    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour,appearance_mode,show_workout_timing_popup,show_pb_popup").eq("id",this.userId).single();
+  async loadProfile():Promise<{displayName:string;appColour:string;appearanceMode:AppearanceMode;textScale:TextScale;showWorkoutTimingPopup:boolean;showPbPopup:boolean}>{
+    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour,appearance_mode,text_scale,show_workout_timing_popup,show_pb_popup").eq("id",this.userId).single();
     if(error){
-      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:fallback.data.app_colour||"#409ECE",appearanceMode:"system",showWorkoutTimingPopup:true,showPbPopup:true}}
+      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:fallback.data.app_colour||"#409ECE",appearanceMode:"system",textScale:1,showWorkoutTimingPopup:true,showPbPopup:true}}
       throw error;
     }
-    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE",appearanceMode:data.appearance_mode==="light"||data.appearance_mode==="dark"?data.appearance_mode:"system",showWorkoutTimingPopup:data.show_workout_timing_popup!==false,showPbPopup:data.show_pb_popup!==false};
+    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE",appearanceMode:data.appearance_mode==="light"||data.appearance_mode==="dark"?data.appearance_mode:"system",textScale:[1,1.1,1.2,1.3].includes(Number(data.text_scale))?Number(data.text_scale) as TextScale:1,showWorkoutTimingPopup:data.show_workout_timing_popup!==false,showPbPopup:data.show_pb_popup!==false};
   }
 
   async updateAppColour(appColour:string){

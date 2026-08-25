@@ -4,9 +4,9 @@ import Link from "next/link";
 import {useEffect,useState,type CSSProperties} from "react";
 import {useAuth} from "@/components/auth/auth-provider";
 import {CoachConversationPlaceholder,PremiumBadge,PremiumFeatureCard,RecommendationPlaceholder,TrainingInsightPlaceholder} from "@/components/premium";
-import {loadLocalAppearance,loadLocalAppColour} from "@/lib/data/local-diary";
+import {loadLocalAppearance,loadLocalAppColour,loadLocalTextScale} from "@/lib/data/local-diary";
 import {usePremiumAccess} from "@/lib/premium/use-premium-access";
-import {contrastColour,useResolvedAppearance,type AppearanceMode} from "@/lib/setra/appearance";
+import {contrastColour,textScalePercent,useResolvedAppearance,type AppearanceMode,type TextScale} from "@/lib/setra/appearance";
 import "./premium.css";
 import {NavIcon} from "@/components/navigation/nav-icon";
 
@@ -15,13 +15,14 @@ export default function PremiumPage(){
   const {subscription,service}=usePremiumAccess();
   const [appColour,setAppColour]=useState("#409ECE");
   const [appearanceMode,setAppearanceMode]=useState<AppearanceMode>("system");
+  const [textScale,setTextScale]=useState<TextScale>(1);
   const [email,setEmail]=useState(user?.email||"");
   const [joined,setJoined]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
 
   const resolvedAppearance=useResolvedAppearance(appearanceMode);
-  useEffect(()=>{const colour=loadLocalAppColour(user?.id);const appearance=loadLocalAppearance(user?.id);if(colour)setAppColour(colour);if(appearance)setAppearanceMode(appearance)},[user?.id]);
+  useEffect(()=>{const colour=loadLocalAppColour(user?.id);const appearance=loadLocalAppearance(user?.id);const scale=loadLocalTextScale(user?.id);if(colour)setAppColour(colour);if(appearance)setAppearanceMode(appearance);if(scale)setTextScale(scale)},[user?.id]);
   useEffect(()=>{if(user?.email)setEmail(user.email)},[user?.email]);
   useEffect(()=>{if(!service)return;service.hasJoinedWaitlist().then(setJoined).catch(()=>setJoined(false))},[service]);
 
@@ -31,7 +32,7 @@ export default function PremiumPage(){
   }
 
   const contrast=contrastColour(appColour);
-  return <main className="premium-shell" data-theme={resolvedAppearance} style={{"--accent":appColour,"--accent-contrast":contrast} as CSSProperties}>
+  return <main className="premium-shell" data-theme={resolvedAppearance} style={{"--accent":appColour,"--accent-contrast":contrast,"--text-scale-percent":textScalePercent(textScale),"--text-scale-number":textScale} as CSSProperties}>
     <header className="premium-topbar"><Link className="premium-brand" href="/"><span className="premium-brand-mark"/><b>setra</b></Link><PremiumBadge/></header>
 
     <section className="premium-hero"><span>THE NEXT LAYER OF YOUR TRAINING DIARY</span><h1>The work<br/><em>adds up.</em></h1><p>Setra Premium is being designed to turn the training you already record into clearer decisions, more personal programming and a coach that understands your history.</p><a href="#early-access">Join early access <b>→</b></a><div className="premium-status"><i/>{subscription.tier==="premium"?"Premium access active":"Premium is in development"}</div></section>

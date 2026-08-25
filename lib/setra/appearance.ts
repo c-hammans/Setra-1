@@ -3,6 +3,9 @@
 import {useEffect,useState} from "react";
 
 export type AppearanceMode="light"|"dark"|"system";
+export type TextScale=1|1.1|1.2|1.3;
+
+export const textScalePercent=(scale:TextScale)=>`${Math.round(scale*100)}%`;
 
 export function useResolvedAppearance(mode:AppearanceMode){
   const [systemDark,setSystemDark]=useState(false);
