@@ -7,9 +7,9 @@ export const metadata: Metadata = {
   title: "setra — The work adds up.",
   description: "Your training diary for strength and beyond. Plan, log and look back.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
+    icon: "/favicon-v4.svg",
+    shortcut: "/favicon-v4.svg",
+    apple: "/favicon-v4.svg",
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
