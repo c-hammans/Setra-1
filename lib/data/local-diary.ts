@@ -1,4 +1,4 @@
-import type { AppData, Workout } from "@/lib/setra/types";
+import type { AppData, EnduranceSession, Workout } from "@/lib/setra/types";
 import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
 
 const DIARY_KEY="form-strength-diary";
@@ -7,6 +7,7 @@ const OWNER_KEY="form-strength-diary-owner";
 const APP_COLOUR_KEY="form-app-colour";
 const APPEARANCE_KEY="form-appearance";
 const TEXT_SCALE_KEY="form-text-scale";
+const ENDURANCE_KEY="form-endurance-sessions";
 const accountKey=(base:string,userId?:string|null)=>userId?`${base}:${userId}`:base;
 
 export function loadLocalDiary(userId?:string|null):AppData|null{
@@ -25,6 +26,8 @@ export function loadLocalAppearance(userId?:string|null):AppearanceMode|null{if(
 export function saveLocalAppearance(mode:AppearanceMode,userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(APPEARANCE_KEY,userId),mode)}
 export function loadLocalTextScale(userId?:string|null):TextScale|null{if(typeof window==="undefined")return null;const value=Number(window.localStorage.getItem(accountKey(TEXT_SCALE_KEY,userId)));return value===1||value===1.1||value===1.2||value===1.3?value:null}
 export function saveLocalTextScale(scale:TextScale,userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(TEXT_SCALE_KEY,userId),String(scale))}
+export function loadLocalEnduranceSessions(userId?:string|null):EnduranceSession[]{if(typeof window==="undefined")return [];try{const value=window.localStorage.getItem(accountKey(ENDURANCE_KEY,userId));return value?JSON.parse(value) as EnduranceSession[]:[]}catch{return []}}
+export function saveLocalEnduranceSessions(sessions:EnduranceSession[],userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(ENDURANCE_KEY,userId),JSON.stringify(sessions))}
 
 export function localImportSummary(data:AppData){
   const workouts=data.workouts.filter(workout=>!workout.id.startsWith("sample-"));
