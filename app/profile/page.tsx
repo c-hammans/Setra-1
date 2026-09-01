@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {useRouter} from "next/navigation";
 import {useEffect,useMemo,useState,type CSSProperties} from "react";
 import {useAuth} from "@/components/auth/auth-provider";
 import {loadLocalAppearance,loadLocalAppColour,loadLocalTextScale,saveLocalAppearance,saveLocalAppColour,saveLocalTextScale} from "@/lib/data/local-diary";
@@ -16,6 +17,7 @@ const initials=(name:string,email?:string)=>{const words=name.trim().split(/\s+/
 
 export default function ProfilePage(){
   const {user,signOut}=useAuth();
+  const router=useRouter();
   const {subscription}=usePremiumAccess();
   const service=useMemo(()=>user?new ProfileService(user.id):null,[user]);
   const [settings,setSettings]=useState<ProfileSettings>(defaults);
@@ -27,7 +29,7 @@ export default function ProfilePage(){
 
   useEffect(()=>{if(!service)return;const cached=loadLocalAppColour(user?.id);const cachedAppearance=loadLocalAppearance(user?.id);const cachedTextScale=loadLocalTextScale(user?.id);if(cached||cachedAppearance||cachedTextScale)setSettings(current=>({...current,...(cached?{appColour:cached}:{}),...(cachedAppearance?{appearanceMode:cachedAppearance}:{}),...(cachedTextScale?{textScale:cachedTextScale}:{})}));service.load().then(profile=>{const next={...profile,displayName:profile.displayName||user?.user_metadata?.display_name||""};setSettings(next);setSaved(next);saveLocalTextScale(next.textScale,user?.id)}).catch(error=>setMessage(error instanceof Error?error.message:"Profile settings could not be loaded.")).finally(()=>setLoading(false))},[service,user?.id,user?.user_metadata?.display_name]);
   const dirty=JSON.stringify(settings)!==JSON.stringify(saved);
-  async function save(){if(!service||saving)return;setSaving(true);setMessage("");try{await service.save(settings);saveLocalAppColour(settings.appColour,user?.id);saveLocalAppearance(settings.appearanceMode,user?.id);saveLocalTextScale(settings.textScale,user?.id);setSaved(settings);setMessage("Settings saved ✓")}catch(error){setMessage(error instanceof Error?error.message:"Settings could not be saved.")}finally{setSaving(false)}}
+  async function save(){if(!service||saving)return;setSaving(true);setMessage("");try{await service.save(settings);saveLocalAppColour(settings.appColour,user?.id);saveLocalAppearance(settings.appearanceMode,user?.id);saveLocalTextScale(settings.textScale,user?.id);setSaved(settings);router.replace("/")}catch(error){setMessage(error instanceof Error?error.message:"Settings could not be saved.")}finally{setSaving(false)}}
   const contrast=contrastColour(settings.appColour);
   const theme={"--accent":settings.appColour,"--accent-contrast":contrast,"--accent-soft":mixHex(settings.appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(settings.appColour,"#FFFFFF",.76):mixHex(settings.appColour,"#0F172A",.72),"--accent-tint":mixHex(settings.appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(settings.appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34),"--text-scale-percent":textScalePercent(settings.textScale),"--text-scale-number":settings.textScale} as CSSProperties;
 
