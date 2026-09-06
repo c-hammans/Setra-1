@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import type { AppData, EnduranceSession, Exercise, SetLog, Template, TemplateExercise, TrainingPreference, Workout, WorkoutExercise } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -8,7 +8,7 @@ import { DiaryService } from "@/lib/data/diary-service";
 import { TrainingSessionService } from "@/lib/data/training-session-service";
 import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-service";
 import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, loadLocalEnduranceSessions, loadLocalTextScale, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft, saveLocalEnduranceSessions, saveLocalTextScale } from "@/lib/data/local-diary";
-import {contrastColour,textScalePercent,useResolvedAppearance,type AppearanceMode,type TextScale} from "@/lib/setra/appearance";
+import {contrastColour,createSetraTheme,useResolvedAppearance,type AppearanceMode,type TextScale} from "@/lib/setra/appearance";
 import {NavIcon,type NavIconName} from "@/components/navigation/nav-icon";
 import {expandedExerciseCatalogue,mergeExerciseCatalogues} from "@/lib/setra/exercise-catalogue";
 import {activityLabel,activityShort,EnduranceSessionSheet} from "@/components/endurance/endurance-session-sheet";
@@ -21,11 +21,6 @@ type PBResult = { exerciseId: string; name: string; weight: number; reps: string
 const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const today = localDateKey();
 const betaFeedbackEnabled = true;
-const mixHex=(foreground:string,background:string,amount:number)=>{
-  const read=(colour:string,index:number)=>Number.parseInt(colour.slice(index,index+2),16);
-  const channel=(index:number)=>Math.round(read(foreground,index)*amount+read(background,index)*(1-amount)).toString(16).padStart(2,"0");
-  return `#${channel(1)}${channel(3)}${channel(5)}`;
-};
 const localTime = (date = new Date()) => `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
 const daysAgo = (days: number) => { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); };
 
@@ -721,13 +716,13 @@ export default function Home() {
     finally{setFeedbackBusy(false)}
   }
   return (
-    <main className="app-shell" data-light-accent={contrastColour(appColour)==="#0F172A"} data-theme={resolvedAppearance} style={{"--accent":appColour,"--accent-contrast":contrastColour(appColour),"--accent-soft":mixHex(appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(appColour,"#FFFFFF",.76):mixHex(appColour,"#0F172A",.72),"--accent-tint":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34),"--text-scale-percent":textScalePercent(textScale),"--text-scale-number":textScale} as CSSProperties}>
+    <main className="app-shell" data-light-accent={contrastColour(appColour)==="#0F172A"} data-theme={resolvedAppearance} style={createSetraTheme(appColour,resolvedAppearance,textScale)}>
       <header className="topbar">
         <button className="brand" onClick={() => setTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
         <Link className="avatar" href="/profile" aria-label="Open profile">{profileInitials(user?.user_metadata?.display_name,user?.email)}</Link>
       </header>
 
-      <section className="content">
+      <section className={`content content-${tab}`}>
         {tab === "today" && <>
           {configured&&cloudState==="error"&&<Link className="cloud-sync-chip" title={cloudMessage} href="/profile"><i/>Sync delayed <span>Details</span></Link>}
           {configured&&showImport&&<div className="cloud-notice"><b>Bring your existing diary into your account</b><p>Your templates, schedule and real workout history can be copied safely. Demo workout history is excluded, and the browser copy stays here.</p><button disabled={importBusy} onClick={importBrowserDiary}>{importBusy?"Importing…":"Import browser diary"}</button></div>}

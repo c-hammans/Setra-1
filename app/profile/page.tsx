@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import {useRouter} from "next/navigation";
-import {useEffect,useMemo,useState,type CSSProperties} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {useAuth} from "@/components/auth/auth-provider";
 import {loadLocalAppearance,loadLocalAppColour,loadLocalTextScale,saveLocalAppearance,saveLocalAppColour,saveLocalTextScale} from "@/lib/data/local-diary";
 import {ProfileService,type ProfileSettings} from "@/lib/profile/profile-service";
 import {usePremiumAccess} from "@/lib/premium/use-premium-access";
-import {contrastColour,textScalePercent,useResolvedAppearance,type TextScale} from "@/lib/setra/appearance";
+import {contrastColour,createSetraTheme,useResolvedAppearance,type TextScale} from "@/lib/setra/appearance";
 import "./profile.css";
 
 const colours=[{name:"Blue",value:"#409ECE"},{name:"Coral",value:"#FF6B6B"},{name:"Yellow",value:"#F6C445"},{name:"Green",value:"#55B96D"},{name:"Purple",value:"#8B72D9"},{name:"Grey",value:"#6B7280"}];
 const defaults:ProfileSettings={displayName:"",fullName:"",dateOfBirth:"",preferredUnit:"kg",trainingGoal:"",experienceLevel:"",trainingPreference:"strength",appColour:"#409ECE",appearanceMode:"system",textScale:1,showWorkoutTimingPopup:true,showPbPopup:true};
-const mixHex=(foreground:string,background:string,amount:number)=>{const read=(colour:string,index:number)=>Number.parseInt(colour.slice(index,index+2),16);const channel=(index:number)=>Math.round(read(foreground,index)*amount+read(background,index)*(1-amount)).toString(16).padStart(2,"0");return `#${channel(1)}${channel(3)}${channel(5)}`};
 const initials=(name:string,email?:string)=>{const words=name.trim().split(/\s+/).filter(Boolean);return (words.length?words.map(word=>word[0]).join("").slice(0,3):(email?.[0]||"S")).toUpperCase()};
 
 export default function ProfilePage(){
@@ -31,7 +30,7 @@ export default function ProfilePage(){
   const dirty=JSON.stringify(settings)!==JSON.stringify(saved);
   async function save(){if(!service||saving)return;setSaving(true);setMessage("");try{await service.save(settings);saveLocalAppColour(settings.appColour,user?.id);saveLocalAppearance(settings.appearanceMode,user?.id);saveLocalTextScale(settings.textScale,user?.id);setSaved(settings);router.replace("/")}catch(error){setMessage(error instanceof Error?error.message:"Settings could not be saved.")}finally{setSaving(false)}}
   const contrast=contrastColour(settings.appColour);
-  const theme={"--accent":settings.appColour,"--accent-contrast":contrast,"--accent-soft":mixHex(settings.appColour,"#FFFFFF",resolvedAppearance==="dark"?.78:.7),"--accent-ink":resolvedAppearance==="dark"?mixHex(settings.appColour,"#FFFFFF",.76):mixHex(settings.appColour,"#0F172A",.72),"--accent-tint":mixHex(settings.appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.18:.11),"--accent-border":mixHex(settings.appColour,resolvedAppearance==="dark"?"#10151D":"#FFFFFF",resolvedAppearance==="dark"?.5:.34),"--text-scale-percent":textScalePercent(settings.textScale),"--text-scale-number":settings.textScale} as CSSProperties;
+  const theme=createSetraTheme(settings.appColour,resolvedAppearance,settings.textScale);
 
   return <main className="profile-screen" style={theme} data-light-accent={contrast==="#0F172A"} data-theme={resolvedAppearance}>
     <header className="profile-header"><Link href="/" aria-label="Back to Setra"><span aria-hidden="true">‹</span></Link><b>Profile</b><span/></header>
