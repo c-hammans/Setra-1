@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
-import type { AppData, EnduranceSession, Exercise, SetLog, Template, TrainingPreference, Workout, WorkoutExercise } from "@/lib/setra/types";
+import type { AppData, EnduranceSession, Exercise, SetLog, Template, TemplateExercise, TrainingPreference, Workout, WorkoutExercise } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
 import { TrainingSessionService } from "@/lib/data/training-session-service";
@@ -207,6 +207,18 @@ const sampleTemplates: Template[] = [
 ];
 
 const makeSet = (reps = ""): SetLog => ({ reps, weight: "", rpe: "", done: false, note: "" });
+const liveExerciseFromTemplate = (item:TemplateExercise):WorkoutExercise => {
+  const isRange=(item.reps.match(/\d+/g)?.length??0)>1;
+  return {exerciseId:item.exerciseId,group:item.group,note:"",planNote:item.note||"",repTarget:item.reps,loadMode:"kg",sets:Array.from({length:item.sets},()=>makeSet(isRange?"":item.reps.replace(/\D/g,"")))};
+};
+const restoreMissingTemplateExercises = (workout:Workout,template?:Template):Workout => {
+  if(!template||template.exercises.length<=workout.exercises.length)return workout;
+  const remaining=new Map<string,number>();
+  workout.exercises.forEach(item=>remaining.set(item.exerciseId,(remaining.get(item.exerciseId)||0)+1));
+  const missing=template.exercises.filter(item=>{const count=remaining.get(item.exerciseId)||0;if(count>0){remaining.set(item.exerciseId,count-1);return false}return true});
+  if(!missing.length)return workout;
+  return {...workout,supersetNames:{...template.supersetNames,...workout.supersetNames},exercises:[...workout.exercises,...missing.map(liveExerciseFromTemplate)]};
+};
 const sampleWorkouts: Workout[] = [
   { id: "sample-1", templateId: "lower-a", name: "Lower A", date: daysAgo(4), startedAt: "07:10", duration: 52, note: "Good session. Add 2.5 kg next week.", exercises: [
     { exerciseId: "back-squat", note: "", sets: [[5,60,7],[5,65,7],[5,67.5,8],[5,67.5,8]].map(([r,w,e]) => ({reps:String(r),weight:String(w),rpe:String(e),done:true})) },
@@ -383,7 +395,7 @@ export default function Home() {
       if(reconciledSchedule.length!==cloud.scheduled.length){cloud.scheduled=reconciledSchedule;void diaryService.replaceSchedule(reconciledSchedule)}
       const hasCloudData=cloud.templates.length>0||cloud.workouts.length>0||cloud.scheduled.length>0;
       if(hasCloudData)setData({...cloud,exercises:mergeExerciseCatalogues(sampleExercises,cloud.exercises)});
-      if(draft){setSavedDraft(draft);saveLocalDraft(draft,user?.id)}
+      if(draft){const restoredDraft=restoreMissingTemplateExercises(draft,cloud.templates.find(template=>template.id===draft.templateId));setSavedDraft(restoredDraft);saveLocalDraft(restoredDraft,user?.id)}
       const cachedColour=loadLocalAppColour(user?.id);
       if(cachedColour){setAppColour(cachedColour);if(cachedColour!==profile.appColour)void diaryService.updateAppColour(cachedColour)}
       else{setAppColour(profile.appColour);saveLocalAppColour(profile.appColour,user?.id)}
@@ -447,10 +459,7 @@ export default function Home() {
     setExpandedLiveExercises(new Set());
     setWarmupExpanded(true);
     setEditingWorkoutId(null);
-    setActive({ id: `workout-${workoutDate}-${data.workouts.length+1}-${template.id}`, templateId: template.id, name: template.name, date: workoutDate, startedAt: localTime(), duration: 0, note: "", supersetNames: template.supersetNames, warmup:(template.warmup||[]).map(item=>({...item,done:false})), exercises: template.exercises.map(item => {
-      const isRange = (item.reps.match(/\d+/g)?.length ?? 0) > 1;
-      return { exerciseId: item.exerciseId, group: item.group, note: "", planNote:item.note||"", repTarget:item.reps, loadMode:"kg" as const, sets: Array.from({ length: item.sets }, () => makeSet(isRange ? "" : item.reps.replace(/\D/g, ""))) };
-    }) });
+    setActive({ id: `workout-${workoutDate}-${data.workouts.length+1}-${template.id}`, templateId: template.id, name: template.name, date: workoutDate, startedAt: localTime(), duration: 0, note: "", supersetNames: template.supersetNames, warmup:(template.warmup||[]).map(item=>({...item,done:false})), exercises: template.exercises.map(liveExerciseFromTemplate) });
     setPicker(false);
   }
   function startBlankWorkout() {
@@ -730,7 +739,7 @@ export default function Home() {
 
           {showEndurance&&<section className={`training-quick-actions preference-${trainingPreference}`}><span>QUICK ACTIONS</span><div><button onClick={()=>isHybrid?setTrainingAction("plan"):setEnduranceEditor({mode:"plan"})}><i>○</i><b>Plan session</b></button><button onClick={()=>isHybrid?setTrainingAction("log"):setEnduranceEditor({mode:"log"})}><i>＋</i><b>Log activity</b></button></div></section>}
 
-          {showStrength&&savedDraft?.date===selectedDate&&<article className="resume-card"><div><span>WORKOUT IN PROGRESS</span><h2>{savedDraft.name}</h2><p>{savedDraft.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)} of {savedDraft.exercises.reduce((sum,e)=>sum+e.sets.length,0)} sets complete</p></div><button onClick={()=>{setExpandedLiveExercises(new Set());setActive(savedDraft);setSavedDraft(null)}}>Resume →</button></article>}
+          {showStrength&&savedDraft?.date===selectedDate&&<article className="resume-card"><div><span>WORKOUT IN PROGRESS</span><h2>{savedDraft.name}</h2><p>{savedDraft.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0)} of {savedDraft.exercises.reduce((sum,e)=>sum+e.sets.length,0)} sets complete</p></div><button onClick={()=>{const restoredDraft=restoreMissingTemplateExercises(savedDraft,data.templates.find(template=>template.id===savedDraft.templateId));setExpandedLiveExercises(new Set());setActive(restoredDraft);setSavedDraft(null)}}>Resume →</button></article>}
 
           {showEndurance&&plannedEndurance.map(session=><article className="endurance-planned-card" key={session.id}><header><span className="activity-pill">{activityShort(session.activityType)}</span><div><small>PLANNED {activityLabel(session.activityType).toUpperCase()}</small><h2>{session.title}</h2></div><button onClick={()=>setEnduranceDetailId(session.id)}>•••</button></header><p>{enduranceSummary(session)}</p>{session.blocks.length>0&&<div className="endurance-block-preview"><EnduranceBlockDisplay session={session}/></div>}<div className="endurance-card-actions"><button onClick={()=>setEnduranceEditor({mode:"plan",initial:session})}>Edit plan</button><button className="primary-endurance-action" onClick={()=>setEnduranceEditor({mode:"log",initial:session})}>Complete →</button></div></article>)}
 
