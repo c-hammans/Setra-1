@@ -14,9 +14,11 @@ export type CloudSyncState = "local" | "loading" | "synced" | "error";
 export type TrainingPreference = "strength"|"endurance"|"hybrid";
 export type TrainingActivityType = "run"|"bike"|"swim"|"row"|"walk_hike"|"elliptical"|"cross_training"|"custom";
 export type TrainingSessionStatus = "planned"|"in_progress"|"completed"|"cancelled";
-export type TrainingBlockType = "warmup"|"main"|"interval"|"recovery"|"cooldown"|"custom"|"repeat_group";
+export type TrainingBlockType = "warmup"|"main"|"interval"|"recovery"|"rest"|"cooldown"|"custom"|"repeat_group";
 export type TrainingCompletionType = "open"|"time"|"distance"|"lap_button";
-export type TrainingTargetMetric = "pace"|"speed"|"heart_rate"|"power"|"cadence"|"rpe"|"effort";
+export type TrainingTargetMetric = "pace"|"speed"|"heart_rate"|"heart_rate_zone"|"power"|"power_zone"|"cadence"|"rpe"|"effort"|"custom";
+export type TrainingEnvironment = "unspecified"|"outdoor"|"indoor"|"treadmill"|"track"|"pool"|"open_water"|"trainer"|"erg";
+export type TrainingCategory = "easy"|"long"|"tempo"|"threshold"|"intervals"|"recovery"|"race"|"technique"|"custom";
 export type TrainingSessionBlock = {
   id:string;
   type:TrainingBlockType;
@@ -33,6 +35,7 @@ export type TrainingSessionBlock = {
   targetMinValue?:number;
   targetMaxValue?:number;
   targetUnit?:string;
+  stroke?:string;
   providerMetadata?:Record<string,unknown>;
   parentId?:string;
 };
@@ -46,6 +49,9 @@ export type EnduranceSession = {
   plannedDurationMinutes?:number;
   plannedDistanceKm?:number;
   targetRpe?:number;
+  environment?:TrainingEnvironment;
+  category?:TrainingCategory;
+  plannedSessionId?:string;
   startedAt?:string;
   endedAt?:string;
   durationMinutes?:number;
@@ -59,5 +65,7 @@ export type EnduranceSession = {
   notes:string;
   blocks:TrainingSessionBlock[];
   source?:string;
+  externalProvider?:string;
+  externalActivityId?:string;
   completedAt?:string;
 };
