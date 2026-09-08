@@ -3,7 +3,7 @@ import type {ShareCardData,ShareMetric,ShareSport} from "@/lib/share/share-types
 
 const clock=(seconds:number)=>{const rounded=Math.max(0,Math.round(seconds));const hours=Math.floor(rounded/3600);const minutes=Math.floor((rounded%3600)/60);const secs=rounded%60;return hours?`${hours}:${String(minutes).padStart(2,"0")}:${String(secs).padStart(2,"0")}`:`${minutes}:${String(secs).padStart(2,"0")}`};
 const duration=(minutes?:number)=>minutes?clock(minutes*60):"";
-const sessionDuration=(start:string,finish?:string)=>{if(!finish)return"";const [sh,sm]=start.split(":").map(Number);const [fh,fm]=finish.split(":").map(Number);let mins=fh*60+fm-(sh*60+sm);if(mins<0)mins+=1440;const hours=Math.floor(mins/60),remainder=mins%60;return[hours?`${hours}h`:"",remainder?`${remainder}m`:""].filter(Boolean).join(" ")||"0m"};
+const sessionDuration=(start:string,finish?:string)=>{if(!finish)return"";const [sh,sm]=start.split(":").map(Number);const [fh,fm]=finish.split(":").map(Number);let mins=fh*60+fm-(sh*60+sm);if(mins<0)mins+=1440;if(mins<=0)return"";const hours=Math.floor(mins/60),remainder=mins%60;return[hours?`${hours}h`:"",remainder?`${remainder}m`:""].filter(Boolean).join(" ")};
 const compactNumber=(value:number)=>new Intl.NumberFormat("en-AU",{maximumFractionDigits:value>=100?0:2}).format(value);
 const activityNames:Record<EnduranceSession["activityType"],string>={run:"Run",bike:"Ride",swim:"Swim",row:"Row",walk_hike:"Walk / hike",elliptical:"Elliptical",cross_training:"Cross-training",custom:"Endurance"};
 
