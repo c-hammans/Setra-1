@@ -219,3 +219,22 @@ html,body{background:#fff}.app-shell{background:var(--surface-page);color:var(--
 
 .app-shell[data-theme="dark"]{background:var(--surface-page);color:var(--text-primary)}.app-shell[data-theme="dark"] .week-strip,.app-shell[data-theme="dark"] .history-tabs,.app-shell[data-theme="dark"] .empty-card,.app-shell[data-theme="dark"] .beta-feedback-card{background:var(--surface-neutral)}.app-shell[data-theme="dark"] .recent-card,.app-shell[data-theme="dark"] .history-row,.app-shell[data-theme="dark"] .template-card,.app-shell[data-theme="dark"] .library-list,.app-shell[data-theme="dark"] .library-row,.app-shell[data-theme="dark"] .pb-list,.app-shell[data-theme="dark"] .pb-list>button,.app-shell[data-theme="dark"] .completed-card,.app-shell[data-theme="dark"] .live-exercise,.app-shell[data-theme="dark"] .editor-exercises>div,.app-shell[data-theme="dark"] .template-style-picker,.app-shell[data-theme="dark"] .warmup-builder{border-color:var(--border-subtle);background:var(--surface-card);color:var(--text-primary)}.app-shell[data-theme="dark"] .bottom-nav{border-color:var(--border-subtle);background:color-mix(in srgb,var(--surface-card) 94%,transparent)}
 @media(max-width:430px){.content{padding:10px 16px 36px}.page-heading{margin-bottom:18px}.hero-card{padding:18px}.hero-card h2{margin-top:22px}.resume-card{padding:15px 16px}.calendar-controls{margin-top:14px}.bottom-nav{width:calc(100% - 24px)}.beta-feedback-card{margin-top:8px}}
+
+/* Bring the full-page strength builder into the compact endurance editor language. */
+.editor-screen{background:var(--surface-page);color:var(--text-primary)}
+.editor-screen>.workout-header{height:calc(63px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 12px 0;background:color-mix(in srgb,var(--surface-page) 92%,transparent);color:var(--text-primary);border-bottom:1px solid var(--border-subtle);box-shadow:none;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.editor-screen>.strength-editor-header{grid-template-columns:minmax(0,1fr) 38px;gap:12px}
+.editor-screen>.strength-editor-header>div{min-width:0;text-align:left}
+.editor-screen>.strength-editor-header .strength-editor-close{display:grid;place-items:center;width:38px;height:38px;padding:0;border:0;border-radius:12px;background:var(--surface-neutral);color:var(--text-primary);font-size:calc(20px * var(--text-scale-number,1));line-height:1}
+.editor-screen>.workout-header small{color:var(--accent-ink);font-size:calc(8px * var(--text-scale-number,1));letter-spacing:.12em}
+.editor-screen>.workout-header b{font-size:calc(14px * var(--text-scale-number,1));font-weight:800}
+.editor-screen .strength-editor-save{position:fixed;z-index:72;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(calc(100% - 24px),656px);min-height:50px;margin:0;transform:translateX(-50%);border-radius:13px;background:var(--accent)!important;color:var(--accent-contrast)!important;box-shadow:0 12px 34px color-mix(in srgb,var(--accent) 28%,transparent)}
+.editor-screen>.editor-body{max-width:680px;padding:14px 12px calc(112px + env(safe-area-inset-bottom,0px))}
+.editor-body>label{gap:5px;margin-bottom:9px;padding:11px 12px;border-radius:13px;background:var(--surface-card);box-shadow:var(--shadow-card)}
+.editor-body>label>input{height:42px;margin-top:0;border:0;background:var(--surface-neutral)}
+.editor-screen .template-style-picker,.editor-screen .warmup-builder,.editor-screen .editor-exercises>div{border:0;border-radius:15px;background:var(--surface-card);box-shadow:var(--shadow-card)}
+.editor-screen .warmup-builder{margin:18px 0;padding:13px}
+.editor-screen .editor-exercises{margin-top:20px}
+.editor-screen .exercise-picker{margin-top:22px}
+.editor-screen .exercise-picker>.search{border:0;background:var(--surface-card);box-shadow:var(--shadow-card)}
+.app-shell[data-theme=dark] .editor-body>label{background:var(--surface-card)}
