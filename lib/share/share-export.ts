@@ -6,8 +6,6 @@ const loadImage=(src:string)=>new Promise<HTMLImageElement>((resolve,reject)=>{c
 const fitText=(context:CanvasRenderingContext2D,text:string,maxWidth:number,start:number,min:number)=>{let size=start;while(size>min){context.font=`900 ${size}px Inter, Arial, sans-serif`;if(context.measureText(text).width<=maxWidth)break;size-=2}return size};
 const roundedRect=(context:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number)=>{context.beginPath();context.roundRect(x,y,w,h,r)};
 const drawCover=(context:CanvasRenderingContext2D,image:HTMLImageElement,width:number,height:number,xFocus:number,yFocus:number)=>{const scale=Math.max(width/image.width,height/image.height);const w=image.width*scale,h=image.height*scale;const x=(width-w)*(xFocus/100),y=(height-h)*(yFocus/100);context.drawImage(image,x,y,w,h)};
-const sportShort:Record<ShareCardData["sport"],string>={strength:"STR",run:"RUN",bike:"RIDE",swim:"SWIM",row:"ROW",walk_hike:"WALK",elliptical:"ELLIP",cross_training:"CROSS",custom:"END"};
-
 async function drawMark(context:CanvasRenderingContext2D,colour:string,x:number,y:number,size:number){
   const svg=await fetch("/setra-mark-v4.svg").then(response=>response.text());
   const tinted=svg.replace(/#000/g,colour);
@@ -36,11 +34,10 @@ export async function renderShareImage(data:ShareCardData,options:ShareRenderOpt
     context.font="800 36px Inter, Arial, sans-serif";context.fillText(data.title,790,145,680);
     stickerMetrics.forEach((metric,index)=>{const y=235+index*82;context.font="900 34px Inter, Arial, sans-serif";context.fillText(metric.value,790,y,300);context.font="750 20px Inter, Arial, sans-serif";context.fillText(metric.label.toUpperCase(),1110,y,330)});
   }else{
-    const story=options.format==="story",pad=story?76:58,top=story?126:58,contentTop=story?520:320;
+    const story=options.format==="story",pad=story?76:58,top=story?126:58,contentTop=story?470:270;
     roundedRect(context,pad/2,top/2,width-pad,height-top,story?58:42);context.strokeStyle=options.background==="transparent"?mixHex(options.accent,"#FFFFFF",.6):"rgba(255,255,255,.58)";context.lineWidth=3;context.stroke();
     await drawMark(context,accent,pad,top,70);context.font="900 49px Inter, Arial, sans-serif";context.fillText("setra",pad+82,top+54);
     context.textAlign="right";context.font="850 24px Inter, Arial, sans-serif";context.letterSpacing="6px";context.fillText(data.label.toUpperCase(),width-pad,top+45);context.letterSpacing="0px";context.textAlign="left";
-    const badgeX=pad+56,badgeY=contentTop-(story?165:130);context.beginPath();context.arc(badgeX,badgeY,story?54:46,0,Math.PI*2);context.strokeStyle=accent;context.lineWidth=5;context.stroke();context.fillStyle=accent;context.textAlign="center";context.font=`900 ${story?20:18}px Inter, Arial, sans-serif`;context.fillText(sportShort[data.sport],badgeX,badgeY+7);context.textAlign="left";context.fillStyle=ink;
     context.font="800 38px Inter, Arial, sans-serif";context.fillText(data.title,pad,contentTop, width-pad*2);
     const heroSize=fitText(context,data.result,width-pad*2,story?156:132,72);context.font=`900 ${heroSize}px Inter, Arial, sans-serif`;context.fillText(data.result,pad,contentTop+(story?190:155),width-pad*2);
     if(data.secondary){context.font="850 44px Inter, Arial, sans-serif";context.fillText(data.secondary,pad,contentTop+(story?255:215))}

@@ -1,6 +1,7 @@
 "use client";
 
-import {activityLabel,activityShort} from "@/components/endurance/endurance-session-sheet";
+import {activityLabel} from "@/components/endurance/endurance-session-sheet";
+import {ActivityIcon} from "@/components/endurance/activity-icon";
 import {calculateStructuredTotals,childrenOf,formatStepTime,formatTrainingStep,stepDistanceUsesMetres} from "@/lib/setra/endurance-steps";
 import type {EnduranceSession,TrainingSessionBlock} from "@/lib/setra/types";
 
@@ -17,7 +18,7 @@ export function EnduranceStructureView({session}:{session:EnduranceSession}){ret
 export function EnduranceWorkoutView({session,onClose,onEdit,onComplete,onShare,onDelete}:Props){
   const totals=calculateStructuredTotals(session.blocks);const plannedDuration=session.plannedDurationMinutes||(totals.durationSeconds?totals.durationSeconds/60:undefined);const plannedDistanceMetres=session.plannedDistanceKm!=null?session.plannedDistanceKm*1000:totals.distanceMetres||undefined;
   return <div className="overlay high-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}><section className="sheet endurance-workout-view" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title compact-endurance-title"><div><span>{activityLabel(session.activityType).toUpperCase()} · {session.status.toUpperCase()}</span><h2>{session.title}</h2></div><button onClick={onClose} aria-label="Close">×</button></div>
-    <div className="workout-view-meta"><span className="activity-pill">{activityShort(session.activityType)}</span><p><b>{formatDate(session.date)}{session.plannedStartTime?` · ${session.plannedStartTime}`:""}</b><small>{[session.category?.replace("_"," "),session.environment&&session.environment!=="unspecified"?session.environment.replace("_"," "):""].filter(Boolean).join(" · ")}</small></p></div>
+    <div className="workout-view-meta"><ActivityIcon type={session.activityType}/><p><b>{formatDate(session.date)}{session.plannedStartTime?` · ${session.plannedStartTime}`:""}</b><small>{[session.category?.replace("_"," "),session.environment&&session.environment!=="unspecified"?session.environment.replace("_"," "):""].filter(Boolean).join(" · ")}</small></p></div>
     <div className="workout-view-totals">{plannedDistanceMetres!=null&&<p><span>PLANNED DISTANCE</span><b>{formatDistance(plannedDistanceMetres,session)}</b></p>}{plannedDuration!=null&&<p><span>PLANNED TIME</span><b>{formatStepTime(Math.round(plannedDuration*60))}</b></p>}{session.targetRpe!=null&&<p><span>TARGET RPE</span><b>{session.targetRpe}/10</b></p>}</div>
     <section className="workout-view-structure"><header><span>WORKOUT</span>{session.blocks.length>0&&<small>{session.blocks.length} structured items</small>}</header><EnduranceStructureView session={session}/></section>
     {session.notes&&<section className="workout-view-notes"><span>NOTES</span><p>{session.notes}</p></section>}

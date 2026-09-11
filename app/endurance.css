@@ -61,3 +61,7 @@
 .endurance-fullpage-shell .endurance-editor-tabs{position:sticky;z-index:3;top:calc(63px + env(safe-area-inset-top,0px));background:var(--surface-page)}
 .endurance-fullpage-shell .endurance-save{margin-top:8px}
 @media(max-width:430px){.endurance-fullpage-shell{padding-right:12px;padding-left:12px}.endurance-fullpage-shell .compact-endurance-title{margin-right:-12px;margin-left:-12px;padding-right:12px;padding-left:12px}}
+
+.plan-type-actions button{min-height:76px;justify-content:center}.training-type-options>button{grid-template-columns:minmax(0,1fr) 14px}
+
+.activity-icon{display:grid;place-items:center;flex:none;width:42px;height:38px;border-radius:11px;background:var(--surface-tint);color:var(--accent-ink)}.activity-icon svg{width:27px;height:27px}.activity-icon-swim svg{width:29px}

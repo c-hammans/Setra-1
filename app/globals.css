@@ -238,3 +238,7 @@ html,body{background:#fff}.app-shell{background:var(--surface-page);color:var(--
 .editor-screen .exercise-picker{margin-top:22px}
 .editor-screen .exercise-picker>.search{border:0;background:var(--surface-card);box-shadow:var(--shadow-card)}
 .app-shell[data-theme=dark] .editor-body>label{background:var(--surface-card)}
+
+.template-card{grid-template-columns:1fr}.template-actions{grid-column:1}
+
+.template-copy{width:100%;min-width:0}.template-copy h2{width:100%;margin:0;font-size:calc(22px * var(--text-scale-number,1));font-weight:800;line-height:1.15}.template-copy>.template-focus{display:block;width:100%;margin-top:7px;color:var(--text-secondary);font-size:calc(11px * var(--text-scale-number,1));font-weight:650;letter-spacing:0;line-height:1.4;text-transform:none}.template-copy>p{width:100%;margin:8px 0 0;font-size:calc(12px * var(--text-scale-number,1))}
