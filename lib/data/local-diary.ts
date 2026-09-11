@@ -1,4 +1,4 @@
-import type { AppData, EnduranceSession, Workout } from "@/lib/setra/types";
+import type { AppData, EnduranceSession, EnduranceTemplate, Workout } from "@/lib/setra/types";
 import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
 
 const DIARY_KEY="form-strength-diary";
@@ -8,6 +8,7 @@ const APP_COLOUR_KEY="form-app-colour";
 const APPEARANCE_KEY="form-appearance";
 const TEXT_SCALE_KEY="form-text-scale";
 const ENDURANCE_KEY="form-endurance-sessions";
+const ENDURANCE_TEMPLATES_KEY="form-endurance-templates";
 const accountKey=(base:string,userId?:string|null)=>userId?`${base}:${userId}`:base;
 
 export function loadLocalDiary(userId?:string|null):AppData|null{
@@ -28,6 +29,8 @@ export function loadLocalTextScale(userId?:string|null):TextScale|null{if(typeof
 export function saveLocalTextScale(scale:TextScale,userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(TEXT_SCALE_KEY,userId),String(scale))}
 export function loadLocalEnduranceSessions(userId?:string|null):EnduranceSession[]{if(typeof window==="undefined")return [];try{const value=window.localStorage.getItem(accountKey(ENDURANCE_KEY,userId));return value?JSON.parse(value) as EnduranceSession[]:[]}catch{return []}}
 export function saveLocalEnduranceSessions(sessions:EnduranceSession[],userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(ENDURANCE_KEY,userId),JSON.stringify(sessions))}
+export function loadLocalEnduranceTemplates(userId?:string|null):EnduranceTemplate[]{if(typeof window==="undefined")return [];try{const value=window.localStorage.getItem(accountKey(ENDURANCE_TEMPLATES_KEY,userId));return value?JSON.parse(value) as EnduranceTemplate[]:[]}catch{return []}}
+export function saveLocalEnduranceTemplates(templates:EnduranceTemplate[],userId?:string|null){if(typeof window!=="undefined")window.localStorage.setItem(accountKey(ENDURANCE_TEMPLATES_KEY,userId),JSON.stringify(templates))}
 
 export function localImportSummary(data:AppData){
   const workouts=data.workouts.filter(workout=>!workout.id.startsWith("sample-"));

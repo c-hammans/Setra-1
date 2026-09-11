@@ -68,4 +68,17 @@ export type EnduranceSession = {
   externalProvider?:string;
   externalActivityId?:string;
   completedAt?:string;
+  templateId?:string;
+};
+export type EnduranceTemplate = {
+  id:string;
+  activityType:TrainingActivityType;
+  title:string;
+  plannedDurationMinutes?:number;
+  plannedDistanceKm?:number;
+  targetRpe?:number;
+  environment?:TrainingEnvironment;
+  category?:TrainingCategory;
+  notes:string;
+  blocks:TrainingSessionBlock[];
 };
