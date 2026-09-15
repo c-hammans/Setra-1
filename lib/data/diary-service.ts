@@ -74,6 +74,10 @@ export class DiaryService {
     if(template.exercises.length){const {error:exerciseError}=await this.supabase.from("template_exercises").insert(template.exercises.map((item,index)=>({user_id:this.userId,template_id:templateId,exercise_id:item.exerciseId,superset_id:item.group?groupIds.get(item.group):null,position:index,planned_sets:item.sets,rep_target:item.reps,notes:item.note||""})));if(exerciseError)throw exerciseError;}
   }
 
+  async saveCustomExercise(exercise:Exercise){
+    const {error}=await this.supabase.from("exercises").insert({id:exercise.id,owner_id:this.userId,name:exercise.name,muscle_group:exercise.group,equipment:exercise.equipment});if(error)throw error;
+  }
+
   async deleteTemplate(clientId:string){const id=await this.templateUuid(clientId);if(!id)return;const {error}=await this.supabase.from("workout_templates").delete().eq("id",id);if(error)throw error}
 
   async replaceSchedule(items:ScheduledWorkout[]){
