@@ -69,6 +69,7 @@ export type EnduranceSession = {
   externalActivityId?:string;
   completedAt?:string;
   templateId?:string;
+  skipped?:boolean;
 };
 export type EnduranceTemplate = {
   id:string;

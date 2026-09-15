@@ -264,3 +264,92 @@ html,body{background:#fff}.app-shell{background:var(--surface-page);color:var(--
 .endurance-template-card{grid-template-columns:42px minmax(0,1fr)}.endurance-template-card>.activity-icon{align-self:start}.endurance-template-card .template-copy{min-width:0}.endurance-template-card .template-actions{grid-column:1/-1}.endurance-template-card .template-delete-action{color:#b84747}.empty-template-copy{margin:0;padding:18px;color:var(--text-secondary);background:var(--surface-neutral);border-radius:var(--radius-card)}
 .save-template-dialog{max-width:430px;border-radius:24px;padding-bottom:max(24px,env(safe-area-inset-bottom))}.save-template-dialog .save-session-template{display:grid;gap:12px}.save-template-dialog .save-session-template p{margin:0;color:var(--text-secondary)}.save-template-dialog input{width:100%;height:50px;border:1px solid var(--border-subtle);border-radius:14px;padding:0 14px;background:var(--surface-card);color:var(--text-primary);font:inherit}.save-template-dialog .save-session-template button,.template-save-success button{height:48px;border:0;border-radius:14px;background:var(--accent);color:var(--accent-contrast);font-weight:800}.save-template-dialog .not-now-button{background:var(--surface-neutral)!important;color:var(--text-secondary)!important}.template-save-success{text-align:center;padding:4px 0 8px}.template-save-success i{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 14px;border-radius:50%;background:var(--accent);color:var(--accent-contrast);font-style:normal;font-size:24px}.template-save-success p{color:var(--text-secondary);margin:0 0 18px}
 @media(max-width:430px){.live-edit-sheet,.add-exercise-sheet{border-radius:22px 22px 0 0}.save-template-dialog{width:calc(100% - 24px);border-radius:22px;margin-bottom:max(10px,env(safe-area-inset-bottom))}.endurance-template-card{padding:14px}}
+
+/* Shared popup contract: dialogs are centred on every screen size. New popups
+   should use .overlay with a .sheet child so they inherit this behaviour. */
+.overlay{
+  align-items:center;
+  justify-content:center;
+  padding:max(12px,env(safe-area-inset-top,0px)) 12px max(12px,env(safe-area-inset-bottom,0px));
+}
+.overlay .sheet{
+  width:min(100%,600px);
+  max-height:calc(var(--setra-viewport-height,100dvh) - max(24px,env(safe-area-inset-top,0px)) - max(24px,env(safe-area-inset-bottom,0px)));
+  margin:0;
+  border-radius:24px;
+}
+.live-edit-overlay,.live-add-overlay{
+  align-items:center;
+  padding:max(8px,env(safe-area-inset-top,0px)) 12px max(8px,env(safe-area-inset-bottom,0px));
+}
+.live-edit-sheet,.add-exercise-sheet{
+  width:min(100%,600px);
+  max-height:calc(var(--setra-viewport-height,100dvh) - max(16px,env(safe-area-inset-top,0px)) - max(16px,env(safe-area-inset-bottom,0px)));
+  border-radius:22px;
+}
+@media(max-width:430px){
+  .live-edit-sheet,.add-exercise-sheet,.save-template-dialog{
+    margin:0;
+    border-radius:22px;
+  }
+}
+
+/* Shared icon alignment contract. Use .icon-button or data-icon-button on new
+   standalone icon controls; the selectors below normalise existing controls. */
+.app-shell :is(.icon-button,[data-icon-button],button[aria-label^="Close"],button[aria-label^="Move "],button[aria-label^="Remove "],button[aria-label^="Add range"],button[aria-label^="Edit "]){
+  display:grid;
+  place-items:center;
+  padding:0;
+  line-height:1;
+  text-align:center;
+}
+.app-shell :is(.calendar-controls>button:not(.calendar-label),.planned-expand,.round-add,.view-app-button,.manage-exercise,.remove-template-exercise,.range-target-input>button,.step-order-actions>button,.warmup-builder-item>div>button:not(.remove-warmup-item),.set-row>button){
+  display:grid;
+  place-items:center;
+  padding:0;
+  line-height:1;
+  text-align:center;
+}
+.app-shell .manage-exercise{
+  width:38px;
+  min-width:38px;
+  height:32px;
+  letter-spacing:1px;
+  text-indent:1px;
+}
+.app-shell :is(.sheet-title>button,.finish-time-close,.pb-close,.share-studio-heading>button,.weekly-preview-modal>header button){
+  align-items:center;
+  justify-items:center;
+  padding:0;
+  line-height:1;
+  text-align:center;
+}
+.app-shell :is(.chevron,.quick-action-button>em,.training-type-options>button>em,.endurance-plan-list>button>em,.weekly-session>em,.add-live-exercise>em,.endurance-planned-card header>span){
+  display:grid;
+  place-items:center;
+  align-self:center;
+  min-width:1em;
+  margin:0;
+  line-height:1;
+  text-align:center;
+}
+.app-shell :is(.primary-button,.share-completed-button,.share-export-actions button)>span,
+.app-shell .calendar-label>span{
+  display:inline-grid;
+  place-items:center;
+  line-height:1;
+  vertical-align:middle;
+}
+.app-shell .bottom-nav :is(a,button){
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.app-shell .bottom-nav .nav-icon{
+  display:grid;
+  place-items:center;
+}
+.app-shell .bottom-nav .nav-icon svg{
+  display:block;
+  margin:auto;
+}

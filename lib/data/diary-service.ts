@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import type { AppData, Exercise, LoadMode, ScheduledWorkout, Template, TrainingPreference, Workout } from "@/lib/setra/types";
 import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
+import type {WeekdayIndex} from "@/lib/setra/week";
 import { localImportSummary } from "./local-diary";
 
 // Supabase rows remain runtime-validated by the mapping below until generated DB types are added.
@@ -12,14 +13,16 @@ export class DiaryService {
   private supabase:SupabaseClient;
   constructor(private userId:string){this.supabase=createClient()}
 
-  async loadProfile():Promise<{displayName:string;appColour:string;appearanceMode:AppearanceMode;textScale:TextScale;trainingPreference:TrainingPreference;showWorkoutTimingPopup:boolean;showPbPopup:boolean}>{
-    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour,appearance_mode,text_scale,training_preference,show_workout_timing_popup,show_pb_popup").eq("id",this.userId).single();
+  async loadProfile():Promise<{displayName:string;appColour:string;appearanceMode:AppearanceMode;textScale:TextScale;trainingPreference:TrainingPreference;showWorkoutTimingPopup:boolean;showPbPopup:boolean;weekStartsOn:WeekdayIndex;lastWeeklyPreviewWeekStart:string|null}>{
+    const {data,error}=await this.supabase.from("profiles").select("display_name,app_colour,appearance_mode,text_scale,training_preference,show_workout_timing_popup,show_pb_popup,week_starts_on,last_weekly_preview_week_start").eq("id",this.userId).single();
     if(error){
-      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:fallback.data.app_colour||"#409ECE",appearanceMode:"system",textScale:1,trainingPreference:"strength",showWorkoutTimingPopup:true,showPbPopup:true}}
+      if(error.code==="42703"||error.code==="PGRST204"){const fallback=await this.supabase.from("profiles").select("display_name,app_colour").eq("id",this.userId).single();if(fallback.error)throw fallback.error;return {displayName:fallback.data.display_name||"",appColour:fallback.data.app_colour||"#409ECE",appearanceMode:"system",textScale:1,trainingPreference:"strength",showWorkoutTimingPopup:true,showPbPopup:true,weekStartsOn:1,lastWeeklyPreviewWeekStart:null}}
       throw error;
     }
-    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE",appearanceMode:data.appearance_mode==="light"||data.appearance_mode==="dark"?data.appearance_mode:"system",textScale:[1,1.1,1.2,1.3].includes(Number(data.text_scale))?Number(data.text_scale) as TextScale:1,trainingPreference:["strength","endurance","hybrid"].includes(data.training_preference)?data.training_preference as TrainingPreference:"strength",showWorkoutTimingPopup:data.show_workout_timing_popup!==false,showPbPopup:data.show_pb_popup!==false};
+    return {displayName:data.display_name||"",appColour:data.app_colour||"#409ECE",appearanceMode:data.appearance_mode==="light"||data.appearance_mode==="dark"?data.appearance_mode:"system",textScale:[1,1.1,1.2,1.3].includes(Number(data.text_scale))?Number(data.text_scale) as TextScale:1,trainingPreference:["strength","endurance","hybrid"].includes(data.training_preference)?data.training_preference as TrainingPreference:"strength",showWorkoutTimingPopup:data.show_workout_timing_popup!==false,showPbPopup:data.show_pb_popup!==false,weekStartsOn:Number.isInteger(data.week_starts_on)&&data.week_starts_on>=0&&data.week_starts_on<=6?data.week_starts_on as WeekdayIndex:1,lastWeeklyPreviewWeekStart:data.last_weekly_preview_week_start||null};
   }
+
+  async markWeeklyPreviewSeen(weekStart:string){const {error}=await this.supabase.from("profiles").update({last_weekly_preview_week_start:weekStart}).eq("id",this.userId);if(error)throw error}
 
   async updateAppColour(appColour:string){
     const {error}=await this.supabase.from("profiles").update({app_colour:appColour}).eq("id",this.userId);if(error)throw error;

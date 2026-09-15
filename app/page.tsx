@@ -16,13 +16,15 @@ import {ActivityIcon} from "@/components/endurance/activity-icon";
 import {EnduranceStructureView,EnduranceWorkoutView} from "@/components/endurance/endurance-workout-view";
 import {ShareStudio} from "@/components/share/share-studio";
 import {enduranceWorkoutShareData,strengthPBShareData,strengthWorkoutShareData} from "@/lib/share/share-data";
+import {WeeklyPreview,type WeeklyPreviewItem} from "@/components/weekly/weekly-preview";
+import {localDateKey,monthGridDateKeys,orderedWeekdayInitials,weekDateKeys,weekStartKey,type WeekdayIndex} from "@/lib/setra/week";
 import "./endurance.css";
 import "./share.css";
+import "./weekly-preview.css";
 
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = { exerciseId: string; name: string; weight: number; reps: string; previousWeight?:number };
 
-const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const today = localDateKey();
 const betaFeedbackEnabled = true;
 const localTime = (date = new Date()) => `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
@@ -248,6 +250,7 @@ const profileInitials = (name?:string,email?:string) => {
 const formatMinutes=(minutes?:number)=>minutes==null?"":minutes>=60?`${Math.floor(minutes/60)}h ${Math.round(minutes%60)}m`:`${Math.round(minutes)} min`;
 const formatPace=(seconds?:number,unit="km")=>seconds==null?"":`${Math.floor(seconds/60)}:${String(Math.round(seconds%60)).padStart(2,"0")} /${unit}`;
 const enduranceSummary=(session:EnduranceSession)=>{const parts:string[]=[];const duration=session.status==="completed"?session.durationMinutes:session.plannedDurationMinutes;const distance=session.status==="completed"?session.distanceKm:session.plannedDistanceKm;if(duration)parts.push(formatMinutes(duration));if(distance)parts.push(`${Number(distance.toFixed(2))} km`);if(session.averageSpeedKph)parts.push(`${session.averageSpeedKph.toFixed(1)} km/h`);else if(session.averageSplitSecondsPer500m)parts.push(formatPace(session.averageSplitSecondsPer500m,"500 m"));else if(session.averagePaceSecondsPerKm)parts.push(formatPace(session.activityType==="swim"?session.averagePaceSecondsPerKm/10:session.averagePaceSecondsPerKm,session.activityType==="swim"?"100 m":"km"));return parts.join(" · ")||activityLabel(session.activityType)};
+const weeklyEnduranceSummary=(session:EnduranceSession)=>{const repeated=session.blocks.find(block=>(block.type==="repeat_group"||Boolean(block.repetitions&&block.repetitions>1))&&block.repetitions);if(repeated){const child=session.blocks.find(block=>block.parentId===repeated.id);const useMetres=Boolean(child?.distanceMetres&&child.distanceMetres<1000)||session.activityType==="swim"||session.activityType==="row";const effort=child?.distanceMetres?`${Number((child.distanceMetres/(useMetres?1:1000)).toFixed(useMetres?0:2))} ${useMetres?"m":"km"}`:child?.durationSeconds?formatMinutes(child.durationSeconds/60):repeated.title;return `${repeated.repetitions} × ${effort}`;}return enduranceSummary(session)};
 
 const retryCloud = async <T,>(action:()=>Promise<T>,attempts=2):Promise<T> => {
   let lastError:unknown;
@@ -326,6 +329,11 @@ export default function Home() {
   const [textScale,setTextScale]=useState<TextScale>(1);
   const [showWorkoutTimingPopup,setShowWorkoutTimingPopup]=useState(true);
   const [showPbPopup,setShowPbPopup]=useState(true);
+  const [weekStartsOn,setWeekStartsOn]=useState<WeekdayIndex>(1);
+  const [lastWeeklyPreviewWeekStart,setLastWeeklyPreviewWeekStart]=useState<string|null>(null);
+  const [profileReady,setProfileReady]=useState(false);
+  const [enduranceReady,setEnduranceReady]=useState(false);
+  const [weeklyPreviewOpen,setWeeklyPreviewOpen]=useState(false);
   const [feedbackOpen,setFeedbackOpen]=useState(false);
   const [feedbackCategory,setFeedbackCategory]=useState<FeedbackCategory>("general");
   const [feedbackMessage,setFeedbackMessage]=useState("");
@@ -333,7 +341,7 @@ export default function Home() {
   const [feedbackSent,setFeedbackSent]=useState(false);
   const [feedbackError,setFeedbackError]=useState("");
   const resolvedAppearance=useResolvedAppearance(appearanceMode);
-  const prominentLayerOpen=Boolean(active||editor||picker||scheduleTemplateId||scheduleEnduranceTemplateId||finishDialogOpen||newPBs.length||completedShare||saveTemplatePrompt||completedEnduranceShare||detailId||deleteWorkoutId||deleteTemplateId||liveEditIndex!==null||liveAddOpen||exerciseHistoryId||feedbackOpen||trainingAction||enduranceEditor||enduranceDetailId||deleteEnduranceId||deleteEnduranceTemplateId);
+  const prominentLayerOpen=Boolean(active||editor||picker||scheduleTemplateId||scheduleEnduranceTemplateId||finishDialogOpen||newPBs.length||completedShare||saveTemplatePrompt||completedEnduranceShare||detailId||deleteWorkoutId||deleteTemplateId||liveEditIndex!==null||liveAddOpen||exerciseHistoryId||feedbackOpen||trainingAction||enduranceEditor||enduranceDetailId||deleteEnduranceId||deleteEnduranceTemplateId||weeklyPreviewOpen);
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
@@ -381,6 +389,7 @@ export default function Home() {
       setTextScale(profile.textScale);saveLocalTextScale(profile.textScale,user?.id);
       setTrainingPreference(profile.trainingPreference);
       setShowWorkoutTimingPopup(profile.showWorkoutTimingPopup);setShowPbPopup(profile.showPbPopup);
+      setWeekStartsOn(profile.weekStartsOn);setLastWeeklyPreviewWeekStart(profile.lastWeeklyPreviewWeekStart);setProfileReady(true);
       const local=loadLocalDiary();const summary=local?localImportSummary(local):null;
       if(hasCloudData&&local&&canImportLegacyDiary(user!.id))claimLegacyDiary(user!.id);
       if(!hasCloudData)setData({exercises:cloud.exercises.length?cloud.exercises:sampleExercises,templates:[],scheduled:[],workouts:[]});
@@ -390,7 +399,7 @@ export default function Home() {
     return()=>{cancelled=true};
   },[loaded,diaryService,user]);
 
-  useEffect(()=>{if(!loaded||!trainingService)return;let cancelled=false;retryCloud(()=>Promise.all([trainingService.loadEndurance(),trainingService.loadEnduranceTemplates()])).then(([sessions,templates])=>{if(!cancelled){setEnduranceSessions(sessions);setEnduranceTemplates(templates)}}).catch(error=>{if(!cancelled){setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Endurance data could not be loaded. Your local copy is still safe.")}});return()=>{cancelled=true}},[loaded,trainingService]);
+  useEffect(()=>{if(!loaded||!trainingService)return;let cancelled=false;retryCloud(()=>Promise.all([trainingService.loadEndurance(),trainingService.loadEnduranceTemplates()])).then(([sessions,templates])=>{if(!cancelled){setEnduranceSessions(sessions);setEnduranceTemplates(templates)}}).catch(error=>{if(!cancelled){setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Endurance data could not be loaded. Your local copy is still safe.")}}).finally(()=>{if(!cancelled)setEnduranceReady(true)});return()=>{cancelled=true}},[loaded,trainingService]);
 
   function runCloud(action:(service:DiaryService)=>Promise<unknown>){
     if(!diaryService)return;
@@ -423,8 +432,9 @@ export default function Home() {
   const enduranceDetail=enduranceSessions.find(session=>session.id===enduranceDetailId);
   const detail = data.workouts.find(workout => workout.id === detailId);
   const historyExercise = data.exercises.find(exercise => exercise.id === exerciseHistoryId);
-  const weekDays = useMemo(() => { const base=new Date(`${selectedDate}T12:00:00`); const monday=new Date(base); monday.setDate(base.getDate()-((base.getDay()+6)%7)); return Array.from({length:7},(_,i)=>{const day=new Date(monday);day.setDate(monday.getDate()+i);return day.toISOString().slice(0,10)}); },[selectedDate]);
-  const monthDays = useMemo(() => { const base=new Date(`${selectedDate}T12:00:00`); const first=new Date(base.getFullYear(),base.getMonth(),1,12); const start=new Date(first);start.setDate(1-((first.getDay()+6)%7));return Array.from({length:42},(_,i)=>{const day=new Date(start);day.setDate(start.getDate()+i);return day.toISOString().slice(0,10)}); },[selectedDate]);
+  const weekDays = useMemo(() => weekDateKeys(selectedDate,weekStartsOn),[selectedDate,weekStartsOn]);
+  const monthDays = useMemo(() => monthGridDateKeys(selectedDate,weekStartsOn),[selectedDate,weekStartsOn]);
+  const monthWeekdayInitials=useMemo(()=>orderedWeekdayInitials(weekStartsOn),[weekStartsOn]);
   const personalBests = useMemo(() => data.exercises.map(exercise => { const attempts=data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.id).flatMap(item=>item.sets.map(set=>({set,workout})))); const best=attempts.sort((a,b)=>(Number(b.set.weight)||0)-(Number(a.set.weight)||0))[0]; return best&&Number(best.set.weight)>0?{exercise,best}:null; }).filter(Boolean) as {exercise:Exercise;best:{set:SetLog;workout:Workout}}[],[data]);
   const workoutInProgress = Boolean(active || savedDraft?.date === today);
   const combinedHistory=useMemo(()=>[
@@ -434,7 +444,45 @@ export default function Home() {
   const visibleHistory=combinedHistory.filter(item=>isHybrid||(trainingPreference==="strength"?item.kind==="strength":item.kind==="endurance"));
   const recentHistory=visibleHistory.slice(0,trainingPreference==="strength"?1:3);
   const effectiveHistoryMode=trainingPreference==="endurance"?"sessions":historyMode;
-  const enduranceThisWeek=useMemo(()=>{const cutoff=new Date();cutoff.setDate(cutoff.getDate()-6);const key=localDateKey(cutoff);const sessions=enduranceSessions.filter(session=>session.status==="completed"&&session.date>=key);return {sessions:sessions.length,distance:sessions.reduce((sum,session)=>sum+(session.distanceKm||0),0),minutes:sessions.reduce((sum,session)=>sum+(session.durationMinutes||0),0)}},[enduranceSessions]);
+  const currentWeekDates=useMemo(()=>weekDateKeys(today,weekStartsOn),[weekStartsOn]);
+  const weeklyPreviewItems=useMemo<WeeklyPreviewItem[]>(()=>{
+    const inWeek=(date:string)=>date>=currentWeekDates[0]&&date<=currentWeekDates[6];
+    const items:WeeklyPreviewItem[]=[];
+    const representedStrengthWorkouts=new Set<string>();
+    data.scheduled.filter(item=>inWeek(item.date)).forEach(item=>{
+      const template=data.templates.find(candidate=>candidate.id===item.templateId);if(!template)return;
+      const completed=data.workouts.find(workout=>workout.date===item.date&&workout.templateId===item.templateId);
+      if(completed)representedStrengthWorkouts.add(completed.id);
+      items.push({id:`strength-${item.date}-${item.templateId}`,sourceId:item.templateId,completedId:completed?.id,date:item.date,title:template.name,descriptor:template.focus||"Strength",modality:"strength",status:completed?"completed":item.skipped?"skipped":"planned"});
+    });
+    data.workouts.filter(workout=>inWeek(workout.date)&&Boolean(workout.templateId)&&!representedStrengthWorkouts.has(workout.id)).forEach(workout=>items.push({id:`strength-completed-${workout.id}`,sourceId:workout.templateId!,completedId:workout.id,date:workout.date,title:workout.name,descriptor:"Strength",modality:"strength",status:"completed",startTime:workout.startedAt||undefined}));
+    enduranceSessions.filter(session=>inWeek(session.date)&&session.status==="planned").forEach(session=>{
+      const completed=enduranceSessions.find(candidate=>candidate.status==="completed"&&candidate.plannedSessionId===session.id);
+      items.push({id:`endurance-${session.id}`,sourceId:session.id,completedId:completed?.id,date:session.date,title:session.title,descriptor:weeklyEnduranceSummary(session),modality:"endurance",activityType:session.activityType,status:completed?"completed":session.skipped?"skipped":"planned",startTime:session.plannedStartTime});
+    });
+    enduranceSessions.filter(session=>inWeek(session.date)&&session.status==="cancelled").forEach(session=>items.push({id:`endurance-skipped-${session.id}`,sourceId:session.id,date:session.date,title:session.title,descriptor:"Skipped",modality:"endurance",activityType:session.activityType,status:"skipped",startTime:session.plannedStartTime}));
+    return items;
+  },[currentWeekDates,data.scheduled,data.templates,data.workouts,enduranceSessions]);
+  const enduranceThisWeek=useMemo(()=>{const sessions=enduranceSessions.filter(session=>session.status==="completed"&&session.date>=currentWeekDates[0]&&session.date<=currentWeekDates[6]);return {sessions:sessions.length,distance:sessions.reduce((sum,session)=>sum+(session.distanceKm||0),0),minutes:sessions.reduce((sum,session)=>sum+(session.durationMinutes||0),0)}},[enduranceSessions,currentWeekDates]);
+
+  function openWeeklyPreview(){
+    const key=weekStartKey(today,weekStartsOn);setWeeklyPreviewOpen(true);setLastWeeklyPreviewWeekStart(key);if(diaryService)runCloud(service=>service.markWeeklyPreviewSeen(key));
+  }
+  function openWeeklySession(item:WeeklyPreviewItem){
+    setWeeklyPreviewOpen(false);setSelectedDate(item.date);setTab("today");
+    if(item.modality==="endurance"){setEnduranceDetailId(item.completedId||item.sourceId);return}
+    if(item.completedId){setDetailId(item.completedId);return}
+    setExpandedPlanned(current=>new Set(current).add(item.sourceId));
+  }
+
+  useEffect(()=>{
+    if(!profileReady||!enduranceReady||tab!=="today"||prominentLayerOpen||workoutInProgress)return;
+    if(typeof window!=="undefined"&&window.location.search)return;
+    const key=weekStartKey(today,weekStartsOn);if(lastWeeklyPreviewWeekStart===key)return;
+    openWeeklyPreview();
+  // Opening is deliberately gated by the current layer state and persisted profile value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[profileReady,enduranceReady,tab,prominentLayerOpen,workoutInProgress,weekStartsOn,lastWeeklyPreviewWeekStart]);
 
   const previousSets = (exerciseId: string) => data.workouts.find(workout => workout.exercises.some(exercise => exercise.exerciseId === exerciseId))?.exercises.find(exercise => exercise.exerciseId === exerciseId)?.sets ?? [];
 
@@ -676,9 +724,10 @@ export default function Home() {
           {configured&&showImport&&<div className="cloud-notice"><b>Bring your existing diary into your account</b><p>Your templates, schedule and real workout history can be copied safely. Demo workout history is excluded, and the browser copy stays here.</p><button disabled={importBusy} onClick={importBrowserDiary}>{importBusy?"Importing…":"Import browser diary"}</button></div>}
           {betaFeedbackEnabled&&<aside className="beta-feedback-card"><span>BETA</span><div><b>Help shape Setra</b><small>Found something or have an idea?</small></div><button onClick={openFeedback}>Share feedback</button></aside>}
           <div className="eyebrow">{formatDate(selectedDate).toUpperCase()}</div>
-          <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>2</strong><span>this week</span></div></div>
-          <div className="calendar-controls"><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()-7);setSelectedDate(date.toISOString().slice(0,10))}}>‹</button><button className="calendar-label" onClick={()=>setCalendarOpen(!calendarOpen)}>{new Intl.DateTimeFormat("en-AU",{month:"long",year:"numeric"}).format(new Date(`${selectedDate}T12:00:00`))} <span>{calendarOpen?"⌃":"⌄"}</span></button><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+7);setSelectedDate(date.toISOString().slice(0,10))}}>›</button></div>
-          {!calendarOpen?<div className="week-strip" aria-label="This week">{weekDays.map(date => {const d=new Date(`${date}T12:00:00`);const completedCount=(showStrength?data.workouts.filter(workout=>workout.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="completed").length:0);const plannedCount=(showStrength?data.scheduled.filter(item=>item.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="planned").length:0);return <button onClick={()=>setSelectedDate(date)} className={`day ${date===selectedDate?"active-day":""}`} key={date}><span>{["S","M","T","W","T","F","S"][d.getDay()]}</span><b>{d.getDate()}</b><span className="day-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div>:<div className="month-calendar"><div className="month-weekdays">{["M","T","W","T","F","S","S"].map((day,i)=><span key={`${day}-${i}`}>{day}</span>)}</div><div className="month-grid">{monthDays.map(date=>{const d=new Date(`${date}T12:00:00`);const inMonth=d.getMonth()===new Date(`${selectedDate}T12:00:00`).getMonth();const completedCount=(showStrength?data.workouts.filter(workout=>workout.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="completed").length:0);const plannedCount=(showStrength?data.scheduled.filter(item=>item.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="planned").length:0);return <button key={date} className={`${date===selectedDate?"selected-date":""} ${!inMonth?"outside-month":""}`} onClick={()=>{setSelectedDate(date);setCalendarOpen(false)}}><span>{d.getDate()}</span><span className="month-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div></div>}
+          <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>{weeklyPreviewItems.filter(item=>item.status==="completed").length}</strong><span>this week</span></div></div>
+          <div className="calendar-controls"><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()-7);setSelectedDate(localDateKey(date))}}>‹</button><button className="calendar-label" onClick={()=>setCalendarOpen(!calendarOpen)}>{new Intl.DateTimeFormat("en-AU",{month:"long",year:"numeric"}).format(new Date(`${selectedDate}T12:00:00`))} <span>{calendarOpen?"⌃":"⌄"}</span></button><button onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+7);setSelectedDate(localDateKey(date))}}>›</button></div>
+          {!calendarOpen?<div className="week-strip" aria-label="This week">{weekDays.map(date => {const d=new Date(`${date}T12:00:00`);const completedCount=(showStrength?data.workouts.filter(workout=>workout.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="completed").length:0);const plannedCount=(showStrength?data.scheduled.filter(item=>item.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="planned").length:0);return <button onClick={()=>setSelectedDate(date)} className={`day ${date===selectedDate?"active-day":""}`} key={date}><span>{["S","M","T","W","T","F","S"][d.getDay()]}</span><b>{d.getDate()}</b><span className="day-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div>:<div className="month-calendar"><div className="month-weekdays">{monthWeekdayInitials.map((day,i)=><span key={`${day}-${i}`}>{day}</span>)}</div><div className="month-grid">{monthDays.map(date=>{const d=new Date(`${date}T12:00:00`);const inMonth=d.getMonth()===new Date(`${selectedDate}T12:00:00`).getMonth();const completedCount=(showStrength?data.workouts.filter(workout=>workout.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="completed").length:0);const plannedCount=(showStrength?data.scheduled.filter(item=>item.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="planned").length:0);return <button key={date} className={`${date===selectedDate?"selected-date":""} ${!inMonth?"outside-month":""}`} onClick={()=>{setSelectedDate(date);setCalendarOpen(false)}}><span>{d.getDate()}</span><span className="month-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div></div>}
+          <button className="weekly-preview-trigger" onClick={openWeeklyPreview}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M7 3v4M17 3v4M3 10h18M7 14h2m3 0h2m3 0h1M7 17h2m3 0h2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>Weekly Preview</button>
 
           {showEndurance&&<section className={`training-quick-actions preference-${trainingPreference}`}><span>QUICK ACTIONS</span><div><button className="quick-action-button" onClick={()=>isHybrid?setTrainingAction("plan"):setTab("plan")}><NavIcon name="plan"/><span className="quick-action-copy"><b>Plan session</b><small>Choose or build a reusable workout</small></span><em aria-hidden="true">›</em></button><button className="quick-action-button" onClick={()=>isHybrid?setTrainingAction("log"):setEnduranceEditor({mode:"log"})}><NavIcon name="today"/><span className="quick-action-copy"><b>Log activity</b><small>Record today’s training</small></span><em aria-hidden="true">›</em></button></div></section>}
 
@@ -808,6 +857,8 @@ export default function Home() {
       {historyExercise && <div className="overlay high-overlay" onMouseDown={()=>setExerciseHistoryId(null)}><section className="sheet history-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{historyExercise.group.toUpperCase()} · {historyExercise.equipment.toUpperCase()}</span><h2>{historyExercise.name}</h2></div><button onClick={()=>setExerciseHistoryId(null)}>×</button></div>{(() => { const records=data.workouts.flatMap(w=>w.exercises.filter(e=>e.exerciseId===historyExercise.id).map(e=>({workout:w,exercise:e}))); const maxes=records.map(r=>Math.max(...r.exercise.sets.map(s=>Number(s.weight)||0))); return <>{records.length>0&&<div className="progress-chart"><div className="chart-bars">{maxes.slice().reverse().map((max,i)=><i key={i} style={{height:`${25+70*max/Math.max(...maxes)}%`}}><span>{max}</span></i>)}</div><small>Best load by session (kg)</small></div>}<div className="exercise-records">{records.length?records.map(({workout,exercise})=><div key={workout.id}><span><b>{formatDate(workout.date)}</b><small>{workout.name}</small></span><p>{exercise.sets.map((set,i)=><em key={i}>{set.weight || "—"} × {set.reps || "—"}<small>{set.rpe&&` RPE ${set.rpe}`}</small></em>)}</p></div>):<p className="no-records">No completed sets yet. Start a workout to build your history.</p>}</div></>})()}</section></div>}
 
       {feedbackOpen&&<div className="overlay high-overlay" onMouseDown={()=>setFeedbackOpen(false)}><section className="sheet beta-feedback-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>BETA FEEDBACK</span><h2>{feedbackSent?"Thank you.":"Help shape Setra"}</h2></div><button onClick={()=>setFeedbackOpen(false)} aria-label="Close">×</button></div>{feedbackSent?<div className="feedback-success"><i>✓</i><p>Your feedback has been sent. It will help guide what gets improved next.</p><button onClick={()=>setFeedbackOpen(false)}>Done</button></div>:<form onSubmit={submitFeedback}><fieldset><legend>WHAT IS THIS ABOUT?</legend>{([['general','General'],['bug','Something isn’t working'],['idea','Feature idea']] as const).map(([value,label])=><button type="button" key={value} className={feedbackCategory===value?"selected":""} onClick={()=>setFeedbackCategory(value)}>{label}</button>)}</fieldset><label>YOUR FEEDBACK<textarea autoFocus required minLength={5} maxLength={2000} value={feedbackMessage} onChange={event=>setFeedbackMessage(event.target.value)} placeholder="Tell us what happened or what would make Setra better…"/></label><small>{feedbackMessage.length} / 2000</small>{feedbackError&&<p role="alert">{feedbackError}</p>}<button className="primary-button" disabled={feedbackBusy||feedbackMessage.trim().length<5}>{feedbackBusy?"Sending…":"Send feedback"} <span>→</span></button></form>}</section></div>}
+
+      {weeklyPreviewOpen&&<WeeklyPreview items={weeklyPreviewItems} weekStartsOn={weekStartsOn} today={today} onClose={()=>setWeeklyPreviewOpen(false)} onSelect={openWeeklySession} onPlan={()=>{setWeeklyPreviewOpen(false);setTab("plan")}}/>}
 
       {editor && <div className="editor-screen">
         <header className="workout-header strength-editor-header"><div><small>WORKOUT BUILDER</small><b>{editor.id.startsWith("template-")?"New template":"Edit template"}</b></div><button className="strength-editor-close" onClick={()=>setEditor(null)} aria-label="Close">×</button></header>
