@@ -291,6 +291,7 @@ export default function Home() {
   const [exerciseHistoryId, setExerciseHistoryId] = useState<string | null>(null);
   const [editor, setEditor] = useState<Template | null>(null);
   const [picker, setPicker] = useState(false);
+  const [swapPlanned, setSwapPlanned] = useState<{date:string;templateId:string}|null>(null);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [editorQuery, setEditorQuery] = useState("");
   const [warmupQuery, setWarmupQuery] = useState("");
@@ -341,7 +342,7 @@ export default function Home() {
   const [feedbackSent,setFeedbackSent]=useState(false);
   const [feedbackError,setFeedbackError]=useState("");
   const resolvedAppearance=useResolvedAppearance(appearanceMode);
-  const prominentLayerOpen=Boolean(active||editor||picker||scheduleTemplateId||scheduleEnduranceTemplateId||finishDialogOpen||newPBs.length||completedShare||saveTemplatePrompt||completedEnduranceShare||detailId||deleteWorkoutId||deleteTemplateId||liveEditIndex!==null||liveAddOpen||exerciseHistoryId||feedbackOpen||trainingAction||enduranceEditor||enduranceDetailId||deleteEnduranceId||deleteEnduranceTemplateId||weeklyPreviewOpen);
+  const prominentLayerOpen=Boolean(active||editor||picker||swapPlanned||scheduleTemplateId||scheduleEnduranceTemplateId||finishDialogOpen||newPBs.length||completedShare||saveTemplatePrompt||completedEnduranceShare||detailId||deleteWorkoutId||deleteTemplateId||liveEditIndex!==null||liveAddOpen||exerciseHistoryId||feedbackOpen||trainingAction||enduranceEditor||enduranceDetailId||deleteEnduranceId||deleteEnduranceTemplateId||weeklyPreviewOpen);
 
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
@@ -700,6 +701,25 @@ export default function Home() {
     setSelectedDate(scheduleDate);
     setScheduleTemplateId(null);
   }
+  function togglePlannedWorkoutSkipped(date:string,templateId:string){
+    setData(current=>{
+      const scheduled=current.scheduled.map(item=>item.date===date&&item.templateId===templateId?{...item,skipped:!item.skipped}:item);
+      runCloud(service=>service.replaceSchedule(scheduled));
+      return {...current,scheduled};
+    });
+  }
+  function swapPlannedWorkout(nextTemplateId:string){
+    if(!swapPlanned)return;
+    const {date,templateId}=swapPlanned;
+    setData(current=>{
+      const withoutCurrent=current.scheduled.filter(item=>!(item.date===date&&item.templateId===templateId));
+      const scheduled=withoutCurrent.some(item=>item.date===date&&item.templateId===nextTemplateId)?withoutCurrent:[...withoutCurrent,{date,templateId:nextTemplateId}];
+      runCloud(service=>service.replaceSchedule(scheduled));
+      return {...current,scheduled};
+    });
+    setExpandedPlanned(current=>{const next=new Set(current);next.delete(templateId);next.add(nextTemplateId);return next});
+    setSwapPlanned(null);
+  }
   function scheduleEnduranceWorkout(){
     if(!scheduleEnduranceTemplateId)return;const template=enduranceTemplates.find(item=>item.id===scheduleEnduranceTemplateId);if(!template)return;
     const intervalDays=scheduleRepeat==="weekly"?7:scheduleRepeat==="fortnightly"?14:0;const count=intervalDays?Math.max(1,Math.ceil((scheduleWeeks*7)/intervalDays)):1;
@@ -741,11 +761,12 @@ export default function Home() {
 
           {showEndurance&&plannedEndurance.map(session=><article className="endurance-planned-card compact-planned-endurance" key={session.id}><button className="endurance-card-open" onClick={()=>setEnduranceDetailId(session.id)} aria-label={`View ${session.title}`}/><header><ActivityIcon type={session.activityType}/><div><small>PLANNED {activityLabel(session.activityType).toUpperCase()}</small><h2>{session.title}</h2><p>{enduranceSummary(session)}</p></div><span aria-hidden="true">›</span></header>{session.blocks.length>0&&<div className="endurance-block-preview"><EnduranceStructureView session={session}/></div>}</article>)}
 
-          {showStrength&&(scheduledTemplates.length>0?scheduledTemplates.map(template=>{const expanded=expandedPlanned.has(template.id);return <article className={`hero-card planned-card ${expanded?"expanded":""}`} key={template.id}>
+          {showStrength&&(scheduledTemplates.length>0?scheduledTemplates.map(template=>{const expanded=expandedPlanned.has(template.id);const scheduledItem=data.scheduled.find(item=>item.date===selectedDate&&item.templateId===template.id);const skipped=Boolean(scheduledItem?.skipped);return <article className={`hero-card planned-card ${expanded?"expanded":""} ${skipped?"planned-card-skipped":""}`} key={template.id}>
             <button className="planned-expand" onClick={()=>setExpandedPlanned(current=>{const next=new Set(current);if(next.has(template.id))next.delete(template.id);else next.add(template.id);return next})} aria-label={expanded?"Hide workout exercises":"Show workout exercises"}>{expanded?"⌃":"⌄"}</button>
-            <h2>{template.name}</h2><p>{template.focus}</p>
+            <h2>{template.name}</h2><p>{template.focus}</p>{skipped&&<span className="planned-skipped-label">SKIPPED THIS WEEK</span>}
             {expanded&&<div className="exercise-preview">{Boolean(template.warmup?.length)&&<div className="planned-warmup-summary"><b>Warm-up</b><em>{template.warmup!.length} {template.warmup!.length===1?"item":"items"}</em></div>}{template.exercises.map((item) => {const groups=[...new Set(template.exercises.map(exercise=>exercise.group).filter(Boolean))];const groupIndex=groups.indexOf(item.group);const defaultName=`Superset ${String.fromCharCode(65+groupIndex)}`;return <div className={item.group?`preview-superset superset-color-${groupIndex%4}`:""} key={item.exerciseId}><b>{exerciseName(item.exerciseId)}</b><em>{item.sets} × {item.reps}</em>{item.group&&<small>{(template.supersetNames?.[item.group]||defaultName).toUpperCase()}</small>}</div>})}</div>}
-            {selectedDate===today?<button className="primary-button" disabled={workoutInProgress} onClick={() => startWorkout(template,selectedDate)}>{workoutInProgress?"Workout in progress":"Start workout"} <span>{workoutInProgress?"":"→"}</span></button>:<button className="primary-button" onClick={()=>setEditor(structuredClone(template))}>Edit workout <span>→</span></button>}
+            {!skipped&&(selectedDate===today?<button className="primary-button" disabled={workoutInProgress} onClick={() => startWorkout(template,selectedDate)}>{workoutInProgress?"Workout in progress":"Start workout"} <span>{workoutInProgress?"":"→"}</span></button>:<button className="primary-button" onClick={()=>setEditor(structuredClone(template))}>Edit workout <span>→</span></button>)}
+            {expanded&&<div className="planned-session-actions"><button onClick={()=>setSwapPlanned({date:selectedDate,templateId:template.id})}>Swap workout</button><button onClick={()=>togglePlannedWorkoutSkipped(selectedDate,template.id)}>{skipped?"Unskip session":"Skip this week"}</button></div>}
           </article>}):!isHybrid?<article className="empty-card"><span className="empty-icon">＋</span><h2>No workout planned</h2><p>{selectedDate!==today?"Plan or edit workouts for this day.":workoutInProgress?"Finish your live workout before starting another.":"Choose a template and get moving."}</p><button className="secondary-button" disabled={selectedDate===today&&workoutInProgress} onClick={() => selectedDate===today?setPicker(true):setTab("plan")}>{selectedDate!==today?"View workout plans":workoutInProgress?"Workout in progress":"Choose workout"}</button></article>:null)}
 
           {((showStrength&&completedWorkouts.length>0)||(showEndurance&&completedEndurance.length>0))&&<section className="completed-today"><span className="completed-heading">{selectedDate===today?"COMPLETED TODAY":"COMPLETED"}</span>{showEndurance&&completedEndurance.map(session=><button key={session.id} className="completed-card endurance-diary-card" onClick={()=>setEnduranceDetailId(session.id)}><ActivityIcon type={session.activityType}/><span><b>{session.title}</b><small>{enduranceSummary(session)}</small></span><em>View ›</em></button>)}{showStrength&&completedWorkouts.map(workout=><button key={workout.id} className="completed-card" onClick={()=>setDetailId(workout.id)}><span className="completed-check">✓</span><span><b>{workout.name}</b><small>{workout.exercises.length} exercises · {workout.exercises.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0)} sets completed</small></span><em>View ›</em></button>)}</section>}
@@ -795,6 +816,8 @@ export default function Home() {
       ] as [Tab,string][]).map(([id,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><NavIcon name={id as NavIconName}/><small>{label}</small></button>)}<Link href="/premium"><NavIcon name="premium"/><small>Premium</small></Link></nav>
 
       {picker && <div className="overlay" onMouseDown={()=>setPicker(false)}><section className="sheet picker-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>CHOOSE A SESSION</span><h2>What are we training?</h2></div><button onClick={()=>setPicker(false)}>×</button></div><button className="picker-row blank-workout-row" disabled={workoutInProgress} onClick={startBlankWorkout}><span className="blank-workout-icon">＋</span><span><b>Add as I go</b><small>{workoutInProgress?"Finish your live workout first":"Start blank and add exercises during your session"}</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>{data.templates.map(template=><button className="picker-row" disabled={workoutInProgress} key={template.id} onClick={()=>startWorkout(template)}><span><b>{template.name}</b><small>{template.focus} · {template.exercises.length} exercises</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>)}</section></div>}
+
+      {swapPlanned&&<div className="overlay high-overlay" onMouseDown={()=>setSwapPlanned(null)}><section className="sheet planned-swap-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>PLANNED SESSION</span><h2>Swap workout</h2><p>{formatDate(swapPlanned.date)}</p></div><button onClick={()=>setSwapPlanned(null)} aria-label="Close">×</button></div><div className="planned-swap-list">{data.templates.filter(template=>template.id!==swapPlanned.templateId).map(template=><button className="picker-row" key={template.id} onClick={()=>swapPlannedWorkout(template.id)}><span><b>{template.name}</b><small>{template.focus||"Strength"} · {template.exercises.length} exercises</small></span><em>Choose</em></button>)}</div>{data.templates.length<2&&<p className="planned-swap-empty">Create another strength template before swapping this session.</p>}</section></div>}
 
       {(scheduleTemplateId||scheduleEnduranceTemplateId) && <div className="overlay high-overlay" onMouseDown={()=>{setScheduleTemplateId(null);setScheduleEnduranceTemplateId(null)}}>
         <section className="sheet schedule-sheet" onMouseDown={event=>event.stopPropagation()}>
