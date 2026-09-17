@@ -33,6 +33,9 @@ export function createSetraTheme(accent:string,appearance:"light"|"dark",textSca
   const card=dark?"#151A22":"#FFFFFF";
   const neutral=dark?"#202630":"#F4F6F8";
   const strong=mixHex(accent,"#0F172A",dark?.5:.42);
+  // Yellow becomes muddy when mixed into the standard strong surface. Keep the
+  // yellow accent for actions, but place in-progress content on a warm neutral.
+  const resumeSurface=accent.toUpperCase()==="#F6C445"?mixHex(accent,"#0F172A",dark?.05:.12):strong;
   return {
     "--accent":accent,
     "--accent-contrast":contrastColour(accent),
@@ -42,6 +45,7 @@ export function createSetraTheme(accent:string,appearance:"light"|"dark",textSca
     "--accent-border":mixHex(accent,dark?"#10151D":"#FFFFFF",dark?.42:.22),
     "--accent-strong":strong,
     "--accent-strong-contrast":contrastColour(strong),
+    "--resume-surface":resumeSurface,
     "--surface-page":page,
     "--surface-card":card,
     "--surface-neutral":neutral,
