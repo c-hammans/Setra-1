@@ -25,7 +25,10 @@ const rangeLabel=(dates:string[])=>{const first=parseLocalDate(dates[0]);const l
 
 export function WeeklyPreview({items,weekStartsOn,today,onClose,onSelect,onPlan}:Props){
   const dates=weekDateKeys(today,weekStartsOn);
-  const ordered=useMemo(()=>[...items].sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"99:99").localeCompare(b.startTime||"99:99")||a.title.localeCompare(b.title)),[items]);
+  const ordered=useMemo(()=>{
+    const dayOrder=new Map(weekDateKeys(today,weekStartsOn).map((date,index)=>[date,index]));
+    return [...items].sort((a,b)=>(dayOrder.get(a.date)??7)-(dayOrder.get(b.date)??7)||(a.startTime||"99:99").localeCompare(b.startTime||"99:99")||a.title.localeCompare(b.title));
+  },[items,today,weekStartsOn]);
   const completed=ordered.filter(item=>item.status==="completed").length;
   const skipped=ordered.filter(item=>item.status==="skipped").length;
   const remaining=ordered.length-completed-skipped;
