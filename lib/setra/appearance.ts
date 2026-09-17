@@ -46,6 +46,7 @@ export function createSetraTheme(accent:string,appearance:"light"|"dark",textSca
     "--accent-strong":strong,
     "--accent-strong-contrast":contrastColour(strong),
     "--resume-surface":resumeSurface,
+    "--resume-surface-contrast":contrastColour(resumeSurface),
     "--surface-page":page,
     "--surface-card":card,
     "--surface-neutral":neutral,
