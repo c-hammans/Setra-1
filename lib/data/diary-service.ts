@@ -4,6 +4,7 @@ import type { AppData, Exercise, LoadMode, ScheduledWorkout, Template, TrainingP
 import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
 import type {WeekdayIndex} from "@/lib/setra/week";
 import { localImportSummary } from "./local-diary";
+import {localDateKey} from "@/lib/setra/week";
 
 // Supabase rows remain runtime-validated by the mapping below until generated DB types are added.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,14 +82,18 @@ export class DiaryService {
   async deleteTemplate(clientId:string){const id=await this.templateUuid(clientId);if(!id)return;const {error}=await this.supabase.from("workout_templates").delete().eq("id",id);if(error)throw error}
 
   async replaceSchedule(items:ScheduledWorkout[]){
+    const {data:existing}=await this.supabase.from("scheduled_workouts").select("scheduled_date,skipped,workout_templates(client_id)").eq("user_id",this.userId);
+    const nextKeys=new Set(items.map(item=>`strength:${item.templateId}:${item.date}`));
+    for(const row of (existing||[]) as AnyRow[]){const templateId=String(row.workout_templates?.client_id||"");const date=String(row.scheduled_date);const key=`strength:${templateId}:${date}`;if(templateId&&!nextKeys.has(key)&&date>localDateKey())await this.supabase.from("training_plan_occurrences").update({status:"cancelled"}).eq("user_id",this.userId).eq("occurrence_key",key).eq("status","planned")}
     const {error:deleteError}=await this.supabase.from("scheduled_workouts").delete().eq("user_id",this.userId);if(deleteError)throw deleteError;
     const rows=[];for(const item of items){const id=await this.templateUuid(item.templateId);if(id)rows.push({user_id:this.userId,template_id:id,scheduled_date:item.date,skipped:Boolean(item.skipped)})}
     if(rows.length){const {error}=await this.supabase.from("scheduled_workouts").insert(rows);if(error)throw error}
+    if(items.length){const {error}=await this.supabase.from("training_plan_occurrences").upsert(items.map(item=>({user_id:this.userId,occurrence_key:`strength:${item.templateId}:${item.date}`,modality:"strength",source_client_id:item.templateId,planned_date:item.date,status:item.skipped?"skipped":"planned"})),{onConflict:"user_id,occurrence_key"});if(error)throw error}
   }
 
   async saveWorkout(workout:Workout,status:"in_progress"|"completed"="completed"){
     const templateId=workout.templateId?await this.templateUuid(workout.templateId):undefined;
-    const {data,error}=await this.supabase.from("workouts").upsert({user_id:this.userId,client_id:workout.id,template_id:templateId||null,status,name:workout.name,workout_date:workout.date,started_at:workout.startedAt||null,ended_at:workout.endedAt||null,notes:workout.note||"",completed_at:status==="completed"?new Date().toISOString():null},{onConflict:"user_id,client_id"}).select("id").single();if(error)throw error;
+    const {data,error}=await this.supabase.from("workouts").upsert({user_id:this.userId,client_id:workout.id,template_id:templateId||null,status,name:workout.name,workout_date:workout.date,started_at:workout.startedAt||null,ended_at:workout.endedAt||null,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",notes:workout.note||"",completed_at:status==="completed"?new Date().toISOString():null},{onConflict:"user_id,client_id"}).select("id").single();if(error)throw error;
     const workoutId=data.id as string;const {error:deleteError}=await this.supabase.from("workout_exercises").delete().eq("workout_id",workoutId);if(deleteError)throw deleteError;
     const {error:deleteWarmupError}=await this.supabase.from("workout_warmup_items").delete().eq("workout_id",workoutId);if(deleteWarmupError)throw deleteWarmupError;
     if(workout.warmup?.length){const {error:warmupError}=await this.supabase.from("workout_warmup_items").insert(workout.warmup.map((item,index)=>({user_id:this.userId,workout_id:workoutId,client_id:item.id,item_type:item.kind,exercise_id:item.kind==="exercise"?item.exerciseId:null,title:item.title||"",instructions:item.instructions||"",position:index,completed:Boolean(item.done)})));if(warmupError)throw warmupError;}

@@ -7,7 +7,7 @@ export type ShareMetric={label:string;value:string};
 
 export type ShareCardData={
   id:string;
-  kind:"workout"|"pb";
+  kind:"workout"|"pb"|"award";
   sport:ShareSport;
   label:string;
   title:string;

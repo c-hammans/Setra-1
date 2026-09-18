@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { AuthGate } from "@/components/auth/auth-gate";
+import {AwardsUsageTracker} from "@/components/awards/usage-tracker";
 
 export const metadata: Metadata = {
   title: "setra — The work adds up.",
@@ -37,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider><AuthGate>{children}</AuthGate></AuthProvider>
+        <AuthProvider><AuthGate><AwardsUsageTracker/>{children}</AuthGate></AuthProvider>
       </body>
     </html>
   );

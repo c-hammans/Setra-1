@@ -1,0 +1,8 @@
+import type {AwardProgress} from "@/lib/awards/types";
+
+const glyphs:Record<string,string>={strength:"M6 18h12M7 14V10m10 4V10M4 12h16",endurance:"M5 16l4-8 4 5 3-7 3 10",week:"M5 6h14v13H5zM8 4v4m8-4v4m-8 4h8",sessions:"M7 7h10M7 12h10M7 17h7",clock:"M12 5v7l4 2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20",run:"M13 5l-2 4 3 3-3 7m0-10L7 7m7 5 4 2",bike:"M7 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6m10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6M9 8h4l4 6m-7 0 3-6",swim:"M3 12c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2M3 17c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2",row:"M5 18h14M7 15l3-8 4 4 3-5",walk:"M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2-2 5 3 2-1 6m-2-6-4 6m6-4 4-1",hybrid:"M7 5v14m10-14v14M4 8h6m4 8h6",target:"M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16m0 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8",setra:"M6 6h12M6 12h12M6 18h12",default:"M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9L6.6 20l1-6.1-4.4-4.3 6.1-.9z"};
+
+export function AwardMark({icon,locked=false,large=false}:{icon:string;locked?:boolean;large?:boolean}){const path=glyphs[icon]||glyphs.default;return <span className={`award-mark ${locked?"is-locked":""} ${large?"is-large":""}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>{locked?<i>•</i>:null}</span>}
+
+export function AwardBadge({award,onClick}:{award:AwardProgress;onClick:()=>void}){return <button className={`award-badge ${award.earned?"is-earned":"is-locked"}`} onClick={onClick}><AwardMark icon={award.definition.icon} locked={!award.earned}/><span><b>{award.definition.title}</b><small>{award.earned?"Earned":`${Math.min(100,Math.round(award.progress*100))}% complete`}</small></span></button>}
+

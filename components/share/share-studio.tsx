@@ -18,7 +18,7 @@ export function ShareStudio({items,accent,onClose,footer}:Props){
   useEffect(()=>()=>{if(photoUrl)URL.revokeObjectURL(photoUrl)},[photoUrl]);
   async function image(){if(!data)throw new Error("Share card unavailable");setBusy(true);setMessage("");try{return await renderShareImage(data,options)}finally{setBusy(false)}}
   const fileName=()=>`setra-${data.kind}-${data.id}.png`;
-  const shareTitle=()=>data.kind==="pb"?"My Setra PB":"My Setra workout";
+  const shareTitle=()=>data.kind==="pb"?"My Setra PB":data.kind==="award"?"My Setra award":"My Setra workout";
   const canShareFile=(file:File)=>typeof navigator.share==="function"&&typeof navigator.canShare==="function"&&navigator.canShare({files:[file]});
   function download(blob:Blob){const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=fileName();link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
   async function save(){try{const blob=await image();const file=new File([blob],fileName(),{type:"image/png"});if(canShareFile(file)){setMessage("Choose Save Image to add this card to Photos.");await navigator.share({title:`Save ${shareTitle()}`,files:[file]});setMessage("Card sent to your iPhone share sheet.")}else{download(blob);setMessage("Saved as a high-resolution PNG.")}}catch(error){if((error as Error).name!=="AbortError")setMessage("The image could not be saved. Please try again.")}}

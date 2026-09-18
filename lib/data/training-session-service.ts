@@ -1,6 +1,7 @@
 import type {SupabaseClient} from "@supabase/supabase-js";
 import {createClient} from "@/lib/supabase/client";
 import type {EnduranceSession,EnduranceTemplate,TrainingActivityType,TrainingBlockType,TrainingCategory,TrainingCompletionType,TrainingEnvironment,TrainingSessionBlock,TrainingTargetMetric} from "@/lib/setra/types";
+import {localDateKey} from "@/lib/setra/week";
 
 // Supabase rows are mapped here so the UI remains independent of database column names.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +49,7 @@ export class TrainingSessionService{
     const sessionId=data.id as string;
     const {error:deleteError}=await this.supabase.from("training_session_blocks").delete().eq("session_id",sessionId);if(deleteError)throw deleteError;
     if(session.blocks.length){const {error:blockError}=await this.supabase.from("training_session_blocks").insert(blockRows(session.blocks,"session_id",sessionId,this.userId));if(blockError)throw blockError;}
+    if(session.status==="planned"){const {error:planError}=await this.supabase.from("training_plan_occurrences").upsert({user_id:this.userId,occurrence_key:`endurance:${session.id}`,modality:"endurance",source_client_id:session.id,planned_date:session.date,status:session.skipped?"skipped":"planned"},{onConflict:"user_id,occurrence_key"});if(planError)throw planError}
   }
 
   async saveTemplate(template:EnduranceTemplate){
@@ -60,6 +62,8 @@ export class TrainingSessionService{
   async deleteTemplate(clientId:string){const {error}=await this.supabase.from("endurance_templates").delete().eq("user_id",this.userId).eq("client_id",clientId);if(error)throw error;}
 
   async delete(clientId:string){
+    const {data:session}=await this.supabase.from("training_sessions").select("session_date,status").eq("user_id",this.userId).eq("client_id",clientId).maybeSingle();
+    if(session?.status==="planned"&&String(session.session_date)>localDateKey())await this.supabase.from("training_plan_occurrences").update({status:"cancelled"}).eq("user_id",this.userId).eq("occurrence_key",`endurance:${clientId}`).eq("status","planned");
     const {error}=await this.supabase.from("training_sessions").delete().eq("user_id",this.userId).eq("client_id",clientId).eq("modality","endurance");if(error)throw error;
   }
 }

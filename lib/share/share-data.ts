@@ -1,5 +1,6 @@
 import type {EnduranceSession,Workout} from "@/lib/setra/types";
 import type {ShareCardData,ShareMetric,ShareSport} from "@/lib/share/share-types";
+import type {AwardProgress} from "@/lib/awards/types";
 
 const clock=(seconds:number)=>{const rounded=Math.max(0,Math.round(seconds));const hours=Math.floor(rounded/3600);const minutes=Math.floor((rounded%3600)/60);const secs=rounded%60;return hours?`${hours}:${String(minutes).padStart(2,"0")}:${String(secs).padStart(2,"0")}`:`${minutes}:${String(secs).padStart(2,"0")}`};
 const duration=(minutes?:number)=>minutes?clock(minutes*60):"";
@@ -38,4 +39,8 @@ export function enduranceWorkoutShareData(session:EnduranceSession):ShareCardDat
 export function strengthPBShareData(pb:{exerciseId:string;name:string;weight:number;reps:string;previousWeight?:number}):ShareCardData{
   const improvement=pb.previousWeight&&pb.weight>pb.previousWeight?pb.weight-pb.previousWeight:undefined;
   return{id:pb.exerciseId,kind:"pb",sport:"strength",label:"New PB",title:pb.name,result:`${compactNumber(pb.weight)} kg`,secondary:pb.reps?`× ${pb.reps} reps`:undefined,improvement:improvement?`+${compactNumber(improvement)} kg`:undefined,previous:pb.previousWeight?`Previous PB ${compactNumber(pb.previousWeight)} kg`:undefined,metrics:[]};
+}
+
+export function awardShareData(award:AwardProgress):ShareCardData{
+  return{id:award.definition.id,kind:"award",sport:"custom",label:"Award earned",title:"The work adds up.",result:award.definition.title,date:award.earnedAt?.slice(0,10),metrics:[]};
 }
