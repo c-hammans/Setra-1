@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "./auth-provider";
 
 type Mode = "signin"|"signup"|"reset";
+const friendlyAuthMessage=(message:string)=>{const value=message.toLowerCase();if(value.includes("invalid login"))return"That email or password was not recognised.";if(value.includes("email not confirmed"))return"Please confirm your email before signing in.";if(value.includes("rate")||value.includes("too many"))return"Too many attempts. Please wait a moment and try again.";if(value.includes("network")||value.includes("fetch"))return"Setra could not connect. Check your internet connection and try again.";return"Setra could not complete that request. Please try again."};
 
 export function AuthGate({children}:{children:React.ReactNode}) {
   const {configured,loading,user}=useAuth();
@@ -24,15 +25,15 @@ export function AuthGate({children}:{children:React.ReactNode}) {
     const supabase=createClient();
     if(mode==="signin"){
       const {error}=await supabase.auth.signInWithPassword({email,password});
-      setMessage(error?error.message:"");
+      setMessage(error?friendlyAuthMessage(error.message):"");
     } else if(mode==="signup") {
       const site=process.env.NEXT_PUBLIC_SITE_URL||window.location.origin;
       const {error}=await supabase.auth.signUp({email,password,options:{data:{display_name:displayName.trim()},emailRedirectTo:`${site}/auth/callback`}});
-      setMessage(error?error.message:"Check your email to confirm your Setra account.");
+      setMessage(error?friendlyAuthMessage(error.message):"Check your email to confirm your Setra account.");
     } else {
       const site=process.env.NEXT_PUBLIC_SITE_URL||window.location.origin;
       const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:`${site}/auth/callback?next=/auth/reset-password`});
-      setMessage(error?error.message:"Password reset email sent.");
+      setMessage(error?friendlyAuthMessage(error.message):"Password reset email sent.");
     }
     setBusy(false);
   }

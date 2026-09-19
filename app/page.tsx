@@ -7,10 +7,12 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
 import { TrainingSessionService } from "@/lib/data/training-session-service";
 import { FeedbackService, type FeedbackCategory } from "@/lib/feedback/feedback-service";
-import { canImportLegacyDiary, claimLegacyDiary, clearLocalDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraft, loadLocalEnduranceSessions, loadLocalEnduranceTemplates, loadLocalTextScale, localImportSummary, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft, saveLocalEnduranceSessions, saveLocalEnduranceTemplates, saveLocalTextScale } from "@/lib/data/local-diary";
+import { canImportLegacyDiary, claimLegacyDiary, clearCompletedWorkoutEditorDraft, clearEnduranceEditorDraft, clearLocalDraft, clearStrengthEditorDraft, loadCompletedWorkoutEditorDraft, loadEnduranceEditorDraft, loadLocalAppearance, loadLocalAppColour, loadLocalDiary, loadLocalDraftSnapshot, loadLocalEnduranceSessions, loadLocalEnduranceTemplates, loadLocalTextScale, loadPendingDiaryChanges, loadStrengthEditorDraft, localImportSummary, queuePendingDiaryChange, removePendingDiaryChange, saveCompletedWorkoutEditorDraft, saveEnduranceEditorDraft, saveLocalAppearance, saveLocalAppColour, saveLocalDiary, saveLocalDraft, saveLocalEnduranceSessions, saveLocalEnduranceTemplates, saveLocalTextScale, saveStrengthEditorDraft } from "@/lib/data/local-diary";
 import {contrastColour,createSetraTheme,useResolvedAppearance,type AppearanceMode,type TextScale} from "@/lib/setra/appearance";
 import {NavIcon,type NavIconName} from "@/components/navigation/nav-icon";
 import {expandedExerciseCatalogue,mergeExerciseCatalogues} from "@/lib/setra/exercise-catalogue";
+import {formatLoad,type StrengthUnit} from "@/lib/setra/units";
+import {LoadInput} from "@/components/strength/load-input";
 import {activityLabel,EnduranceSessionSheet} from "@/components/endurance/endurance-session-sheet";
 import {ActivityIcon} from "@/components/endurance/activity-icon";
 import {EnduranceStructureView,EnduranceWorkoutView} from "@/components/endurance/endurance-workout-view";
@@ -19,6 +21,7 @@ import {enduranceWorkoutShareData,strengthPBShareData,strengthWorkoutShareData} 
 import {WeeklyPreview,type WeeklyPreviewItem} from "@/components/weekly/weekly-preview";
 import {HomeStreak} from "@/components/awards/home-streak";
 import {localDateKey,monthGridDateKeys,orderedWeekdayInitials,weekDateKeys,weekStartKey,type WeekdayIndex} from "@/lib/setra/week";
+import {analytics} from "@/lib/analytics/events";
 import "./endurance.css";
 import "./share.css";
 import "./weekly-preview.css";
@@ -27,7 +30,6 @@ import "./awards-home.css";
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = { exerciseId: string; name: string; weight: number; reps: string; previousWeight?:number };
 
-const today = localDateKey();
 const betaFeedbackEnabled = true;
 const localTime = (date = new Date()) => `${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
 const daysAgo = (days: number) => { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); };
@@ -241,7 +243,7 @@ const sampleWorkouts: Workout[] = [
   ]},
 ];
 
-const initialData: AppData = { exercises: sampleExercises, templates: sampleTemplates, workouts: sampleWorkouts, scheduled: [{ date: today, templateId: "lower-a" }] };
+const initialData: AppData = { exercises: sampleExercises, templates: sampleTemplates, workouts: sampleWorkouts, scheduled: [{ date: localDateKey(), templateId: "lower-a" }] };
 const motivations = ["Ready when you are.","Built for what’s next.","Strong starts here.","Show up and get stronger.","One set at a time.","Make today count.","Progress starts now.","Your strength is building.","Keep the momentum.","Today is yours.","Put in the work.","Go build something strong.","Small steps. Big goals.","Stronger with every set.","This is your time.","Earn tomorrow’s strength.","Move with purpose.","Start steady. End strong.","You’ve got this.","Ready. Set. Build.","Build the next version.","Train with purpose.","Make this session count.","The work starts now.","Own every rep.","Keep showing up.","Strength happens here.","One more strong day.","Begin where you are.","Let’s get stronger."];
 const formatDate = (value: string) => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 const profileInitials = (name?:string,email?:string) => {
@@ -253,6 +255,7 @@ const profileInitials = (name?:string,email?:string) => {
   return emailWords.length>1?`${emailWords[0][0]}${emailWords[emailWords.length-1][0]}`.toUpperCase():(emailWords[0]||"SE").slice(0,2).toUpperCase();
 };
 const formatMinutes=(minutes?:number)=>minutes==null?"":minutes>=60?`${Math.floor(minutes/60)}h ${Math.round(minutes%60)}m`:`${Math.round(minutes)} min`;
+const elapsedMinutes=(start?:string,end?:string)=>{if(!start||!end)return 0;const [sh,sm]=start.split(":").map(Number);const [eh,em]=end.split(":").map(Number);if([sh,sm,eh,em].some(value=>!Number.isFinite(value)))return 0;let minutes=(eh*60+em)-(sh*60+sm);if(minutes<0)minutes+=1440;return Math.max(0,minutes)};
 const formatPace=(seconds?:number,unit="km")=>seconds==null?"":`${Math.floor(seconds/60)}:${String(Math.round(seconds%60)).padStart(2,"0")} /${unit}`;
 const enduranceSummary=(session:EnduranceSession)=>{const parts:string[]=[];const duration=session.status==="completed"?session.durationMinutes:session.plannedDurationMinutes;const distance=session.status==="completed"?session.distanceKm:session.plannedDistanceKm;if(duration)parts.push(formatMinutes(duration));if(distance)parts.push(`${Number(distance.toFixed(2))} km`);if(session.averageSpeedKph)parts.push(`${session.averageSpeedKph.toFixed(1)} km/h`);else if(session.averageSplitSecondsPer500m)parts.push(formatPace(session.averageSplitSecondsPer500m,"500 m"));else if(session.averagePaceSecondsPerKm)parts.push(formatPace(session.activityType==="swim"?session.averagePaceSecondsPerKm/10:session.averagePaceSecondsPerKm,session.activityType==="swim"?"100 m":"km"));return parts.join(" · ")||activityLabel(session.activityType)};
 const weeklyEnduranceSummary=(session:EnduranceSession)=>{const repeated=session.blocks.find(block=>(block.type==="repeat_group"||Boolean(block.repetitions&&block.repetitions>1))&&block.repetitions);if(repeated){const child=session.blocks.find(block=>block.parentId===repeated.id);const useMetres=Boolean(child?.distanceMetres&&child.distanceMetres<1000)||session.activityType==="swim"||session.activityType==="row";const effort=child?.distanceMetres?`${Number((child.distanceMetres/(useMetres?1:1000)).toFixed(useMetres?0:2))} ${useMetres?"m":"km"}`:child?.durationSeconds?formatMinutes(child.durationSeconds/60):repeated.title;return `${repeated.repetitions} × ${effort}`;}return enduranceSummary(session)};
@@ -267,10 +270,11 @@ const retryCloud = async <T,>(action:()=>Promise<T>,attempts=2):Promise<T> => {
 
 export default function Home() {
   const {configured,user}=useAuth();
+  const [today,setToday]=useState(()=>localDateKey());
   const diaryService=useMemo(()=>user?new DiaryService(user.id):null,[user]);
   const trainingService=useMemo(()=>user?new TrainingSessionService(user.id):null,[user]);
   const feedbackService=useMemo(()=>user?new FeedbackService(user.id):null,[user]);
-  const [data, setData] = useState<AppData>(initialData);
+  const [data, setData] = useState<AppData>(()=>user?{exercises:sampleExercises,templates:[],workouts:[],scheduled:[]}:initialData);
   const [enduranceSessions,setEnduranceSessions]=useState<EnduranceSession[]>([]);
   const [enduranceTemplates,setEnduranceTemplates]=useState<EnduranceTemplate[]>([]);
   const [trainingPreference,setTrainingPreference]=useState<TrainingPreference>("strength");
@@ -318,6 +322,8 @@ export default function Home() {
   const draggedExerciseRef=useRef<number|null>(null);
   const warmupIdRef=useRef(0);
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
+  const completionLockRef=useRef(false);
+  const [completionSaving,setCompletionSaving]=useState(false);
   const [sessionStartTime, setSessionStartTime] = useState("");
   const [sessionFinishTime, setSessionFinishTime] = useState("");
   const [completedShare, setCompletedShare] = useState<Workout | null>(null);
@@ -328,6 +334,7 @@ export default function Home() {
   const [sessionTemplateSaved, setSessionTemplateSaved] = useState(false);
   const [cloudState,setCloudState]=useState<"local"|"loading"|"synced"|"error">(configured?"loading":"local");
   const [cloudMessage,setCloudMessage]=useState("");
+  const [draftSaveState,setDraftSaveState]=useState<"idle"|"saving"|"saved"|"device"|"pending"|"error">("idle");
   const [showImport,setShowImport]=useState(false);
   const [importBusy,setImportBusy]=useState(false);
   const [appColour,setAppColour]=useState("#409ECE");
@@ -335,6 +342,7 @@ export default function Home() {
   const [textScale,setTextScale]=useState<TextScale>(1);
   const [showWorkoutTimingPopup,setShowWorkoutTimingPopup]=useState(true);
   const [showPbPopup,setShowPbPopup]=useState(true);
+  const [preferredUnit,setPreferredUnit]=useState<StrengthUnit>("kg");
   const [weekStartsOn,setWeekStartsOn]=useState<WeekdayIndex>(1);
   const [lastWeeklyPreviewWeekStart,setLastWeeklyPreviewWeekStart]=useState<string|null>(null);
   const [profileReady,setProfileReady]=useState(false);
@@ -352,22 +360,45 @@ export default function Home() {
   useEffect(() => {
     const stored=loadLocalDiary(user?.id);
     if(stored)setData({...stored,templates:stored.templates.map(template=>({...template,color:template.color?.toUpperCase()==="#7B61FF"?"#409ECE":template.color})),exercises:mergeExerciseCatalogues(sampleExercises,stored.exercises)});
-    setSavedDraft(loadLocalDraft(user?.id));
+    setSavedDraft(loadLocalDraftSnapshot(user?.id)?.workout||null);
     setEnduranceSessions(loadLocalEnduranceSessions(user?.id));
     setEnduranceTemplates(loadLocalEnduranceTemplates(user?.id));
     const cachedColour=loadLocalAppColour(user?.id);if(cachedColour)setAppColour(cachedColour);
     const cachedAppearance=loadLocalAppearance(user?.id);if(cachedAppearance)setAppearanceMode(cachedAppearance);
     const cachedTextScale=loadLocalTextScale(user?.id);if(cachedTextScale)setTextScale(cachedTextScale);
+    const strengthEditorDraft=loadStrengthEditorDraft(user?.id);const enduranceEditorDraft=loadEnduranceEditorDraft(user?.id);
+    if(strengthEditorDraft&&(!enduranceEditorDraft||strengthEditorDraft.updatedAt>=enduranceEditorDraft.updatedAt))setEditor(strengthEditorDraft.template);
+    else if(enduranceEditorDraft)setEnduranceEditor({mode:enduranceEditorDraft.mode,initial:enduranceEditorDraft.value});
+    const completedWorkoutEditorDraft=loadCompletedWorkoutEditorDraft(user?.id);if(completedWorkoutEditorDraft){setActive(completedWorkoutEditorDraft.workout);setEditingWorkoutId(completedWorkoutEditorDraft.editingWorkoutId)}
     setLoaded(true);
     setMotivation(motivations[Math.floor(Math.random()*motivations.length)]);
     const requestedTab=new URLSearchParams(window.location.search).get("tab");if(requestedTab==="plan"||requestedTab==="history"||requestedTab==="pbs")setTab(requestedTab);
   }, [user?.id]);
-  useEffect(() => { if (loaded) saveLocalDiary(data,user?.id); }, [data, loaded,user?.id]);
-  useEffect(()=>{if(loaded)saveLocalEnduranceSessions(enduranceSessions,user?.id)},[enduranceSessions,loaded,user?.id]);
-  useEffect(()=>{if(loaded)saveLocalEnduranceTemplates(enduranceTemplates,user?.id)},[enduranceTemplates,loaded,user?.id]);
+  useEffect(()=>{const refreshDate=()=>setToday(current=>{const next=localDateKey();return next===current?current:next});const timer=window.setInterval(refreshDate,60_000);window.addEventListener("focus",refreshDate);document.addEventListener("visibilitychange",refreshDate);return()=>{window.clearInterval(timer);window.removeEventListener("focus",refreshDate);document.removeEventListener("visibilitychange",refreshDate)}},[]);
+  useEffect(()=>{if(loaded)analytics.track("weekly_return")},[loaded]);
+  useEffect(()=>{const restore=()=>{const requested=new URLSearchParams(window.location.search).get("tab");setTab(requested==="plan"||requested==="history"||requested==="pbs"?requested:"today")};window.addEventListener("popstate",restore);return()=>window.removeEventListener("popstate",restore)},[]);
+  useEffect(() => { if (loaded&&!saveLocalDiary(data,user?.id).ok){setCloudState("error");setCloudMessage("This device is out of storage. Cloud data is unchanged, but new offline changes may not be recoverable.")} }, [data, loaded,user?.id]);
+  useEffect(()=>{if(loaded&&!saveLocalEnduranceSessions(enduranceSessions,user?.id).ok){setCloudState("error");setCloudMessage("This device is out of storage. Endurance changes may not be available offline.")}},[enduranceSessions,loaded,user?.id]);
+  useEffect(()=>{if(loaded&&!saveLocalEnduranceTemplates(enduranceTemplates,user?.id).ok){setCloudState("error");setCloudMessage("This device is out of storage. Template changes may not be available offline.")}},[enduranceTemplates,loaded,user?.id]);
+  useEffect(()=>{if(!loaded||!editor)return;clearEnduranceEditorDraft(user?.id);const saved=saveStrengthEditorDraft(editor,user?.id);if(!saved.ok){setCloudState("error");setCloudMessage("This workout edit could not be saved on this device. Keep the editor open until you can save it.")}},[editor,loaded,user?.id]);
+  useEffect(()=>{if(!loaded||!active||!editingWorkoutId)return;const saved=saveCompletedWorkoutEditorDraft(active,editingWorkoutId,user?.id);if(!saved.ok){setCloudState("error");setCloudMessage("This completed workout edit could not be saved on this device. Keep the editor open until you can update it.")}},[active,editingWorkoutId,loaded,user?.id]);
   useEffect(()=>{const viewport=window.visualViewport;if(!viewport)return;const update=()=>{document.documentElement.style.setProperty("--setra-viewport-height",`${viewport.height}px`);document.documentElement.style.setProperty("--setra-viewport-offset-top",`${viewport.offsetTop}px`)};update();viewport.addEventListener("resize",update);viewport.addEventListener("scroll",update);return()=>{viewport.removeEventListener("resize",update);viewport.removeEventListener("scroll",update)}},[]);
   useEffect(()=>{if(trainingPreference==="endurance"&&(tab==="pbs"||tab==="library"))setTab("today")},[tab,trainingPreference]);
   useEffect(()=>{if(liveEditIndex!==null)setLiveSwapQuery("")},[liveEditIndex]);
+  useEffect(()=>{
+    if(!active||editingWorkoutId)return;
+    setDraftSaveState("saving");
+    const local=saveLocalDraft(active,user?.id);
+    const queueKey=`workout:${active.id}`;
+    const queued=queuePendingDiaryChange({key:queueKey,kind:"save_workout",payload:{workout:{...active,updatedAt:local.updatedAt},status:"in_progress"}},user?.id);
+    if(!local.ok){setDraftSaveState("error");setCloudMessage("This device could not save the workout draft. Keep this page open and free some browser storage before continuing.")}
+    const timer=window.setTimeout(()=>{
+      if(!diaryService){if(local.ok)setDraftSaveState("device");return}
+      retryCloud(()=>diaryService.saveWorkout({...active,updatedAt:local.updatedAt},"in_progress"),2).then(()=>{removePendingDiaryChange(queueKey,user?.id);setDraftSaveState("saved")}).catch(()=>{setDraftSaveState(local.ok&&queued.ok?"pending":"error");setCloudMessage(local.ok&&queued.ok?"Saved on this device. Cloud sync will retry automatically when Setra reconnects.":"The workout draft could not be saved.")});
+    },650);
+    return()=>window.clearTimeout(timer);
+  },[active,diaryService,editingWorkoutId,user?.id]);
+  useEffect(()=>{if(!profileReady||!diaryService||!user?.id)return;let cancelled=false;const replay=async()=>{for(const change of loadPendingDiaryChanges(user.id)){if(cancelled)return;try{if(change.kind==="save_workout")await diaryService.saveWorkout(change.payload.workout,change.payload.status);else if(change.kind==="replace_schedule")await diaryService.replaceSchedule(change.payload.items);else if(change.kind==="save_strength_template")await diaryService.saveTemplate(change.payload.template);else if(change.kind==="save_endurance_session"){if(!trainingService)return;await trainingService.save(change.payload.session)}else{if(!trainingService)return;await trainingService.saveTemplate(change.payload.template)}removePendingDiaryChange(change.key,user.id)}catch{setCloudState("error");setCloudMessage("Saved changes are waiting on this device and will retry when Setra reconnects.");return}}};void replay();const online=()=>void replay();window.addEventListener("online",online);return()=>{cancelled=true;window.removeEventListener("online",online)}},[profileReady,diaryService,trainingService,user?.id]);
   useEffect(()=>{
     if(!prominentLayerOpen)return;
     const scrollY=window.scrollY;
@@ -378,22 +409,25 @@ export default function Home() {
     root.style.overflow="hidden";root.style.overscrollBehavior="none";
     return()=>{body.style.position=previous.position;body.style.top=previous.top;body.style.width=previous.width;body.style.overflow=previous.overflow;root.style.overflow=previous.rootOverflow;root.style.overscrollBehavior=previous.rootOverscroll;window.scrollTo(0,scrollY)};
   },[prominentLayerOpen]);
+  useEffect(()=>{if(!prominentLayerOpen)return;const closeTopLayer=(event:KeyboardEvent)=>{if(event.key!=="Escape")return;if(finishDialogOpen)setFinishDialogOpen(false);else if(weeklyPreviewOpen)setWeeklyPreviewOpen(false);else if(feedbackOpen)setFeedbackOpen(false);else if(exerciseHistoryId)setExerciseHistoryId(null);else if(liveEditIndex!==null)setLiveEditIndex(null);else if(liveAddOpen)setLiveAddOpen(false);else if(picker)setPicker(false);else if(swapPlanned)setSwapPlanned(null);else if(scheduleTemplateId||scheduleEnduranceTemplateId){setScheduleTemplateId(null);setScheduleEnduranceTemplateId(null)}else if(detailId)setDetailId(null);else if(enduranceDetailId)setEnduranceDetailId(null);else if(trainingAction)setTrainingAction(null)};window.addEventListener("keydown",closeTopLayer);return()=>window.removeEventListener("keydown",closeTopLayer)},[prominentLayerOpen,finishDialogOpen,weeklyPreviewOpen,feedbackOpen,exerciseHistoryId,liveEditIndex,liveAddOpen,picker,swapPlanned,scheduleTemplateId,scheduleEnduranceTemplateId,detailId,enduranceDetailId,trainingAction]);
   useEffect(()=>{
     if(!loaded||!diaryService)return;
     let cancelled=false;setCloudState("loading");
     retryCloud(()=>Promise.all([diaryService.load(),diaryService.loadDraft(),diaryService.loadProfile()])).then(([cloud,draft,profile])=>{
       if(cancelled)return;
       const reconciledSchedule=cloud.scheduled.filter(item=>!cloud.workouts.some(workout=>workout.date===item.date&&workout.templateId===item.templateId));
-      if(reconciledSchedule.length!==cloud.scheduled.length){cloud.scheduled=reconciledSchedule;void diaryService.replaceSchedule(reconciledSchedule)}
+      if(reconciledSchedule.length!==cloud.scheduled.length){cloud.scheduled=reconciledSchedule;const key="schedule:current";queuePendingDiaryChange({key,kind:"replace_schedule",payload:{items:reconciledSchedule}},user?.id);void diaryService.replaceSchedule(reconciledSchedule).then(()=>removePendingDiaryChange(key,user?.id))}
       const hasCloudData=cloud.templates.length>0||cloud.workouts.length>0||cloud.scheduled.length>0;
       if(hasCloudData)setData({...cloud,exercises:mergeExerciseCatalogues(sampleExercises,cloud.exercises)});
-      if(draft){const restoredDraft=restoreMissingTemplateExercises(draft,cloud.templates.find(template=>template.id===draft.templateId));setSavedDraft(restoredDraft);saveLocalDraft(restoredDraft,user?.id)}
+      const localDraft=loadLocalDraftSnapshot(user?.id);const cloudUpdated=draft?.updatedAt||"1970-01-01T00:00:00.000Z";const newestDraft=localDraft&&localDraft.updatedAt>cloudUpdated?localDraft.workout:draft;
+      if(newestDraft){const restoredDraft=restoreMissingTemplateExercises(newestDraft,cloud.templates.find(template=>template.id===newestDraft.templateId));setSavedDraft(restoredDraft);saveLocalDraft(restoredDraft,user?.id);analytics.track("draft_recovered",{outcome:"recovered"})}
       const cachedColour=loadLocalAppColour(user?.id);
       if(cachedColour){setAppColour(cachedColour);if(cachedColour!==profile.appColour)void diaryService.updateAppColour(cachedColour)}
       else{setAppColour(profile.appColour);saveLocalAppColour(profile.appColour,user?.id)}
       setAppearanceMode(profile.appearanceMode);saveLocalAppearance(profile.appearanceMode,user?.id);
       setTextScale(profile.textScale);saveLocalTextScale(profile.textScale,user?.id);
       setTrainingPreference(profile.trainingPreference);
+      setPreferredUnit(profile.preferredUnit);
       setShowWorkoutTimingPopup(profile.showWorkoutTimingPopup);setShowPbPopup(profile.showPbPopup);
       setWeekStartsOn(profile.weekStartsOn);setLastWeeklyPreviewWeekStart(profile.lastWeeklyPreviewWeekStart);setProfileReady(true);
       const local=loadLocalDiary();const summary=local?localImportSummary(local):null;
@@ -409,12 +443,19 @@ export default function Home() {
 
   function runCloud(action:(service:DiaryService)=>Promise<unknown>){
     if(!diaryService)return;
-    setCloudState("loading");return retryCloud(()=>action(diaryService)).then(()=>{setCloudState("synced");setCloudMessage("");return true}).catch(error=>{setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Cloud save failed. Your local copy is still safe.");return false});
+    setCloudState("loading");return retryCloud(()=>action(diaryService)).then(()=>{setCloudState("synced");setCloudMessage("");return true}).catch(error=>{analytics.track("save_failed",{outcome:"failed"});setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Cloud save failed. Your local copy is still safe.");return false});
   }
-  function runTrainingCloud(action:(service:TrainingSessionService)=>Promise<unknown>){if(!trainingService)return;setCloudState("loading");return retryCloud(()=>action(trainingService)).then(()=>{setCloudState("synced");setCloudMessage("");return true}).catch(error=>{setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Activity save failed. Your local copy is still safe.");return false})}
+  function navigateTab(next:Tab){setTab(next);const url=next==="today"?"/":`/?tab=${next}`;window.history.pushState({},"",url)}
+  function persistSchedule(items:AppData["scheduled"]){const key="schedule:current";const queued=queuePendingDiaryChange({key,kind:"replace_schedule",payload:{items}},user?.id);return runCloud(service=>service.replaceSchedule(items))?.then(saved=>{if(saved)removePendingDiaryChange(key,user?.id);else if(queued.ok)setCloudMessage("Schedule changes are saved on this device and waiting to sync.");return saved})}
+  function runTrainingCloud(action:(service:TrainingSessionService)=>Promise<unknown>){if(!trainingService)return;setCloudState("loading");return retryCloud(()=>action(trainingService)).then(()=>{setCloudState("synced");setCloudMessage("");return true}).catch(error=>{analytics.track("save_failed",{outcome:"failed"});setCloudState("error");setCloudMessage(error instanceof Error?error.message:"Activity save failed. Your local copy is still safe.");return false})}
+  function closeCompletedWorkoutEditor(){clearCompletedWorkoutEditorDraft(user?.id);setActive(null);setEditingWorkoutId(null)}
+  function closeStrengthEditor(){clearStrengthEditorDraft(user?.id);setEditor(null)}
+  function closeEnduranceEditor(){clearEnduranceEditorDraft(user?.id);setEnduranceEditor(null)}
+  function persistEnduranceEditorDraft(value:EnduranceSession|EnduranceTemplate){clearStrengthEditorDraft(user?.id);const saved=saveEnduranceEditorDraft(enduranceEditor?.mode||("status" in value?"plan":"template"),value,user?.id);if(!saved.ok){setCloudState("error");setCloudMessage("This endurance edit could not be saved on this device. Keep the editor open until you can save it.")}}
   function saveEnduranceValue(value:EnduranceSession|EnduranceTemplate){
-    if(!("status" in value)){setEnduranceTemplates(current=>[value,...current.filter(item=>item.id!==value.id)]);runTrainingCloud(service=>service.saveTemplate(value));setEnduranceEditor(null);return}
-    const session=value;const initial=enduranceEditor?.initial;const initialSession=initial&&"status" in initial?initial:null;const newlyCompleted=session.status==="completed"&&enduranceEditor?.mode==="log"&&initialSession?.status!=="completed";setEnduranceSessions(current=>[session,...current.filter(item=>item.id!==session.id)].sort((a,b)=>b.date.localeCompare(a.date)));runTrainingCloud(service=>service.save(session))?.then(saved=>{if(saved)window.dispatchEvent(new Event("setra-training-changed"))});setSelectedDate(session.date);setEnduranceEditor(null);setEnduranceDetailId(newlyCompleted?null:session.status==="completed"?session.id:null);if(newlyCompleted)setCompletedEnduranceShare(session)
+    clearEnduranceEditorDraft(user?.id);
+    if(!("status" in value)){const key=`endurance-template:${value.id}`;setEnduranceTemplates(current=>[value,...current.filter(item=>item.id!==value.id)]);queuePendingDiaryChange({key,kind:"save_endurance_template",payload:{template:value}},user?.id);runTrainingCloud(service=>service.saveTemplate(value))?.then(saved=>{if(saved)removePendingDiaryChange(key,user?.id)});setEnduranceEditor(null);return}
+    const session=value;const key=`endurance-session:${session.id}`;const initial=enduranceEditor?.initial;const initialSession=initial&&"status" in initial?initial:null;const newlyCompleted=session.status==="completed"&&enduranceEditor?.mode==="log"&&initialSession?.status!=="completed";if(newlyCompleted){analytics.track("training_mode_used",{modality:"endurance",source:session.templateId?"template":"manual"});if(!enduranceSessions.some(item=>item.status==="completed"))analytics.track("first_session_completed",{modality:"endurance",source:session.templateId?"template":"manual"})}setEnduranceSessions(current=>[session,...current.filter(item=>item.id!==session.id)].sort((a,b)=>b.date.localeCompare(a.date)));queuePendingDiaryChange({key,kind:"save_endurance_session",payload:{session}},user?.id);runTrainingCloud(service=>service.save(session))?.then(saved=>{if(saved){removePendingDiaryChange(key,user?.id);window.dispatchEvent(new Event("setra-training-changed"))}});setSelectedDate(session.date);setEnduranceEditor(null);setEnduranceDetailId(newlyCompleted?null:session.status==="completed"?session.id:null);if(newlyCompleted)setCompletedEnduranceShare(session)
   }
   function deleteEnduranceSession(session:EnduranceSession){setEnduranceSessions(current=>current.filter(item=>item.id!==session.id));runTrainingCloud(service=>service.delete(session.id));setEnduranceDetailId(null);setDeleteEnduranceId(null)}
   function deleteEnduranceTemplate(){if(!deleteEnduranceTemplateId)return;setEnduranceTemplates(current=>current.filter(item=>item.id!==deleteEnduranceTemplateId));runTrainingCloud(service=>service.deleteTemplate(deleteEnduranceTemplateId));setDeleteEnduranceTemplateId(null)}
@@ -441,7 +482,7 @@ export default function Home() {
   const weekDays = useMemo(() => weekDateKeys(selectedDate,weekStartsOn),[selectedDate,weekStartsOn]);
   const monthDays = useMemo(() => monthGridDateKeys(selectedDate,weekStartsOn),[selectedDate,weekStartsOn]);
   const monthWeekdayInitials=useMemo(()=>orderedWeekdayInitials(weekStartsOn),[weekStartsOn]);
-  const personalBests = useMemo(() => data.exercises.map(exercise => { const attempts=data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.id&&!item.skipped).flatMap(item=>item.sets.filter(set=>set.done).map(set=>({set,workout})))); const best=attempts.sort((a,b)=>(Number(b.set.weight)||0)-(Number(a.set.weight)||0))[0]; return best&&Number(best.set.weight)>0?{exercise,best}:null; }).filter(Boolean) as {exercise:Exercise;best:{set:SetLog;workout:Workout}}[],[data]);
+  const personalBests = useMemo(() => data.exercises.map(exercise => { const attempts=data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.id&&!item.skipped&&(item.loadMode==null||item.loadMode==="kg")).flatMap(item=>item.sets.filter(set=>set.done&&Number(set.weight)>0).map(set=>({set,workout})))); const best=attempts.sort((a,b)=>(Number(b.set.weight)||0)-(Number(a.set.weight)||0))[0]; return best&&Number(best.set.weight)>0?{exercise,best}:null; }).filter(Boolean) as {exercise:Exercise;best:{set:SetLog;workout:Workout}}[],[data]);
   const workoutInProgress = Boolean(active || savedDraft?.date === today);
   const combinedHistory=useMemo(()=>[
     ...data.workouts.filter(hasCompletedStrengthWork).map(workout=>({kind:"strength" as const,date:workout.date,id:workout.id,title:workout.name,workout})),
@@ -450,7 +491,7 @@ export default function Home() {
   const visibleHistory=combinedHistory.filter(item=>isHybrid||(trainingPreference==="strength"?item.kind==="strength":item.kind==="endurance"));
   const recentHistory=visibleHistory.slice(0,trainingPreference==="strength"?1:3);
   const effectiveHistoryMode=trainingPreference==="endurance"?"sessions":historyMode;
-  const currentWeekDates=useMemo(()=>weekDateKeys(today,weekStartsOn),[weekStartsOn]);
+  const currentWeekDates=useMemo(()=>weekDateKeys(today,weekStartsOn),[today,weekStartsOn]);
   const weeklyPreviewItems=useMemo<WeeklyPreviewItem[]>(()=>{
     const inWeek=(date:string)=>date>=currentWeekDates[0]&&date<=currentWeekDates[6];
     const items:WeeklyPreviewItem[]=[];
@@ -473,6 +514,14 @@ export default function Home() {
     return items;
   },[currentWeekDates,data.scheduled,data.templates,data.workouts,enduranceSessions]);
   const enduranceThisWeek=useMemo(()=>{const sessions=enduranceSessions.filter(session=>session.status==="completed"&&session.date>=currentWeekDates[0]&&session.date<=currentWeekDates[6]);return {sessions:sessions.length,distance:sessions.reduce((sum,session)=>sum+(session.distanceKm||0),0),minutes:sessions.reduce((sum,session)=>sum+(session.durationMinutes||0),0)}},[enduranceSessions,currentWeekDates]);
+  const todayMessage=useMemo(()=>{
+    if(selectedDate!==today){const planned=weeklyPreviewItems.filter(item=>item.date===selectedDate&&item.status==="planned").length;const completed=weeklyPreviewItems.filter(item=>item.date===selectedDate&&item.status==="completed").length;return planned?`${planned} ${planned===1?"session":"sessions"} planned.`:completed?`${completed} ${completed===1?"session":"sessions"} completed.`:"No training planned for this day."}
+    if(active||savedDraft?.date===today)return "Workout in progress — your latest changes are saved.";
+    const plannedToday=weeklyPreviewItems.filter(item=>item.date===today&&item.status==="planned").length;if(plannedToday)return `${plannedToday} ${plannedToday===1?"session":"sessions"} planned for today.`;
+    const completedToday=weeklyPreviewItems.filter(item=>item.date===today&&item.status==="completed").length;if(completedToday)return completedToday===1?"Today’s training is complete.":`${completedToday} sessions completed today.`;
+    const overdue=weeklyPreviewItems.filter(item=>item.date<today&&item.status==="planned").length;if(overdue)return `${overdue} overdue ${overdue===1?"session needs":"sessions need"} a decision.`;
+    const next=weeklyPreviewItems.find(item=>item.date>today&&item.status==="planned");return next?`Next: ${next.title} · ${formatDate(next.date)}`:"Rest day or open plan — nothing is scheduled.";
+  },[active,savedDraft,selectedDate,today,weeklyPreviewItems]);
 
   function openWeeklyPreview(){
     const key=weekStartKey(today,weekStartsOn);setWeeklyPreviewOpen(true);setLastWeeklyPreviewWeekStart(key);if(diaryService)runCloud(service=>service.markWeeklyPreviewSeen(key));
@@ -497,14 +546,17 @@ export default function Home() {
 
   function startWorkout(template: Template, workoutDate = today) {
     if (workoutInProgress || workoutDate !== today) return;
+    completionLockRef.current=false;setCompletionSaving(false);
     setExpandedLiveExercises(new Set());
     setWarmupExpanded(true);
     setEditingWorkoutId(null);
+    analytics.track("template_reused",{modality:"strength",source:"template"});
     setActive({ id: `workout-${workoutDate}-${data.workouts.length+1}-${template.id}`, templateId: template.id, name: template.name, date: workoutDate, startedAt: localTime(), duration: 0, note: "", supersetNames: template.supersetNames, warmup:(template.warmup||[]).map(item=>({...item,done:false})), exercises: template.exercises.map(liveExerciseFromTemplate) });
     setPicker(false);
   }
   function startBlankWorkout() {
     if (workoutInProgress || selectedDate !== today) return;
+    completionLockRef.current=false;setCompletionSaving(false);
     setExpandedLiveExercises(new Set());
     setEditingWorkoutId(null);
     setActive({id:`workout-${today}-${data.workouts.length+1}-quick`,name:"Add as I go",date:today,startedAt:localTime(),duration:0,note:"",warmup:[],exercises:[]});
@@ -512,38 +564,48 @@ export default function Home() {
   }
   function saveDraft() {
     if (!active) return;
-    saveLocalDraft(active,user?.id);runCloud(service=>service.saveWorkout(active,"in_progress"));
-    if(active.templateId)setData(current=>{const scheduled=current.scheduled.filter(item=>!(item.date===active.date&&item.templateId===active.templateId));runCloud(service=>service.replaceSchedule(scheduled));return {...current,scheduled}});
+    const local=saveLocalDraft(active,user?.id);if(!local.ok){setDraftSaveState("error");setCloudMessage("This device could not save the workout draft.")}else setDraftSaveState("device");
+    const key=`workout:${active.id}`;const queued=queuePendingDiaryChange({key,kind:"save_workout",payload:{workout:{...active,updatedAt:local.updatedAt},status:"in_progress"}},user?.id);
+    runCloud(service=>service.saveWorkout({...active,updatedAt:local.updatedAt},"in_progress"))?.then(saved=>{if(saved)removePendingDiaryChange(key,user?.id);setDraftSaveState(saved?"saved":local.ok&&queued.ok?"pending":"error")});
     setSavedDraft(active); setActive(null); setTab("today");
   }
   function saveWorkout(timing?:{startedAt:string;endedAt:string}) {
-    if (!active) return;
-    const completed = { ...active, ...timing, duration: 0, exercises:active.exercises.filter(exercise=>completedSets(exercise).length>0).map(exercise=>({...exercise,sets:completedSets(exercise)})) };
+    if (!active||completionLockRef.current) return;
+    completionLockRef.current=true;setCompletionSaving(true);
+    const startedAt=timing?.startedAt||active.startedAt;
+    const endedAt=timing?.endedAt||active.endedAt;
+    // Keep the complete prescription and its done/skipped state. History views decide
+    // which completed sets to display; the saved workout remains an honest record of
+    // what was planned, completed and intentionally skipped.
+    const completed = { ...active, ...timing, duration: elapsedMinutes(startedAt,endedAt), exercises:active.exercises.map(exercise=>({...exercise,sets:exercise.sets.map(set=>({...set}))})) };
+    if(!editingWorkoutId){analytics.track("training_mode_used",{modality:"strength",source:active.templateId?"template":"manual"});if(!data.workouts.some(hasCompletedStrengthWork))analytics.track("first_session_completed",{modality:"strength",source:active.templateId?"template":"manual"})}
     if (!editingWorkoutId) {
       const records = completed.exercises.flatMap(exercise => {
         if (exercise.loadMode && exercise.loadMode !== "kg") return [];
         const bestSet = exercise.sets.filter(set=>set.done&&Number(set.weight)>0).sort((a,b)=>Number(b.weight)-Number(a.weight))[0];
         if (!bestSet) return [];
-        const previousBest = Math.max(0,...data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.exerciseId&&!item.skipped).flatMap(item=>item.sets.filter(set=>set.done).map(set=>Number(set.weight)||0))));
+        const previousBest = Math.max(0,...data.workouts.flatMap(workout=>workout.exercises.filter(item=>item.exerciseId===exercise.exerciseId&&!item.skipped&&(item.loadMode==null||item.loadMode==="kg")).flatMap(item=>item.sets.filter(set=>set.done&&Number(set.weight)>0).map(set=>Number(set.weight)||0))));
         return Number(bestSet.weight)>previousBest?[{exerciseId:exercise.exerciseId,name:exerciseName(exercise.exerciseId),weight:Number(bestSet.weight),reps:bestSet.reps,previousWeight:previousBest||undefined}]:[];
       });
       if (records.length&&showPbPopup) setNewPBs(records);
     }
-    if (timing && !editingWorkoutId) {
+    if (!editingWorkoutId) {
       setCompletedShare(completed);
       setNewTemplateName("");
       setSessionTemplateSaved(false);
       if(!completed.templateId)setQueuedTemplatePrompt(completed);
-    } else if(!editingWorkoutId&&!completed.templateId){
-      setSaveTemplatePrompt(completed);setNewTemplateName("");setSessionTemplateSaved(false);
     }
     const nextScheduled=active.templateId?data.scheduled.filter(item=>!(item.date===active.date&&item.templateId===active.templateId)):data.scheduled;
     setData(current => ({ ...current, workouts: editingWorkoutId ? current.workouts.map(workout=>workout.id===editingWorkoutId?completed:workout) : [completed, ...current.workouts], scheduled: nextScheduled }));
-    runCloud(service=>Promise.all([service.saveWorkout(completed,"completed"),service.replaceSchedule(nextScheduled)]))?.then(saved=>{if(saved)window.dispatchEvent(new Event("setra-training-changed"))});clearLocalDraft(user?.id); setSavedDraft(null); setActive(null); setEditingWorkoutId(null); setSelectedDate(completed.date); setTab("today"); setDetailId(null); setFinishDialogOpen(false);
+    const workoutKey=`workout:${completed.id}`;queuePendingDiaryChange({key:workoutKey,kind:"save_workout",payload:{workout:completed,status:"completed"}},user?.id);queuePendingDiaryChange({key:"schedule:current",kind:"replace_schedule",payload:{items:nextScheduled}},user?.id);
+    runCloud(service=>service.saveWorkout(completed,"completed"))?.then(saved=>{if(saved){removePendingDiaryChange(workoutKey,user?.id);void persistSchedule(nextScheduled)?.then(scheduleSaved=>{if(scheduleSaved)window.dispatchEvent(new Event("setra-training-changed"))})}});clearLocalDraft(user?.id);clearCompletedWorkoutEditorDraft(user?.id); setSavedDraft(null); setActive(null); setEditingWorkoutId(null); setSelectedDate(completed.date); setTab("today"); setDetailId(null); setFinishDialogOpen(false);
   }
   function openFinishDialog() {
     if (!active) return;
-    if(!showWorkoutTimingPopup){saveWorkout();return}
+    const planned=active.exercises.filter(exercise=>!exercise.skipped).reduce((sum,exercise)=>sum+exercise.sets.length,0);
+    const done=active.exercises.reduce((sum,exercise)=>sum+completedSets(exercise).length,0);
+    const skipped=active.exercises.filter(exercise=>exercise.skipped).length;
+    if(!showWorkoutTimingPopup&&done>=planned&&skipped===0){saveWorkout();return}
     const fallbackStart=new Date();fallbackStart.setHours(fallbackStart.getHours()-1);
     setSessionStartTime(active.startedAt||localTime(fallbackStart));
     setSessionFinishTime(active.endedAt||localTime());
@@ -560,7 +622,7 @@ export default function Home() {
     if (!deleteTemplateId) return;
     runCloud(service=>service.deleteTemplate(deleteTemplateId));
     setData(current=>({...current,templates:current.templates.filter(template=>template.id!==deleteTemplateId),scheduled:current.scheduled.filter(item=>item.templateId!==deleteTemplateId)}));
-    if (editor?.id===deleteTemplateId) setEditor(null);
+    if (editor?.id===deleteTemplateId) closeStrengthEditor();
     setDeleteTemplateId(null);
   }
   function saveSessionAsTemplate() {
@@ -568,7 +630,7 @@ export default function Home() {
     const exercises=saveTemplatePrompt.exercises.filter(exercise=>!exercise.skipped).map(exercise=>({exerciseId:exercise.exerciseId,sets:Math.max(1,exercise.sets.length),reps:exercise.repTarget||exercise.sets.find(set=>set.reps)?.reps||"8",group:exercise.group,note:exercise.planNote||exercise.note||""}));
     if (!exercises.length) return;
     const template:Template={id:`template-${Date.now()}`,name:newTemplateName.trim(),focus:"Saved from Add as I go",color:"#409ECE",icon:"◆",warmup:(saveTemplatePrompt.warmup||[]).map(item=>({id:item.id,kind:item.kind,exerciseId:item.exerciseId,title:item.title,instructions:item.instructions})),exercises,supersetNames:saveTemplatePrompt.supersetNames};
-    setData(current=>({...current,templates:[...current.templates,template]}));runCloud(service=>service.saveTemplate(template));setSessionTemplateSaved(true);
+    const key=`strength-template:${template.id}`;setData(current=>({...current,templates:[...current.templates,template]}));queuePendingDiaryChange({key,kind:"save_strength_template",payload:{template}},user?.id);runCloud(service=>service.saveTemplate(template))?.then(saved=>{if(saved)removePendingDiaryChange(key,user?.id)});setSessionTemplateSaved(true);
   }
   function updateSet(exerciseIndex: number, setIndex: number, key: keyof SetLog, value: string | boolean) {
     if (!active) return;
@@ -617,8 +679,8 @@ export default function Home() {
     const warmup=(editor.warmup||[]).filter(item=>item.kind==="exercise"?Boolean(item.exerciseId):Boolean(item.title?.trim()||item.instructions.trim())).map(item=>({...item,title:item.kind==="instruction"?item.title?.trim()||"":"",instructions:item.instructions.trim()}));
     const normalized = { ...editor, warmup, color: editor.color?.toUpperCase() === "#7B61FF" ? "#409ECE" : editor.color };
     setData(current => ({ ...current, templates: current.templates.some(item => item.id === normalized.id) ? current.templates.map(item => item.id === normalized.id ? normalized : item) : [...current.templates, normalized] }));
-    runCloud(service=>service.saveTemplate(normalized));
-    setEditor(null);
+    const key=`strength-template:${normalized.id}`;queuePendingDiaryChange({key,kind:"save_strength_template",payload:{template:normalized}},user?.id);runCloud(service=>service.saveTemplate(normalized))?.then(saved=>{if(saved)removePendingDiaryChange(key,user?.id)});
+    clearStrengthEditorDraft(user?.id);setEditor(null);
   }
   function addWarmupInstruction() {
     if(!editor)return;
@@ -702,9 +764,10 @@ export default function Home() {
     const intervalDays=scheduleRepeat==="weekly"?7:scheduleRepeat==="fortnightly"?14:0;
     const count=intervalDays?Math.max(1,Math.ceil((scheduleWeeks*7)/intervalDays)):1;
     const dates=Array.from({length:count},(_,index)=>{const date=new Date(`${scheduleDate}T12:00:00`);date.setDate(date.getDate()+index*intervalDays);return date.toISOString().slice(0,10)});
+    if(data.scheduled.length===0&&!enduranceSessions.some(session=>session.status==="planned"))analytics.track("first_session_planned",{modality:"strength",source:"schedule"});
     setData(current=>{
       const additions=dates.filter(date=>!current.scheduled.some(item=>item.date===date&&item.templateId===scheduleTemplateId)).map(date=>({date,templateId:scheduleTemplateId}));
-      const scheduled=[...current.scheduled,...additions];runCloud(service=>service.replaceSchedule(scheduled));return {...current,scheduled};
+      const scheduled=[...current.scheduled,...additions];persistSchedule(scheduled);return {...current,scheduled};
     });
     setSelectedDate(scheduleDate);
     setScheduleTemplateId(null);
@@ -712,7 +775,7 @@ export default function Home() {
   function togglePlannedWorkoutSkipped(date:string,templateId:string){
     setData(current=>{
       const scheduled=current.scheduled.map(item=>item.date===date&&item.templateId===templateId?{...item,skipped:!item.skipped}:item);
-      runCloud(service=>service.replaceSchedule(scheduled));
+      persistSchedule(scheduled);
       return {...current,scheduled};
     });
   }
@@ -722,7 +785,7 @@ export default function Home() {
     setData(current=>{
       const withoutCurrent=current.scheduled.filter(item=>!(item.date===date&&item.templateId===templateId));
       const scheduled=withoutCurrent.some(item=>item.date===date&&item.templateId===nextTemplateId)?withoutCurrent:[...withoutCurrent,{date,templateId:nextTemplateId}];
-      runCloud(service=>service.replaceSchedule(scheduled));
+      persistSchedule(scheduled);
       return {...current,scheduled};
     });
     setExpandedPlanned(current=>{const next=new Set(current);next.delete(templateId);next.add(nextTemplateId);return next});
@@ -732,8 +795,8 @@ export default function Home() {
     if(!scheduleEnduranceTemplateId)return;const template=enduranceTemplates.find(item=>item.id===scheduleEnduranceTemplateId);if(!template)return;
     const intervalDays=scheduleRepeat==="weekly"?7:scheduleRepeat==="fortnightly"?14:0;const count=intervalDays?Math.max(1,Math.ceil((scheduleWeeks*7)/intervalDays)):1;
     const dates=Array.from({length:count},(_,index)=>{const date=new Date(`${scheduleDate}T12:00:00`);date.setDate(date.getDate()+index*intervalDays);return date.toISOString().slice(0,10)});
-    const additions=dates.filter(date=>!enduranceSessions.some(session=>session.status==="planned"&&session.templateId===template.id&&session.date===date)).map((date,index):EnduranceSession=>({id:`endurance-${Date.now()}-${index}`,templateId:template.id,activityType:template.activityType,status:"planned",title:template.title,date,plannedDurationMinutes:template.plannedDurationMinutes,plannedDistanceKm:template.plannedDistanceKm,targetRpe:template.targetRpe,environment:template.environment,category:template.category,notes:template.notes,blocks:structuredClone(template.blocks),source:"template"}));
-    setEnduranceSessions(current=>[...additions,...current].sort((a,b)=>b.date.localeCompare(a.date)));additions.forEach(session=>runTrainingCloud(service=>service.save(session)));setSelectedDate(scheduleDate);setScheduleEnduranceTemplateId(null);
+    const additions=dates.filter(date=>!enduranceSessions.some(session=>session.status==="planned"&&session.templateId===template.id&&session.date===date)).map((date,index):EnduranceSession=>({id:`endurance-${Date.now()}-${index}`,templateId:template.id,activityType:template.activityType,status:"planned",title:template.title,date,plannedDurationMinutes:template.plannedDurationMinutes,plannedDistanceKm:template.plannedDistanceKm,targetRpe:template.targetRpe,environment:template.environment,category:template.category,notes:template.notes,blocks:structuredClone(template.blocks),source:"template"}));if(additions.length&&data.scheduled.length===0&&!enduranceSessions.some(session=>session.status==="planned"))analytics.track("first_session_planned",{modality:"endurance",source:"schedule"});
+    setEnduranceSessions(current=>[...additions,...current].sort((a,b)=>b.date.localeCompare(a.date)));additions.forEach(session=>{const key=`endurance-session:${session.id}`;queuePendingDiaryChange({key,kind:"save_endurance_session",payload:{session}},user?.id);runTrainingCloud(service=>service.save(session))?.then(saved=>{if(saved)removePendingDiaryChange(key,user?.id)})});setSelectedDate(scheduleDate);setScheduleEnduranceTemplateId(null);
   }
   function openFeedback(){
     setFeedbackCategory("general");setFeedbackMessage("");setFeedbackError("");setFeedbackSent(false);setFeedbackOpen(true);
@@ -748,7 +811,7 @@ export default function Home() {
   return (
     <main className="app-shell" data-light-accent={contrastColour(appColour)==="#0F172A"} data-theme={resolvedAppearance} style={createSetraTheme(appColour,resolvedAppearance,textScale)}>
       <header className="topbar">
-        <button className="brand" onClick={() => setTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
+        <button className="brand" onClick={() => navigateTab("today")} aria-label="Go to today"><span className="brand-mark">S</span><span>setra</span></button>
         <Link className="avatar" href="/profile" aria-label="Open profile">{profileInitials(user?.user_metadata?.display_name,user?.email)}</Link>
       </header>
 
@@ -758,7 +821,7 @@ export default function Home() {
           {configured&&showImport&&<div className="cloud-notice"><b>Bring your existing diary into your account</b><p>Your templates, schedule and real workout history can be copied safely. Demo workout history is excluded, and the browser copy stays here.</p><button disabled={importBusy} onClick={importBrowserDiary}>{importBusy?"Importing…":"Import browser diary"}</button></div>}
           {betaFeedbackEnabled&&<aside className="beta-feedback-card"><span>BETA</span><div><b>Help shape Setra</b><small>Found something or have an idea?</small></div><button onClick={openFeedback}>Share feedback</button></aside>}
           <div className="eyebrow">{formatDate(selectedDate).toUpperCase()}</div>
-          <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>Your next session is lined up.</p></div><div className="week-score"><strong>{weeklyPreviewItems.filter(item=>item.status==="completed").length}</strong><span>this week</span></div></div>
+          <div className="page-heading today-heading"><div><h1>{motivation}</h1><p>{todayMessage}</p></div><div className="week-score"><strong>{weeklyPreviewItems.filter(item=>item.status==="completed").length}</strong><span>this week</span></div></div>
           <div className={`calendar-controls ${selectedDate!==today?"has-today-action":""}`}><button aria-label="Previous week" onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()-7);setSelectedDate(localDateKey(date))}}>‹</button><button className="calendar-label" onClick={()=>setCalendarOpen(!calendarOpen)}>{new Intl.DateTimeFormat("en-AU",{month:"long",year:"numeric"}).format(new Date(`${selectedDate}T12:00:00`))} <span>{calendarOpen?"⌃":"⌄"}</span></button>{selectedDate!==today&&<button className="calendar-today-button" onClick={()=>{setSelectedDate(today);setCalendarOpen(false)}}>Today</button>}<button aria-label="Next week" onClick={()=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+7);setSelectedDate(localDateKey(date))}}>›</button></div>
           {!calendarOpen?<div className="week-strip" aria-label="This week">{weekDays.map(date => {const d=new Date(`${date}T12:00:00`);const completedCount=(showStrength?data.workouts.filter(workout=>workout.date===date&&hasCompletedStrengthWork(workout)).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="completed").length:0);const plannedCount=(showStrength?data.scheduled.filter(item=>item.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="planned").length:0);return <button onClick={()=>setSelectedDate(date)} className={`day ${date===selectedDate?"active-day":""}`} key={date}><span>{["S","M","T","W","T","F","S"][d.getDay()]}</span><b>{d.getDate()}</b><span className="day-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div>:<div className="month-calendar"><div className="month-weekdays">{monthWeekdayInitials.map((day,i)=><span key={`${day}-${i}`}>{day}</span>)}</div><div className="month-grid">{monthDays.map(date=>{const d=new Date(`${date}T12:00:00`);const inMonth=d.getMonth()===new Date(`${selectedDate}T12:00:00`).getMonth();const completedCount=(showStrength?data.workouts.filter(workout=>workout.date===date&&hasCompletedStrengthWork(workout)).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="completed").length:0);const plannedCount=(showStrength?data.scheduled.filter(item=>item.date===date).length:0)+(showEndurance?enduranceCalendarSessions.filter(session=>session.date===date&&session.status==="planned").length:0);return <button key={date} className={`${date===selectedDate?"selected-date":""} ${!inMonth?"outside-month":""}`} onClick={()=>{setSelectedDate(date);setCalendarOpen(false)}}><span>{d.getDate()}</span><span className="month-dots">{Array.from({length:plannedCount},(_,index)=><i className="planned-dot" key={`p-${index}`}/>)}{Array.from({length:completedCount},(_,index)=><i className="completed-dot" key={`c-${index}`}/>)}</span></button>})}</div></div>}
           <button className="weekly-preview-trigger" onClick={openWeeklyPreview}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M7 3v4M17 3v4M3 10h18M7 14h2m3 0h2m3 0h1M7 17h2m3 0h2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>Weekly Preview</button>
@@ -807,7 +870,7 @@ export default function Home() {
 
         {showStrength&&tab === "pbs" && <>
           <div className="eyebrow">PERSONAL BESTS</div><div className="page-heading"><div><h1>Your PBs</h1><p>Your strongest recorded sets, all in one place.</p></div><div className="pb-count"><strong>{personalBests.length}</strong><span>records</span></div></div>
-          <div className="pb-list">{personalBests.map(({exercise,best},index)=><button key={exercise.id} onClick={()=>setExerciseHistoryId(exercise.id)}><span className={`pb-medal pb-${index%3}`}>{index+1}</span><span className="pb-info"><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><span className="pb-result"><b>{best.set.weight} kg</b><small>{best.set.reps} reps · {formatDate(best.workout.date)}</small></span><span className="chevron">›</span></button>)}</div>
+          <div className="pb-list">{personalBests.map(({exercise,best},index)=><button key={exercise.id} onClick={()=>setExerciseHistoryId(exercise.id)}><span className={`pb-medal pb-${index%3}`}>{index+1}</span><span className="pb-info"><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><span className="pb-result"><b>{formatLoad(best.set.weight,preferredUnit)}</b><small>Highest load · {best.set.reps} reps · {formatDate(best.workout.date)}</small></span><span className="chevron">›</span></button>)}</div>
         </>}
 
         {showStrength&&tab === "library" && <>
@@ -820,9 +883,9 @@ export default function Home() {
         </>}
       </section>
 
-      <nav className="bottom-nav" aria-label="Main navigation" style={{gridTemplateColumns:`repeat(${showStrength?5:4},1fr)`}}>{([
+      <nav className="bottom-nav" aria-label="Main navigation" style={{gridTemplateColumns:`repeat(${showStrength?4:3},1fr)`}}>{([
         ["today","Today"],["plan","Plan"],["history","History"],...(showStrength?[["pbs","PBs"]] as [Tab,string][]:[])
-      ] as [Tab,string][]).map(([id,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>setTab(id)}><NavIcon name={id as NavIconName}/><small>{label}</small></button>)}<Link href="/premium"><NavIcon name="premium"/><small>Premium</small></Link></nav>
+      ] as [Tab,string][]).map(([id,label]) => <button key={id} className={tab===id?"selected":""} onClick={()=>navigateTab(id)}><NavIcon name={id as NavIconName}/><small>{label}</small></button>)}</nav>
 
       {picker && <div className="overlay" onMouseDown={()=>setPicker(false)}><section className="sheet picker-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>CHOOSE A SESSION</span><h2>What are we training?</h2></div><button onClick={()=>setPicker(false)}>×</button></div><button className="picker-row blank-workout-row" disabled={workoutInProgress} onClick={startBlankWorkout}><span className="blank-workout-icon">＋</span><span><b>Add as I go</b><small>{workoutInProgress?"Finish your live workout first":"Start blank and add exercises during your session"}</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>{data.templates.map(template=><button className="picker-row" disabled={workoutInProgress} key={template.id} onClick={()=>startWorkout(template)}><span><b>{template.name}</b><small>{template.focus} · {template.exercises.length} exercises</small></span><em>{workoutInProgress?"Unavailable":"Start →"}</em></button>)}</section></div>}
 
@@ -847,36 +910,33 @@ export default function Home() {
       </div>}
 
       {active && <div className="workout-screen">
-        <header className="workout-header live-header"><button className="view-app-button" onClick={editingWorkoutId?()=>{setActive(null);setEditingWorkoutId(null)}:saveDraft} aria-label={editingWorkoutId?"Close workout editor":"Save workout and view other workouts"}>‹</button><div><small>{editingWorkoutId?"EDIT WORKOUT":"LIVE WORKOUT"}</small><b>{active.name}</b></div><button className="save-draft-button" onClick={editingWorkoutId?()=>saveWorkout():saveDraft}>Save</button><button className="finish-button" onClick={editingWorkoutId?()=>saveWorkout():openFinishDialog}>{editingWorkoutId?"Update":"Finish"}</button></header>
-        {(()=>{const included=active.exercises.filter(exercise=>!exercise.skipped);const completed=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0);const total=included.reduce((sum,exercise)=>sum+exercise.sets.length,0);return <div className="live-progress"><span>{completed} / {total} sets</span><div><i style={{width:`${total?100*completed/total:0}%`}} /></div></div>})()}
+        <header className="workout-header live-header"><button className="view-app-button" onClick={editingWorkoutId?closeCompletedWorkoutEditor:saveDraft} aria-label={editingWorkoutId?"Close workout editor":"Save workout and view other workouts"}>‹</button><div><small>{editingWorkoutId?"EDIT WORKOUT":"LIVE WORKOUT"}</small><b>{active.name}</b></div><button className="save-draft-button" onClick={editingWorkoutId?()=>saveWorkout():saveDraft}>Save</button><button className="finish-button" onClick={editingWorkoutId?()=>saveWorkout():openFinishDialog}>{editingWorkoutId?"Update":"Finish"}</button></header>
+        {(()=>{const included=active.exercises.filter(exercise=>!exercise.skipped);const completed=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0);const total=included.reduce((sum,exercise)=>sum+exercise.sets.length,0);const saveLabel=draftSaveState==="saving"?"Saving…":draftSaveState==="saved"?"Saved":draftSaveState==="device"?"Saved on this device":draftSaveState==="pending"?"Saved on this device · sync pending":draftSaveState==="error"?"Draft save needs attention":"Auto-save on";return <div className="live-progress"><span>{completed} / {total} sets</span><small className={`live-save-status state-${draftSaveState}`} role="status">{saveLabel}</small><div><i style={{width:`${total?100*completed/total:0}%`}} /></div></div>})()}
         <div className="workout-body">{Boolean(active.warmup?.length)&&<section className={`live-warmup ${active.warmup!.every(item=>item.done)?"warmup-complete":""}`}><button className="live-warmup-heading" onClick={()=>setWarmupExpanded(value=>!value)}><span><small>WARM-UP</small><b>{active.warmup!.filter(item=>item.done).length} / {active.warmup!.length} complete</b></span><em>{warmupExpanded?"⌃":"⌄"}</em></button>{warmupExpanded&&<div className="live-warmup-items">{active.warmup!.map((item,index)=><label className={item.done?"done":""} key={item.id}><input type="checkbox" checked={Boolean(item.done)} onChange={event=>updateWarmupItemDone(index,event.target.checked)}/><span><b>{item.kind==="exercise"?exerciseName(item.exerciseId||""):item.title?.trim()||"Instructions"}</b>{item.instructions&&<small>{item.instructions}</small>}</span></label>)}</div>}</section>}{active.exercises.map((exercise, exerciseIndex) => { const prev = previousSets(exercise.exerciseId); const groupIndex=[...new Set(active.exercises.map(item=>item.group).filter(Boolean))].indexOf(exercise.group);const allDone=exercise.sets.length>0&&exercise.sets.every(set=>set.done);const minimized=(exercise.skipped||allDone)&&!expandedLiveExercises.has(exerciseIndex);return <article className={`live-exercise ${exercise.group ? `superset-exercise superset-color-${groupIndex%4}` : ""} ${exercise.skipped?"skipped-exercise":""} ${minimized?"minimized-exercise":""}`} key={`${exercise.exerciseId}-${exerciseIndex}`}>
           {minimized?<button className="minimized-exercise-row" onClick={()=>setExpandedLiveExercises(current=>new Set(current).add(exerciseIndex))}><span className="minimized-status">{exercise.skipped?"—":"✓"}</span><span><b>{exerciseName(exercise.exerciseId)}</b><small>{exercise.skipped?"Skipped for today":`${exercise.sets.length} sets completed`}</small></span><em>Open ⌄</em></button>:<>
           {exercise.group && <span className="superset-badge">{(active.supersetNames?.[exercise.group]||`Superset ${String.fromCharCode(65+groupIndex)}`).toUpperCase()}</span>}<div className="live-exercise-title"><div><span>{String(exerciseIndex+1).padStart(2,"0")}</span><h2>{exerciseName(exercise.exerciseId)}</h2></div><div className="exercise-title-actions"><label className="load-mode"><span>Load</span><select aria-label={`Load entry type for ${exerciseName(exercise.exerciseId)}`} value={exercise.loadMode==="text"?"band":exercise.loadMode||"kg"} onChange={event=>{const loadMode=event.target.value as "kg"|"band"|"bw";updateWorkoutExercise(exerciseIndex,{loadMode,sets:exercise.sets.map(set=>({...set,weight:loadMode==="bw"?"BW":""}))})}}><option value="kg">KG</option><option value="band">BAND</option><option value="bw">BW</option></select></label><button onClick={()=>setExerciseHistoryId(exercise.exerciseId)}>History</button><button className="manage-exercise" onClick={()=>setLiveEditIndex(exerciseIndex)} aria-label={`Edit ${exerciseName(exercise.exerciseId)}`}>•••</button></div></div>
           {(exercise.skipped||allDone)&&<div className="exercise-state-actions"><button onClick={()=>setExpandedLiveExercises(current=>{const next=new Set(current);next.delete(exerciseIndex);return next})}>Minimise ↑</button></div>}
-          <div className="set-head"><span>SET</span><span>PREVIOUS</span><span>{exercise.loadMode==="band"||exercise.loadMode==="text"?"BAND":exercise.loadMode==="bw"?"BW":"KG"}</span><span>REPS</span><span>RPE</span><span /></div>
-          {exercise.sets.map((set,setIndex)=><div className={`set-row ${set.done?"complete":""}`} key={setIndex}><b>{setIndex+1}</b><small>{prev[setIndex] ? `${prev[setIndex].weight} × ${prev[setIndex].reps}` : "—"}</small>{exercise.loadMode==="bw"?<span className="bodyweight-load" aria-label={`Set ${setIndex+1} bodyweight`}>BW</span>:<input aria-label={`Set ${setIndex+1} ${exercise.loadMode==="band"||exercise.loadMode==="text"?"band":"weight"}`} inputMode={exercise.loadMode==="band"||exercise.loadMode==="text"?"text":"decimal"} pattern={exercise.loadMode==="band"||exercise.loadMode==="text"?undefined:"[0-9]*[.,]?[0-9]*"} enterKeyHint="next" maxLength={exercise.loadMode==="band"||exercise.loadMode==="text"?12:undefined} value={set.weight} placeholder={exercise.loadMode==="band"||exercise.loadMode==="text"?"Band / level":prev[setIndex]?.weight||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"weight",exercise.loadMode==="band"||exercise.loadMode==="text"?e.target.value.slice(0,12):e.target.value)}/>}<input aria-label={`Set ${setIndex+1} reps`} inputMode="numeric" pattern="[0-9]*" enterKeyHint="next" value={set.reps} placeholder={exercise.repTarget||prev[setIndex]?.reps||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"reps",e.target.value)}/><input aria-label={`Set ${setIndex+1} RPE`} inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" enterKeyHint="done" value={set.rpe} placeholder="—" onChange={e=>updateSet(exerciseIndex,setIndex,"rpe",e.target.value)}/><button aria-label={`Complete set ${setIndex+1}`} onClick={()=>updateSet(exerciseIndex,setIndex,"done",!set.done)}>{set.done?"✓":""}</button></div>)}
+          <div className="set-head"><span>SET</span><span>PREVIOUS</span><span>{exercise.loadMode==="band"||exercise.loadMode==="text"?"BAND":exercise.loadMode==="bw"?"BW":preferredUnit.toUpperCase()}</span><span>REPS</span><span>RPE</span><span /></div>
+          {exercise.sets.map((set,setIndex)=><div className={`set-row ${set.done?"complete":""}`} key={setIndex}><b>{setIndex+1}</b><small>{prev[setIndex] ? `${exercise.loadMode==="kg"||!exercise.loadMode?formatLoad(prev[setIndex].weight,preferredUnit,false):prev[setIndex].weight} × ${prev[setIndex].reps}` : "—"}</small>{exercise.loadMode==="bw"?<span className="bodyweight-load" aria-label={`Set ${setIndex+1} bodyweight`}>BW</span>:exercise.loadMode==="band"||exercise.loadMode==="text"?<input aria-label={`Set ${setIndex+1} band`} inputMode="text" enterKeyHint="next" maxLength={12} value={set.weight} placeholder="Band / level" onChange={event=>updateSet(exerciseIndex,setIndex,"weight",event.target.value.slice(0,12))}/>:<LoadInput canonicalValue={set.weight} unit={preferredUnit} ariaLabel={`Set ${setIndex+1} ${preferredUnit==="lb"?"weight in pounds":"weight in kilograms"}`} placeholder={prev[setIndex]?formatLoad(prev[setIndex].weight,preferredUnit,false):"0"} onCanonicalChange={value=>updateSet(exerciseIndex,setIndex,"weight",value)}/>}<input aria-label={`Set ${setIndex+1} reps`} inputMode="numeric" pattern="[0-9]*" enterKeyHint="next" value={set.reps} placeholder={exercise.repTarget||prev[setIndex]?.reps||"0"} onChange={e=>updateSet(exerciseIndex,setIndex,"reps",e.target.value)}/><input aria-label={`Set ${setIndex+1} RPE`} inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" enterKeyHint="done" value={set.rpe} placeholder="—" onChange={e=>updateSet(exerciseIndex,setIndex,"rpe",e.target.value)}/><button aria-label={`Complete set ${setIndex+1}`} onClick={()=>updateSet(exerciseIndex,setIndex,"done",!set.done)}>{set.done?"✓":""}</button></div>)}
           <div className="set-actions"><button className="add-set" onClick={()=>setActive({...active,exercises:active.exercises.map((item,i)=>i===exerciseIndex?{...item,sets:[...item.sets,makeSet()]}:item)})}>＋ Add set</button>{exercise.sets.length>1&&<button className="remove-set" onClick={()=>setActive({...active,exercises:active.exercises.map((item,i)=>i===exerciseIndex?{...item,sets:item.sets.slice(0,-1)}:item)})}>− Remove last set</button>}</div></>}
         </article>})}<button className="add-live-exercise" onClick={()=>{setLiveAddQuery("");setLiveAddOpen(true)}}><span>＋</span><div><b>Add exercise</b><small>Add another movement to this session</small></div><em>→</em></button><label className="workout-note">SESSION NOTE<textarea value={active.note} onChange={e=>setActive({...active,note:e.target.value})} placeholder="How did it feel? Anything to remember?" /></label></div>
       </div>}
 
-      {active&&finishDialogOpen&&<div className="overlay high-overlay finish-time-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setFinishDialogOpen(false)}}><section className="finish-time-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-time-title"><button className="finish-time-close" onClick={()=>setFinishDialogOpen(false)} aria-label="Close">×</button><span>FINISH WORKOUT</span><h2 id="finish-time-title">Confirm session time</h2><p>{formatDate(active.date)} · {active.name}</p><div className="session-time-fields"><label>START TIME<input type="time" value={sessionStartTime} onChange={event=>setSessionStartTime(event.target.value)}/></label><label>FINISH TIME<input type="time" value={sessionFinishTime} onChange={event=>setSessionFinishTime(event.target.value)}/></label></div><button className="primary-button" disabled={!sessionStartTime||!sessionFinishTime} onClick={()=>saveWorkout({startedAt:sessionStartTime,endedAt:sessionFinishTime})}>Finish workout <span>✓</span></button></section></div>}
+      {active&&finishDialogOpen&&(()=>{const plannedSets=active.exercises.filter(exercise=>!exercise.skipped).reduce((sum,exercise)=>sum+exercise.sets.length,0);const completedSetCount=active.exercises.reduce((sum,exercise)=>sum+completedSets(exercise).length,0);const skippedExercises=active.exercises.filter(exercise=>exercise.skipped).length;const incompleteSets=Math.max(0,plannedSets-completedSetCount);const partial=incompleteSets>0||skippedExercises>0;return <div className="overlay high-overlay finish-time-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setFinishDialogOpen(false)}}><section className="finish-time-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-time-title"><button className="finish-time-close" onClick={()=>setFinishDialogOpen(false)} aria-label="Close">×</button><span>FINISH WORKOUT</span><h2 id="finish-time-title">Confirm session</h2><p>{formatDate(active.date)} · {active.name}</p><div className="finish-summary"><b>{completedSetCount} of {plannedSets} planned sets completed</b>{skippedExercises>0&&<small>{skippedExercises} {skippedExercises===1?"exercise":"exercises"} skipped</small>}{incompleteSets>0&&<small>{incompleteSets} {incompleteSets===1?"set":"sets"} left incomplete</small>}</div>{partial&&<p className="finish-partial-warning">This will finish the session as it stands. Incomplete and skipped work will stay in the record and will not count in history or PBs.</p>}{showWorkoutTimingPopup&&<div className="session-time-fields"><label>START TIME<input type="time" value={sessionStartTime} onChange={event=>setSessionStartTime(event.target.value)}/></label><label>FINISH TIME<input type="time" value={sessionFinishTime} onChange={event=>setSessionFinishTime(event.target.value)}/></label></div>}<button className="primary-button" disabled={completionSaving||(showWorkoutTimingPopup&&(!sessionStartTime||!sessionFinishTime))} onClick={()=>saveWorkout(showWorkoutTimingPopup?{startedAt:sessionStartTime,endedAt:sessionFinishTime}:undefined)}>{completionSaving?"Saving…":partial?"Finish partial workout":"Finish workout"} <span>✓</span></button>{partial&&<button className="finish-return-button" onClick={()=>setFinishDialogOpen(false)}>Return to workout</button>}</section></div>})()}
 
-      {newPBs.length>0&&<ShareStudio items={newPBs.map(strengthPBShareData)} accent={appColour} onClose={()=>setNewPBs([])}/>}
-      {completedShare&&newPBs.length===0&&
-        <ShareStudio items={[strengthWorkoutShareData(completedShare)]} accent={appColour} onClose={()=>{setCompletedShare(null);if(queuedTemplatePrompt){setSaveTemplatePrompt(queuedTemplatePrompt);setQueuedTemplatePrompt(null)}}}/>
-      }
+      {(completedShare||newPBs.length>0)&&<ShareStudio items={[...(completedShare?[strengthWorkoutShareData(completedShare,preferredUnit)]:[]),...newPBs.map(pb=>strengthPBShareData(pb,preferredUnit))]} accent={appColour} onClose={()=>{setCompletedShare(null);setNewPBs([]);if(queuedTemplatePrompt){setSaveTemplatePrompt(queuedTemplatePrompt);setQueuedTemplatePrompt(null)}}}/>}
       {saveTemplatePrompt&&newPBs.length===0&&<div className="overlay high-overlay save-template-overlay" onMouseDown={event=>{if(event.target===event.currentTarget&&!sessionTemplateSaved)setSaveTemplatePrompt(null)}}><section className="sheet save-template-dialog" role="dialog" aria-modal="true" aria-labelledby="save-template-title"><div className="sheet-handle"/><div className="sheet-title"><div><span>SAVE FOR NEXT TIME</span><h2 id="save-template-title">{sessionTemplateSaved?"Template saved":"Keep this workout?"}</h2></div><button onClick={()=>setSaveTemplatePrompt(null)} aria-label="Close">×</button></div>{sessionTemplateSaved?<div className="template-save-success"><i>✓</i><p>Your workout is now available in Plan as a reusable template.</p><button onClick={()=>setSaveTemplatePrompt(null)}>Done</button></div>:<div className="save-session-template"><p>Turn this Add as I go session into a reusable workout.</p><input autoFocus value={newTemplateName} onChange={event=>setNewTemplateName(event.target.value)} maxLength={40} placeholder="Template name"/><button disabled={!newTemplateName.trim()||saveTemplatePrompt.exercises.length===0} onClick={saveSessionAsTemplate}>Save template</button><button className="not-now-button" onClick={()=>setSaveTemplatePrompt(null)}>Not now</button></div>}</section></div>}
       {completedEnduranceShare&&<ShareStudio items={[enduranceWorkoutShareData(completedEnduranceShare)]} accent={appColour} onClose={()=>setCompletedEnduranceShare(null)}/>}
 
       {trainingAction&&<div className="overlay high-overlay training-action-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setTrainingAction(null)}}><section className="sheet training-type-sheet" role="dialog" aria-modal="true"><div className="sheet-handle"/><div className="sheet-title"><div><span>{trainingAction==="plan"?"PLAN SESSION":"LOG ACTIVITY"}</span><h2>{trainingAction==="plan"?"What are you planning?":"What did you train?"}</h2></div><button onClick={()=>setTrainingAction(null)} aria-label="Close">×</button></div><div className="training-type-options"><button onClick={()=>{setTrainingAction(null);if(trainingAction==="plan")setTab("plan");else{setSelectedDate(today);setPicker(true)}}}><div><b>Strength</b><small>{trainingAction==="plan"?"Create or schedule a strength workout":"Choose a workout or add exercises as you go"}</small></div><em>›</em></button><button onClick={()=>{const action=trainingAction;setTrainingAction(null);if(action==="plan")setTab("plan");else setEnduranceEditor({mode:"log"})}}><div><b>Endurance</b><small>{trainingAction==="plan"?"Choose or create an endurance template":"Log a run, ride, swim or other activity"}</small></div><em>›</em></button></div></section></div>}
       {enduranceEditor&&
-        <EnduranceSessionSheet mode={enduranceEditor.mode} date={selectedDate} initial={enduranceEditor.initial} onClose={()=>setEnduranceEditor(null)} onSave={saveEnduranceValue}/>
+        <EnduranceSessionSheet mode={enduranceEditor.mode} date={selectedDate} initial={enduranceEditor.initial} onClose={closeEnduranceEditor} onSave={saveEnduranceValue} onDraftChange={persistEnduranceEditorDraft}/>
       }
       {enduranceDetail&&<EnduranceWorkoutView session={enduranceDetail} onClose={()=>setEnduranceDetailId(null)} onEdit={()=>{setEnduranceDetailId(null);setEnduranceEditor({mode:enduranceDetail.status==="completed"?"log":"plan",initial:enduranceDetail})}} onComplete={enduranceDetail.status==="planned"?()=>{setEnduranceDetailId(null);setEnduranceEditor({mode:"log",initial:enduranceDetail})}:undefined} onShare={enduranceDetail.status==="completed"?()=>{setCompletedEnduranceShare(enduranceDetail);setEnduranceDetailId(null)}:undefined} onDelete={()=>setDeleteEnduranceId(enduranceDetail.id)}/>}
       {deleteEnduranceId&&<div className="overlay high-overlay confirm-overlay"><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-endurance-title"><span className="confirm-icon">!</span><h2 id="delete-endurance-title">Delete this session?</h2><p>This will permanently remove the planned or completed activity from your diary.</p><div className="confirm-actions"><button onClick={()=>setDeleteEnduranceId(null)}>Cancel</button><button className="confirm-delete" onClick={()=>{const session=enduranceSessions.find(item=>item.id===deleteEnduranceId);if(session)deleteEnduranceSession(session)}}>Delete session</button></div></section></div>}
       {deleteEnduranceTemplateId&&<div className="overlay high-overlay confirm-overlay"><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-endurance-template-title"><span className="confirm-icon">!</span><h2 id="delete-endurance-template-title">Delete this template?</h2><p>Scheduled and completed sessions will stay in your diary.</p><div className="confirm-actions"><button onClick={()=>setDeleteEnduranceTemplateId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteEnduranceTemplate}>Delete template</button></div></section></div>}
 
-      {detail && <div className="overlay" onMouseDown={()=>setDetailId(null)}><section className="sheet detail-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{formatDate(detail.date).toUpperCase()}</span><h2>{detail.name}</h2></div><div className="detail-title-actions"><button className="edit-workout-button" onClick={()=>{setEditingWorkoutId(detail.id);setActive(structuredClone(detail));setDetailId(null)}}>Edit</button><button onClick={()=>setDetailId(null)} aria-label="Close">×</button></div></div>{Boolean(detail.warmup?.length)&&<div className="detail-warmup"><span>WARM-UP</span>{detail.warmup!.map(item=><div key={item.id}><i>{item.done?"✓":"○"}</i><p><b>{item.kind==="exercise"?exerciseName(item.exerciseId||""):item.title?.trim()||"Instructions"}</b>{item.instructions&&<small>{item.instructions}</small>}</p></div>)}</div>}{completedExercises(detail).map(exercise=><button className="detail-exercise" key={exercise.exerciseId} onClick={()=>setExerciseHistoryId(exercise.exerciseId)}><span><b>{exerciseName(exercise.exerciseId)}</b><small>{completedSets(exercise).length} working sets</small></span><div>{completedSets(exercise).map((set,i)=><small key={i}>{set.weight || "—"} kg × {set.reps || "—"} {set.rpe&&`@ ${set.rpe}`}</small>)}</div><em>›</em></button>)}{detail.note&&<p className="detail-note">“{detail.note}”</p>}<button className="share-completed-button detail-share-button" onClick={()=>{setCompletedShare(detail);setDetailId(null)}}>Share workout <span>↗</span></button><button className="delete-workout-button" onClick={()=>setDeleteWorkoutId(detail.id)}>Delete workout</button></section></div>}
+      {detail && <div className="overlay" onMouseDown={()=>setDetailId(null)}><section className="sheet detail-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{formatDate(detail.date).toUpperCase()}</span><h2>{detail.name}</h2></div><div className="detail-title-actions"><button className="edit-workout-button" onClick={()=>{setEditingWorkoutId(detail.id);completionLockRef.current=false;setCompletionSaving(false);setActive(structuredClone(detail));setDetailId(null)}}>Edit</button><button onClick={()=>setDetailId(null)} aria-label="Close">×</button></div></div>{Boolean(detail.warmup?.length)&&<div className="detail-warmup"><span>WARM-UP</span>{detail.warmup!.map(item=><div key={item.id}><i>{item.done?"✓":"○"}</i><p><b>{item.kind==="exercise"?exerciseName(item.exerciseId||""):item.title?.trim()||"Instructions"}</b>{item.instructions&&<small>{item.instructions}</small>}</p></div>)}</div>}{completedExercises(detail).map(exercise=><button className="detail-exercise" key={exercise.exerciseId} onClick={()=>setExerciseHistoryId(exercise.exerciseId)}><span><b>{exerciseName(exercise.exerciseId)}</b><small>{completedSets(exercise).length} working sets</small></span><div>{completedSets(exercise).map((set,i)=><small key={i}>{exercise.loadMode==="kg"||!exercise.loadMode?formatLoad(set.weight,preferredUnit):(exercise.loadMode==="bw"?"BW":set.weight||"—")} × {set.reps || "—"} {set.rpe&&`@ ${set.rpe}`}</small>)}</div><em>›</em></button>)}{detail.note&&<p className="detail-note">“{detail.note}”</p>}<button className="share-completed-button detail-share-button" onClick={()=>{setCompletedShare(detail);setDetailId(null)}}>Share workout <span>↗</span></button><button className="delete-workout-button" onClick={()=>setDeleteWorkoutId(detail.id)}>Delete workout</button></section></div>}
       {deleteWorkoutId && <div className="overlay high-overlay confirm-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setDeleteWorkoutId(null)}}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-workout-title"><span className="confirm-icon">!</span><h2 id="delete-workout-title">Delete this workout?</h2><p>This will permanently remove the completed workout and its exercise history.</p><div className="confirm-actions"><button onClick={()=>setDeleteWorkoutId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteCompletedWorkout}>Delete workout</button></div></section></div>}
       {deleteTemplateId && <div className="overlay high-overlay confirm-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)setDeleteTemplateId(null)}}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-template-title"><span className="confirm-icon">!</span><h2 id="delete-template-title">Delete this template?</h2><p>This will remove the template and any workouts scheduled from it. Completed workout history will stay untouched.</p><div className="confirm-actions"><button onClick={()=>setDeleteTemplateId(null)}>Cancel</button><button className="confirm-delete" onClick={deleteTemplate}>Delete template</button></div></section></div>}
 
@@ -893,14 +953,14 @@ export default function Home() {
 
       {active && liveAddOpen && <div className="overlay high-overlay live-add-overlay" onMouseDown={()=>setLiveAddOpen(false)}><section className="sheet add-exercise-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>LIVE SESSION</span><h2>Add an exercise</h2></div><button onClick={()=>setLiveAddOpen(false)}>×</button></div><label className="search"><span>⌕</span><input autoFocus value={liveAddQuery} onChange={event=>setLiveAddQuery(event.target.value)} placeholder="Search exercise, equipment or muscle" /></label><div className="replace-list live-add-results">{data.exercises.filter(exercise=>!active.exercises.some(item=>item.exerciseId===exercise.id)&&`${exercise.name} ${exercise.equipment} ${exercise.group}`.toLowerCase().includes(liveAddQuery.toLowerCase())).map(exercise=><button key={exercise.id} onClick={()=>{setActive({...active,exercises:[...active.exercises,{exerciseId:exercise.id,note:"",loadMode:"kg",repTarget:"8",sets:Array.from({length:3},()=>makeSet())}]});setLiveAddOpen(false)}}><span className="movement-icon">{exercise.name.split(" ").map(word=>word[0]).slice(0,2).join("")}</span><span><b>{exercise.name}</b><small>{exercise.equipment} · {exercise.group}</small></span><em>＋ Add</em></button>)}</div></section></div>}
 
-      {historyExercise && <div className="overlay high-overlay" onMouseDown={()=>setExerciseHistoryId(null)}><section className="sheet history-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{historyExercise.group.toUpperCase()} · {historyExercise.equipment.toUpperCase()}</span><h2>{historyExercise.name}</h2></div><button onClick={()=>setExerciseHistoryId(null)}>×</button></div>{(() => { const records=data.workouts.flatMap(workout=>workout.exercises.filter(exercise=>exercise.exerciseId===historyExercise.id&&completedSets(exercise).length>0).map(exercise=>({workout,exercise}))); const maxes=records.map(record=>Math.max(0,...completedSets(record.exercise).map(set=>Number(set.weight)||0))).filter(max=>max>0); return <>{maxes.length>0&&<div className="progress-chart"><div className="chart-bars">{maxes.slice().reverse().map((max,i)=><i key={i} style={{height:`${25+70*max/Math.max(...maxes)}%`}}><span>{max}</span></i>)}</div><small>Best load by session (kg)</small></div>}<div className="exercise-records">{records.length?records.map(({workout,exercise})=><div key={workout.id}><span><b>{formatDate(workout.date)}</b><small>{workout.name}</small></span><p>{completedSets(exercise).map((set,i)=><em key={i}>{set.weight || "—"} × {set.reps || "—"}<small>{set.rpe&&` RPE ${set.rpe}`}</small></em>)}</p></div>):<p className="no-records">No completed sets yet. Start a workout to build your history.</p>}</div></>})()}</section></div>}
+      {historyExercise && <div className="overlay high-overlay" onMouseDown={()=>setExerciseHistoryId(null)}><section className="sheet history-sheet" onMouseDown={e=>e.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>{historyExercise.group.toUpperCase()} · {historyExercise.equipment.toUpperCase()}</span><h2>{historyExercise.name}</h2></div><button onClick={()=>setExerciseHistoryId(null)}>×</button></div>{(() => { const records=data.workouts.flatMap(workout=>workout.exercises.filter(exercise=>exercise.exerciseId===historyExercise.id&&completedSets(exercise).length>0).map(exercise=>({workout,exercise}))); const maxes=records.filter(record=>record.exercise.loadMode==null||record.exercise.loadMode==="kg").map(record=>Math.max(0,...completedSets(record.exercise).map(set=>Number(set.weight)||0))).filter(max=>max>0); return <>{maxes.length>0&&<div className="progress-chart"><div className="chart-bars">{maxes.slice().reverse().map((max,i)=><i key={i} style={{height:`${25+70*max/Math.max(...maxes)}%`}}><span>{formatLoad(max,preferredUnit,false)}</span></i>)}</div><small>Highest load by session ({preferredUnit})</small></div>}<div className="exercise-records">{records.length?records.map(({workout,exercise})=><div key={workout.id}><span><b>{formatDate(workout.date)}</b><small>{workout.name}</small></span><p>{completedSets(exercise).map((set,i)=><em key={i}>{exercise.loadMode==="kg"||!exercise.loadMode?formatLoad(set.weight,preferredUnit):(exercise.loadMode==="bw"?"BW":set.weight||"—")} × {set.reps || "—"}<small>{set.rpe&&` RPE ${set.rpe}`}</small></em>)}</p></div>):<p className="no-records">No completed sets yet. Start a workout to build your history.</p>}</div></>})()}</section></div>}
 
       {feedbackOpen&&<div className="overlay high-overlay" onMouseDown={()=>setFeedbackOpen(false)}><section className="sheet beta-feedback-sheet" onMouseDown={event=>event.stopPropagation()}><div className="sheet-handle"/><div className="sheet-title"><div><span>BETA FEEDBACK</span><h2>{feedbackSent?"Thank you.":"Help shape Setra"}</h2></div><button onClick={()=>setFeedbackOpen(false)} aria-label="Close">×</button></div>{feedbackSent?<div className="feedback-success"><i>✓</i><p>Your feedback has been sent. It will help guide what gets improved next.</p><button onClick={()=>setFeedbackOpen(false)}>Done</button></div>:<form onSubmit={submitFeedback}><fieldset><legend>WHAT IS THIS ABOUT?</legend>{([['general','General'],['bug','Something isn’t working'],['idea','Feature idea']] as const).map(([value,label])=><button type="button" key={value} className={feedbackCategory===value?"selected":""} onClick={()=>setFeedbackCategory(value)}>{label}</button>)}</fieldset><label>YOUR FEEDBACK<textarea autoFocus required minLength={5} maxLength={2000} value={feedbackMessage} onChange={event=>setFeedbackMessage(event.target.value)} placeholder="Tell us what happened or what would make Setra better…"/></label><small>{feedbackMessage.length} / 2000</small>{feedbackError&&<p role="alert">{feedbackError}</p>}<button className="primary-button" disabled={feedbackBusy||feedbackMessage.trim().length<5}>{feedbackBusy?"Sending…":"Send feedback"} <span>→</span></button></form>}</section></div>}
 
       {weeklyPreviewOpen&&<WeeklyPreview items={weeklyPreviewItems} weekStartsOn={weekStartsOn} today={today} onClose={()=>setWeeklyPreviewOpen(false)} onSelect={openWeeklySession} onPlan={()=>{setWeeklyPreviewOpen(false);setTab("plan")}}/>}
 
       {editor && <div className="editor-screen">
-        <header className="workout-header strength-editor-header"><div><small>WORKOUT BUILDER</small><b>{editor.id.startsWith("template-")?"New template":"Edit template"}</b></div><button className="strength-editor-close" onClick={()=>setEditor(null)} aria-label="Close">×</button></header>
+        <header className="workout-header strength-editor-header"><div><small>WORKOUT BUILDER</small><b>{editor.id.startsWith("template-")?"New template":"Edit template"}</b></div><button className="strength-editor-close" onClick={closeStrengthEditor} aria-label="Close">×</button></header>
         <div className="editor-body">
           <label>WORKOUT NAME<input value={editor.name} onChange={event=>setEditor({...editor,name:event.target.value})} placeholder="e.g. Lower B" /></label>
           <label>FOCUS<input value={editor.focus} onChange={event=>setEditor({...editor,focus:event.target.value})} placeholder="e.g. Hinge + single-leg" /></label>

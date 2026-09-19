@@ -1,43 +1,53 @@
-# setra
+# Setra
 
-A mobile-first strength training diary for planning workouts, logging live sessions, reviewing exercise history and tracking personal bests.
+Setra is a mobile-first training diary for strength, endurance and hybrid athletes. It supports reusable workout templates, scheduling, live strength logging, structured endurance sessions, History, PBs, awards, weekly planning and share cards.
 
-## Current data model
+## Architecture
 
-All data is stored in the browser with `localStorage`. There is no account or backend yet. This makes the prototype private and inexpensive, but data does not sync between devices and clearing Safari website data will remove it.
+- Next.js App Router and React
+- Supabase Authentication and Postgres with Row Level Security
+- Cookie-based authenticated sessions through `@supabase/ssr`
+- A data-service layer under `lib/data` keeps UI components independent of database column names
+- Account-scoped browser storage protects active drafts and queues changes while cloud sync is unavailable
+- Kilograms are the canonical strength-load storage unit; pounds are converted only at the UI boundary
 
-## Local development
+Authenticated accounts use Supabase as the source of truth. Browser storage remains a recovery layer for active work and the one-time legacy local-data importer. When Supabase is not configured, the repository can still run as a local prototype with sample data; sample history is never shown as an authenticated user's history.
+
+## Local setup
 
 Requirements: Node.js 22 and pnpm 11.
 
+1. Run `pnpm install`.
+2. Copy `.env.example` to `.env.local` and provide `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `NEXT_PUBLIC_SITE_URL`.
+3. Apply every migration in `supabase/migrations` to the matching Supabase project, in filename order. Test migrations in a non-production project first.
+4. Run `pnpm dev` and open [http://localhost:3000](http://localhost:3000).
+
+Never add a Supabase service-role/secret key to browser environment variables or commit secrets.
+
+## Verification
+
 ```bash
-pnpm install
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Production check
-
-```bash
+pnpm lint
+node --experimental-strip-types --test lib/awards/*.test.ts lib/import/*.test.ts lib/security/*.test.ts lib/setra/*.test.ts
 pnpm build
 pnpm start
 ```
 
-## Deploy with Vercel
+Before release, verify signup, confirmation, login/logout, password reset, draft recovery, offline retry, strength/endurance saves, schedules, imports and two-account RLS isolation against an isolated Supabase project. Browser emulation does not replace a final iPhone test.
 
-1. Push this directory to a GitHub repository.
-2. In Vercel, choose **Add New → Project** and import the repository.
-3. Keep the detected framework as **Next.js** and use the default build settings.
-4. Deploy. No environment variables are required.
+## Vercel and iPhone
 
-Vercel will automatically create preview deployments for pull requests and production deployments from the main branch.
+Add the same three public variables to each relevant Vercel environment. Set `NEXT_PUBLIC_SITE_URL` to the deployed HTTPS origin for Production. Apply database migrations before deploying code that calls new database functions.
 
-## Install on iPhone
+On iPhone, open the deployed URL in Safari and choose **Share → Add to Home Screen**. Setra uses local draft recovery and syncs authenticated data through Supabase when connectivity returns.
 
-1. Open the deployed Vercel URL in Safari.
-2. Tap **Share**.
-3. Choose **Add to Home Screen**.
-4. Open setra from the new home-screen icon.
+## Current limitations and owner actions
 
-Safari stores the diary locally on that iPhone. A future backend will be required for accounts, backup and cross-device syncing.
+- Premium, AI coaching and device/provider integrations are previews only; billing and AI are not connected.
+- Image/PDF workout extraction is unavailable. Import accepts reviewed pasted text or text-based files only.
+- Account deletion is a confirmed request workflow, not immediate automatic erasure. The owner must define and operate the deletion process.
+- `/legal` and `/support` identify where owner-approved privacy, terms and support details are required. Placeholder copy is not a published legal policy.
+- Analytics uses an internal privacy-safe event interface only. No external provider is connected.
+- Migrations are never applied automatically by the web application.
+
+See [the remediation checklist](docs/remediation-audit.md) for the current reliability audit and evidence boundaries.

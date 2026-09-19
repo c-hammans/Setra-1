@@ -55,6 +55,7 @@ const exerciseId = (name: string) => name
 
 const inferEquipment = (name: string): string => {
   const value = name.toLowerCase();
+  if (["air squat","chair squat","half air squat"].includes(value)||value.includes("body weight")||value.includes("bodyweight")) return "Bodyweight";
   if (value.includes("smith machine")) return "Smith Machine";
   if (value.includes("trap bar")) return "Trap Bar";
   if (value.includes("safety bar")) return "Safety Bar";

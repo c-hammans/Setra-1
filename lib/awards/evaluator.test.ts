@@ -17,7 +17,19 @@ test("retrospectively awards every reached session threshold without duplicates"
 test("uses the configured week boundary for active, goal and hybrid weeks",()=>{
   const sessions=[session("s1","2026-09-06"),session("e1","2026-09-06","endurance","run"),session("s2","2026-09-13"),session("e2","2026-09-13","endurance","bike")];
   const sunday=evaluateAwards(input({today:"2026-09-13",weekStartsOn:0,sessions}));
-  assert.equal(sunday.streaks.activeWeeks.current,2);assert.equal(sunday.streaks.weeklyGoal.current,2);assert.equal(sunday.metrics.hybrid_weeks,2);
+  assert.equal(sunday.streaks.activeWeeks.current,2);assert.equal(sunday.streaks.activeWeeks.longest,2);assert.equal(sunday.streaks.weeklyGoal.current,2);assert.equal(sunday.streaks.weeklyGoal.longest,2);assert.equal(sunday.metrics.hybrid_weeks,2);assert.equal(sunday.awards.find(item=>item.definition.id==="active_weeks_2")?.earned,true);
+});
+
+test("calculates current and longest sequences across duplicates, interruptions and year boundaries",()=>{
+  const sessions=[session("a","2025-12-30"),session("a-duplicate","2025-12-30"),session("b","2025-12-31"),session("c","2026-01-01"),session("gap","2026-01-04"),session("today","2026-01-05")];
+  const result=evaluateAwards(input({today:"2026-01-05",sessions,usageDays:["2025-12-31","2026-01-01","2026-01-04","2026-01-05","2026-01-05"]}));
+  assert.deepEqual(result.streaks.trainingDays,{current:2,longest:3});assert.deepEqual(result.streaks.setraUse,{current:2,longest:2});
+});
+
+test("respects a non-Monday week start across month boundaries",()=>{
+  const sessions=[session("a","2026-01-31"),session("b","2026-02-07")];
+  const result=evaluateAwards(input({today:"2026-02-07",weekStartsOn:6,weeklySessionGoal:1,sessions}));
+  assert.deepEqual(result.streaks.activeWeeks,{current:2,longest:2});assert.deepEqual(result.streaks.weeklyGoal,{current:2,longest:2});
 });
 
 test("rest days do not break active weeks but do break literal training-day streaks",()=>{

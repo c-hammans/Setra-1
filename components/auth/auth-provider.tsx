@@ -21,9 +21,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(()=>{
     if(!isSupabaseConfigured) return;
     const supabase=createClient();
-    supabase.auth.getUser().then(({data})=>{setUser(data.user);setLoading(false)});
+    const timeout=window.setTimeout(()=>setLoading(false),10_000);
+    supabase.auth.getUser().then(({data})=>setUser(data.user)).finally(()=>{window.clearTimeout(timeout);setLoading(false)});
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{setUser(session?.user??null);setLoading(false)});
-    return ()=>subscription.unsubscribe();
+    return ()=>{window.clearTimeout(timeout);subscription.unsubscribe()};
   },[]);
 
   const value=useMemo<AuthContextValue>(()=>({configured:isSupabaseConfigured,loading,user,signOut:async()=>{if(isSupabaseConfigured)await createClient().auth.signOut()}}),[loading,user]);

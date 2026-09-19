@@ -22,7 +22,7 @@ const parsePrescription=(line:string)=>{
 };
 
 function parseStrength(payload:ImportSessionPayload,text:string,catalogue:Exercise[]):{draft:StrengthImportDraft;issues:ImportIssue[]}{
-  const lines=text.split(/\r?\n/).map(cleanLine).filter(Boolean);const issues:ImportIssue[]=[];const exercises:ImportedStrengthExercise[]=[];const groups:Record<string,string>={};let activeGroup:string|undefined;let groupCounter=0;
+  const lines=text.split(/\r?\n/).map(cleanLine).filter(Boolean);const issues:ImportIssue[]=[];const exercises:ImportedStrengthExercise[]=[];const guidance:string[]=[];const groups:Record<string,string>={};let activeGroup:string|undefined;let groupCounter=0;
   const headingPattern=/^(?:super\s*set|superset|circuit)(?:\s+([a-z0-9]+))?(?:\s*[:—-]\s*(.+))?$/i;
   let title="Imported strength workout";
   const first=lines[0];if(first&&!parsePrescription(first).sets&&!headingPattern.test(first)&&!strengthSignals.test(first))title=first;
@@ -30,11 +30,12 @@ function parseStrength(payload:ImportSessionPayload,text:string,catalogue:Exerci
     if(line===title&&lineIndex===0)continue;
     const heading=line.match(headingPattern);if(heading){activeGroup=`import-group-${groupCounter++}`;groups[activeGroup]=heading[2]?.trim()||`Superset ${String.fromCharCode(65+groupCounter-1)}`;continue}
     const prefix=line.match(/^([A-Z])(\d+)[.)]?\s+(.+)$/);const content=prefix?prefix[3]:line;
+    if(/^(?:rest|tempo|notes?|instructions?|warm[ -]?up)\b/i.test(content)&&!parsePrescription(content).sets){guidance.push(content);issues.push({id:`guidance-${lineIndex}`,severity:"info",code:"preserved_guidance",message:`Preserved as workout guidance: “${content}”`});continue}
     if(prefix){const key=`import-group-${prefix[1].toLowerCase()}`;activeGroup=key;groups[key]=`Superset ${prefix[1]}`}
     const prescription=parsePrescription(content);let name=content;
     if(prescription.sets!=null)name=(content.slice(0,prescription.start)+" "+content.slice(prescription.end)).trim();
     name=name.replace(/\s*(?:@|,|—|-)?\s*(?:\d+(?:\.\d+)?\s*kg|rpe\s*\d+(?:\.\d+)?|rir\s*\d+|rest\s*\d+\s*(?:s|sec|secs|seconds?|min|mins|minutes?)|tempo\s*[\d-]+).*$/i,"").replace(/[:—-]+$/g,"").trim();
-    if(!name||!(/[a-z]/i.test(name)))continue;
+    if(!name||!(/[a-z]/i.test(name))){guidance.push(content);issues.push({id:`unparsed-${lineIndex}`,severity:"warning",code:"unparsed_instruction",message:`Review this unparsed instruction: “${content}”`});continue}
     const match=matchExercise(name,catalogue);const itemId=id("import-exercise",lineIndex);
     const noteParts:string[]=[];const detail=content.slice(Math.max(prescription.end||0,name.length)).replace(/^\s*[,—:@-]+\s*/,"").trim();if(detail)noteParts.push(detail);
     const item:ImportedStrengthExercise={id:itemId,rawName:name,exerciseId:match.exercise?.id,matchStatus:match.status,suggestions:match.suggestions,sets:prescription.sets,reps:prescription.reps||"",notes:noteParts.join(" · "),groupKey:activeGroup,groupLabel:activeGroup?groups[activeGroup]:undefined};exercises.push(item);
@@ -43,7 +44,7 @@ function parseStrength(payload:ImportSessionPayload,text:string,catalogue:Exerci
     if(!prefix&&activeGroup&&exercises.length>1&&/^(warm|cool|notes?|focus)/i.test(name))activeGroup=undefined;
   }
   if(!exercises.length)issues.push({id:"no-exercises",severity:"error",code:"no_exercises",message:"No strength exercises could be identified. Try putting each exercise on a new line."});
-  return {draft:{kind:"strength",name:title,focus:"",exercises,supersetNames:groups},issues};
+  return {draft:{kind:"strength",name:title,focus:guidance.join(" · "),exercises,supersetNames:groups},issues};
 }
 
 const activityFrom=(text:string):TrainingActivityType=>/swim|\/\s*100\s*m/i.test(text)?"swim":/row|\/\s*500\s*m/i.test(text)?"row":/ride|bike|cycling|watt/i.test(text)?"bike":/walk|hike/i.test(text)?"walk_hike":/elliptical/i.test(text)?"elliptical":/cross.?train/i.test(text)?"cross_training":"run";
@@ -88,5 +89,5 @@ function parseEndurance(payload:ImportSessionPayload,text:string):{draft:Enduran
 export function parseImportSession(payload:ImportSessionPayload,text:string,catalogue:Exercise[],hint?:ImportModality):ImportParseResult{
   const detected=detectModality(text,hint);const parsed=detected.modality==="strength"?parseStrength(payload,text,catalogue):parseEndurance(payload,text);
   const issues=[...parsed.issues];if(detected.confidence==="low")issues.unshift({id:"low-confidence",severity:"warning",code:"low_confidence",message:"The workout type was not completely clear. Please check it before saving."});
-  return {payload:{...payload,rawText:undefined},modality:detected.modality,confidence:detected.confidence,issues,draft:parsed.draft};
+  return {payload:{...payload,rawText:text},modality:detected.modality,confidence:detected.confidence,issues,draft:parsed.draft};
 }

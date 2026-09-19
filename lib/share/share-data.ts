@@ -1,6 +1,7 @@
 import type {EnduranceSession,Workout} from "@/lib/setra/types";
 import type {ShareCardData,ShareMetric,ShareSport} from "@/lib/share/share-types";
 import type {AwardProgress} from "@/lib/awards/types";
+import {formatLoad,type StrengthUnit} from "@/lib/setra/units";
 
 const clock=(seconds:number)=>{const rounded=Math.max(0,Math.round(seconds));const hours=Math.floor(rounded/3600);const minutes=Math.floor((rounded%3600)/60);const secs=rounded%60;return hours?`${hours}:${String(minutes).padStart(2,"0")}:${String(secs).padStart(2,"0")}`:`${minutes}:${String(secs).padStart(2,"0")}`};
 const duration=(minutes?:number)=>minutes?clock(minutes*60):"";
@@ -8,7 +9,7 @@ const sessionDuration=(start:string,finish?:string)=>{if(!finish)return"";const 
 const compactNumber=(value:number)=>new Intl.NumberFormat("en-AU",{maximumFractionDigits:value>=100?0:2}).format(value);
 const activityNames:Record<EnduranceSession["activityType"],string>={run:"Run",bike:"Ride",swim:"Swim",row:"Row",walk_hike:"Walk / hike",elliptical:"Elliptical",cross_training:"Cross-training",custom:"Endurance"};
 
-export function strengthWorkoutShareData(workout:Workout):ShareCardData{
+export function strengthWorkoutShareData(workout:Workout,unit:StrengthUnit="kg"):ShareCardData{
   const included=workout.exercises.filter(exercise=>!exercise.skipped);
   const completedSets=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0);
   const volume=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done&&(exercise.loadMode==null||exercise.loadMode==="kg")).reduce((setSum,set)=>setSum+(Number(set.weight)||0)*(Number(set.reps)||0),0),0);
@@ -16,7 +17,7 @@ export function strengthWorkoutShareData(workout:Workout):ShareCardData{
   const elapsed=sessionDuration(workout.startedAt,workout.endedAt);
   if(elapsed)metrics.push({label:"Duration",value:elapsed});
   if(completedSets)metrics.push({label:"Sets",value:String(completedSets)});
-  if(volume)metrics.push({label:"Volume",value:`${compactNumber(volume)} kg`});
+  if(volume)metrics.push({label:"Volume",value:formatLoad(volume,unit)});
   return{id:workout.id,kind:"workout",sport:"strength",label:"Strength complete",title:workout.name||"Workout complete",result:"Workout complete",date:workout.date,metrics};
 }
 
@@ -36,9 +37,9 @@ export function enduranceWorkoutShareData(session:EnduranceSession):ShareCardDat
   return{id:session.id,kind:"workout",sport,label:`${activityNames[session.activityType]} complete`,title:session.title,result,date:session.date,metrics:metrics.slice(0,3)};
 }
 
-export function strengthPBShareData(pb:{exerciseId:string;name:string;weight:number;reps:string;previousWeight?:number}):ShareCardData{
+export function strengthPBShareData(pb:{exerciseId:string;name:string;weight:number;reps:string;previousWeight?:number},unit:StrengthUnit="kg"):ShareCardData{
   const improvement=pb.previousWeight&&pb.weight>pb.previousWeight?pb.weight-pb.previousWeight:undefined;
-  return{id:pb.exerciseId,kind:"pb",sport:"strength",label:"New PB",title:pb.name,result:`${compactNumber(pb.weight)} kg`,secondary:pb.reps?`× ${pb.reps} reps`:undefined,improvement:improvement?`+${compactNumber(improvement)} kg`:undefined,previous:pb.previousWeight?`Previous PB ${compactNumber(pb.previousWeight)} kg`:undefined,metrics:[]};
+  return{id:pb.exerciseId,kind:"pb",sport:"strength",label:"New highest load",title:pb.name,result:formatLoad(pb.weight,unit),secondary:pb.reps?`× ${pb.reps} reps`:undefined,improvement:improvement?`+${formatLoad(improvement,unit)}`:undefined,previous:pb.previousWeight?`Previous highest load ${formatLoad(pb.previousWeight,unit)}`:undefined,metrics:[]};
 }
 
 export function awardShareData(award:AwardProgress):ShareCardData{

@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { AuthGate } from "@/components/auth/auth-gate";
 import {AwardsUsageTracker} from "@/components/awards/usage-tracker";
+import {OnboardingGate} from "@/components/onboarding/onboarding-gate";
 
 export const metadata: Metadata = {
   title: "setra — The work adds up.",
@@ -24,8 +25,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#0F172A",
 };
@@ -38,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider><AuthGate><AwardsUsageTracker/>{children}</AuthGate></AuthProvider>
+        <AuthProvider><AuthGate><OnboardingGate><AwardsUsageTracker/>{children}</OnboardingGate></AuthGate></AuthProvider>
       </body>
     </html>
   );

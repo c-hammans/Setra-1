@@ -21,6 +21,16 @@ test("flags an unknown strength exercise instead of silently matching it",()=>{
   assert.equal(result.draft.exercises[0].exerciseId,undefined);assert.notEqual(result.draft.exercises[0].matchStatus,"matched");
 });
 
+test("preserves load and standalone rest guidance from the reviewed example",()=>{
+  const result=parseImportSession(payload,"Investor review test\nBench Press 3 x 8 @ 40 kg\nBack Squat 3 x 5 @ 60 kg\nRest 90 seconds",[...exercises,{id:"squat",name:"Back Squat",group:"Quads",equipment:"Barbell"}],"strength");if(result.draft.kind!=="strength")return;
+  assert.equal(result.draft.exercises[0].notes,"40 kg");assert.equal(result.draft.exercises[1].notes,"60 kg");assert.match(result.draft.focus,/Rest 90 seconds/);assert.match(result.payload.rawText||"",/Investor review test/);
+});
+
+test("keeps malformed unsupported instructions visible for review",()=>{
+  const result=parseImportSession(payload,"Strength\nBench Press 3 x 8\nTempo controlled on every rep",exercises,"strength");if(result.draft.kind!=="strength")return;
+  assert.match(result.draft.focus,/Tempo controlled/);assert.ok(result.issues.some(issue=>issue.code==="preserved_guidance"));
+});
+
 test("parses interval and nested-repeat running structure",()=>{
   const result=parseImportSession(payload,"Track Run\n3 x:\n4 x:\n400 m @ 4:00/km\n60 sec recovery\n3 min recovery\nCool-down 2 km easy",[],"endurance");if(result.draft.kind!=="endurance")return;
   const groups=result.draft.template.blocks.filter(block=>block.type==="repeat_group");assert.equal(groups.length,2);assert.equal(groups[1].parentId,groups[0].id);assert.equal(result.draft.template.activityType,"run");

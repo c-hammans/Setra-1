@@ -4,9 +4,9 @@ import {localDateKey,parseLocalDate,weekStartKey} from "../setra/week.ts";
 
 const addDays=(key:string,days:number)=>{const date=parseLocalDate(key);date.setDate(date.getDate()+days);return localDateKey(date)};
 const distinct=(values:string[])=>[...new Set(values)].sort();
-const sequences=(keys:string[],step:(key:string)=>string)=>{const set=new Set(keys);let longest=0;for(const key of keys){if(set.has(step(key)))continue;let length=1,cursor=key;while(set.has(cursor=step(cursor)))length++;longest=Math.max(longest,length)}return longest};
-const streakForDates=(keys:string[],today:string):StreakSummary=>{const values=distinct(keys),set=new Set(values);let end=set.has(today)?today:addDays(today,-1),current=0;while(set.has(end)){current++;end=addDays(end,-1)}return{current,longest:sequences(values,key=>addDays(key,1))}};
-const weekStreak=(successful:string[],currentWeek:string,includeCurrentIfMissing:boolean):StreakSummary=>{const values=distinct(successful),set=new Set(values);let end=set.has(currentWeek)?currentWeek:includeCurrentIfMissing?addDays(currentWeek,-7):currentWeek,current=0;while(set.has(end)){current++;end=addDays(end,-7)}return{current,longest:sequences(values,key=>addDays(key,7))}};
+const sequences=(keys:string[],days:number)=>{const values=distinct(keys);if(!values.length)return 0;const set=new Set(values);let longest=0;for(const key of values){if(set.has(addDays(key,-days)))continue;let length=1,cursor=key;while(set.has(cursor=addDays(cursor,days)))length++;longest=Math.max(longest,length)}return longest};
+const streakForDates=(keys:string[],today:string):StreakSummary=>{const values=distinct(keys),set=new Set(values);let end=set.has(today)?today:addDays(today,-1),current=0;while(set.has(end)){current++;end=addDays(end,-1)}return{current,longest:sequences(values,1)}};
+const weekStreak=(successful:string[],currentWeek:string,includeCurrentIfMissing:boolean):StreakSummary=>{const values=distinct(successful),set=new Set(values);let end=set.has(currentWeek)?currentWeek:includeCurrentIfMissing?addDays(currentWeek,-7):currentWeek,current=0;while(set.has(end)){current++;end=addDays(end,-7)}return{current,longest:sequences(values,7)}};
 const sum=(values:number[])=>values.reduce((total,value)=>total+value,0);
 const clockDate=(date:string)=>`${date}T12:00:00.000Z`;
 
