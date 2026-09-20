@@ -55,6 +55,12 @@ const exerciseId = (name: string) => name
 
 const inferEquipment = (name: string): string => {
   const value = name.toLowerCase();
+  const reviewed:Record<string,string>={
+    "arnold press":"Dumbbell","bayesian curl":"Cable","concentration curl":"Dumbbell","drag curl":"Barbell","hammer curl":"Dumbbell","spider curl":"Dumbbell","zottman curl":"Dumbbell",
+    "cuban press":"Dumbbell","face pull":"Cable","pallof press":"Cable","front hold":"Plate","monkey row":"Dumbbell","poliquin raise":"Dumbbell",
+    "leg extension":"Machine","lying leg curl":"Machine","one-legged leg extension":"Machine","one-legged lying leg curl":"Machine","one-legged seated leg curl":"Machine","seated leg curl":"Machine","standing leg curl":"Machine",
+  };
+  if(reviewed[value])return reviewed[value];
   if (["air squat","chair squat","half air squat"].includes(value)||value.includes("body weight")||value.includes("bodyweight")) return "Bodyweight";
   if (value.includes("smith machine")) return "Smith Machine";
   if (value.includes("trap bar")) return "Trap Bar";

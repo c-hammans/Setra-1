@@ -70,6 +70,7 @@ export type EnduranceSession = {
   completedAt?:string;
   templateId?:string;
   skipped?:boolean;
+  minimalEntryConfirmed?:boolean;
 };
 export type EnduranceTemplate = {
   id:string;

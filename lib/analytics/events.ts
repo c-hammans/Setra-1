@@ -30,3 +30,14 @@ class BrowserEventAnalytics implements AnalyticsAdapter{
 }
 
 export const analytics:AnalyticsAdapter=new BrowserEventAnalytics();
+
+export function trackWeeklyReturnOnce(userId:string,weekStart:string){
+  if(typeof window==="undefined"||!userId||!weekStart)return false;
+  const key=`setra-analytics-weekly-return:${userId}`;
+  try{
+    if(window.localStorage.getItem(key)===weekStart)return false;
+    window.localStorage.setItem(key,weekStart);
+  }catch{return false}
+  analytics.track("weekly_return");
+  return true;
+}

@@ -365,3 +365,13 @@ html,body{background:#fff}.app-shell{background:var(--surface-page);color:var(--
 }
 
 .live-save-status{float:right;color:color-mix(in srgb,var(--accent-strong-contrast) 68%,transparent);font-size:calc(8px * var(--text-scale-number,1));font-weight:750}.live-save-status.state-pending,.live-save-status.state-error{color:#ffd38c}
+.editor-validation{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 9%,var(--surface));color:var(--ink)}
+.editor-validation p{margin:0;font-size:.78rem;line-height:1.4}
+.editor-validation p+p{margin-top:4px}
+.minimal-entry-confirm{display:flex!important;align-items:flex-start!important;gap:10px;margin-top:12px;padding:12px;border-radius:14px;background:var(--surface-soft)}
+.minimal-entry-confirm input{width:18px!important;height:18px!important;min-height:18px!important;margin-top:2px}
+.minimal-entry-confirm span{display:grid;gap:2px}.minimal-entry-confirm b{font-size:.82rem}.minimal-entry-confirm small{font-size:.72rem;line-height:1.35;color:var(--muted)}
+.day-dots .skipped-dot,.month-dots .skipped-dot{box-sizing:border-box;background:transparent!important;border:1px solid var(--text-secondary);border-radius:1px;transform:rotate(45deg)}
+.day.active-day .skipped-dot,.month-grid .selected-date .skipped-dot{border-color:var(--accent-contrast)}
+.day-dots .partial-dot,.month-dots .partial-dot{background:linear-gradient(90deg,var(--accent) 50%,transparent 50%)!important;border:1px solid var(--accent)}
+.day.active-day .partial-dot,.month-grid .selected-date .partial-dot{background:linear-gradient(90deg,var(--accent-contrast) 50%,transparent 50%)!important;border-color:var(--accent-contrast)}

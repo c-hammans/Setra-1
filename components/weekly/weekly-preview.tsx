@@ -14,7 +14,7 @@ export type WeeklyPreviewItem={
   descriptor:string;
   modality:"strength"|"endurance";
   activityType?:TrainingActivityType;
-  status:"planned"|"completed"|"skipped";
+  status:"planned"|"completed"|"partial"|"skipped";
   startTime?:string;
 };
 
@@ -30,13 +30,14 @@ export function WeeklyPreview({items,weekStartsOn,today,onClose,onSelect,onPlan}
     return [...items].sort((a,b)=>(dayOrder.get(a.date)??7)-(dayOrder.get(b.date)??7)||(a.startTime||"99:99").localeCompare(b.startTime||"99:99")||a.title.localeCompare(b.title));
   },[items,today,weekStartsOn]);
   const completed=ordered.filter(item=>item.status==="completed").length;
+  const partial=ordered.filter(item=>item.status==="partial").length;
   const skipped=ordered.filter(item=>item.status==="skipped").length;
-  const remaining=ordered.length-completed-skipped;
+  const remaining=ordered.filter(item=>item.status==="planned").length;
   const overdue=ordered.filter(item=>item.status==="planned"&&item.date<today);
   const next=ordered.find(item=>item.status==="planned"&&(item.date>today||(item.date===today&&(!item.startTime||item.startTime>=new Date().toTimeString().slice(0,5)))));
   const groups=dates.map(date=>({date,items:ordered.filter(item=>item.date===date)})).filter(group=>group.items.length>0);
   const progress=ordered.length?completed/ordered.length:0;
-  const summary=ordered.length===0?"No sessions planned":remaining===0?(skipped?`${completed} complete · ${skipped} skipped`:"Week complete"):overdue.length?`${overdue.length} overdue · ${remaining} ${remaining===1?"session":"sessions"} remaining`:`${remaining} ${remaining===1?"session":"sessions"} remaining${next?` · Next: ${next.title}`:""}`;
+  const summary=ordered.length===0?"No sessions planned":remaining===0?(partial||skipped?[completed&&`${completed} complete`,partial&&`${partial} partial`,skipped&&`${skipped} skipped`].filter(Boolean).join(" · "):"Week complete"):overdue.length?`${overdue.length} overdue · ${remaining} ${remaining===1?"session":"sessions"} remaining`:`${remaining} ${remaining===1?"session":"sessions"} remaining${next?` · Next: ${next.title}`:""}`;
 
   return <div className="weekly-preview-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}>
     <section className="weekly-preview-modal" role="dialog" aria-modal="true" aria-labelledby="weekly-preview-title">
@@ -50,8 +51,8 @@ export function WeeklyPreview({items,weekStartsOn,today,onClose,onSelect,onPlan}
         {groups.length?groups.map(group=><section className={group.date===today?"weekly-day is-today":"weekly-day"} key={group.date}>
           <h3>{dayHeading(group.date)}{group.date===today&&<em>TODAY</em>}</h3>
           <div>{group.items.map(item=><button key={item.id} className={`weekly-session is-${item.status} ${item.status==="planned"&&item.date<today?"is-overdue":""}`} onClick={()=>onSelect(item)}>
-            <i aria-hidden="true">{item.status==="completed"?"✓":item.status==="skipped"?"—":""}</i>
-            <span><b>{item.title}</b><small>{item.status==="skipped"?"Skipped":item.status==="planned"&&item.date<today?`Overdue · ${item.descriptor||"Session"}`:item.descriptor||item.activityType&&activityLabel(item.activityType)||"Session"}</small></span><em>›</em>
+            <i aria-hidden="true">{item.status==="completed"?"✓":item.status==="partial"?"◐":item.status==="skipped"?"—":""}</i>
+            <span><b>{item.title}</b><small>{item.status==="skipped"?"Skipped":item.status==="partial"?`Partial · ${item.descriptor||"Session"}`:item.status==="planned"&&item.date<today?`Overdue · ${item.descriptor||"Session"}`:item.descriptor||item.activityType&&activityLabel(item.activityType)||"Session"}</small></span><em>›</em>
           </button>)}</div>
         </section>):<div className="weekly-preview-empty"><b>Nothing planned yet</b><p>Your week is open. Add a session when you&apos;re ready.</p><button onClick={onPlan}>Plan session</button></div>}
       </div>

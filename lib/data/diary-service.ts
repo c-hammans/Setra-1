@@ -4,6 +4,7 @@ import type { AppData, Exercise, LoadMode, ScheduledWorkout, Template, TrainingP
 import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
 import type {WeekdayIndex} from "@/lib/setra/week";
 import { localImportSummary } from "./local-diary";
+import {runOrderedWrite} from "./write-coordinator";
 
 // Supabase rows remain runtime-validated by the mapping below until generated DB types are added.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,27 +62,25 @@ export class DiaryService {
     return {id:String(row.client_id||row.id),templateId:template?.client_id?String(template.client_id):undefined,name:String(row.name),date:String(row.workout_date),startedAt,endedAt,duration:durationMinutes(startedAt,endedAt),note:String(row.notes||""),updatedAt:row.updated_at?String(row.updated_at):undefined,warmup,exercises:exercises.map(item=>{const sets=(item.workout_sets as AnyRow[]||[]).sort((a,b)=>Number(a.set_number)-Number(b.set_number)).map(set=>({reps:String(set.reps||""),weight:String(set.load_text??set.weight??""),rpe:String(set.rpe||""),done:Boolean(set.completed),note:String(set.notes||"")}));const loadMode:LoadMode=item.load_mode==="kg"?"kg":sets.length>0&&sets.every(set=>set.weight.toUpperCase()==="BW")?"bw":"band";return {exerciseId:String(item.exercise_id),group:item.superset_key?String(item.superset_key):undefined,note:String(item.notes||""),planNote:String(item.planning_notes||""),repTarget:item.rep_target?String(item.rep_target):undefined,loadMode,skipped:Boolean(item.skipped),sets};})};
   }
 
-  private async templateUuid(clientId:string){const {data,error}=await this.supabase.from("workout_templates").select("id").eq("user_id",this.userId).eq("client_id",clientId).maybeSingle();if(error)throw error;return data?.id as string|undefined}
-
-  async saveTemplate(template:Template){
-    const {error}=await this.supabase.rpc("save_strength_template",{p_template:template});if(error)throw error;
+  async saveTemplate(template:Template,revision=Date.now()*1000){
+    return runOrderedWrite(`strength-template:${template.id}`,async()=>{const {error}=await this.supabase.rpc("save_strength_template_revisioned",{p_template:template,p_revision:revision});if(error)throw error});
   }
 
   async saveCustomExercise(exercise:Exercise){
     const {error}=await this.supabase.from("exercises").upsert({id:exercise.id,owner_id:this.userId,name:exercise.name,muscle_group:exercise.group,equipment:exercise.equipment},{onConflict:"id"});if(error)throw error;
   }
 
-  async deleteTemplate(clientId:string){const id=await this.templateUuid(clientId);if(!id)return;const {error}=await this.supabase.from("workout_templates").delete().eq("id",id);if(error)throw error}
+  async deleteTemplate(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`strength-template:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_strength_template_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw error})}
 
-  async replaceSchedule(items:ScheduledWorkout[]){
-    const {error}=await this.supabase.rpc("replace_strength_schedule",{p_items:items});if(error)throw error;
+  async replaceSchedule(items:ScheduledWorkout[],revision=Date.now()*1000){
+    return runOrderedWrite("schedule:current",async()=>{const {error}=await this.supabase.rpc("replace_strength_schedule_revisioned",{p_items:items,p_revision:revision});if(error)throw error});
   }
 
-  async saveWorkout(workout:Workout,status:"in_progress"|"completed"="completed"){
-    const {data,error}=await this.supabase.rpc("save_strength_workout",{p_workout:{...workout,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",completedAt:status==="completed"?new Date().toISOString():undefined},p_status:status});if(error)throw error;return data as string|undefined;
+  async saveWorkout(workout:Workout,status:"in_progress"|"completed"="completed",revision=Date.now()*1000){
+    return runOrderedWrite(`workout:${workout.id}`,async()=>{const {data,error}=await this.supabase.rpc("save_strength_workout_revisioned",{p_workout:{...workout,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",completedAt:status==="completed"?new Date().toISOString():undefined},p_status:status,p_revision:revision});if(error)throw error;return data as string|undefined});
   }
 
-  async deleteWorkout(clientId:string){const {error}=await this.supabase.from("workouts").delete().eq("user_id",this.userId).eq("client_id",clientId);if(error)throw error}
+  async deleteWorkout(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`workout:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_strength_workout_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw error})}
 
   async importLocal(data:AppData){
     const {data:existing,error:checkError}=await this.supabase.from("data_imports").select("id").eq("user_id",this.userId).eq("source","setra-local-storage-v1").maybeSingle();if(checkError)throw checkError;if(existing)throw new Error("This browser diary has already been imported.");

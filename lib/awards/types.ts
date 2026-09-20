@@ -20,7 +20,7 @@ export type AwardSessionFact={
 export type AwardVolumeFact={date:string;kilograms:number};
 export type AwardTemplateFact={id:string;createdDate:string;modality:"strength"|"endurance"};
 export type AwardPlanOccurrence={
-  key:string;date:string;modality:"strength"|"endurance";status:"planned"|"completed"|"skipped"|"cancelled"|"rescheduled";
+  key:string;date:string;modality:"strength"|"endurance";status:"planned"|"partial"|"completed"|"skipped"|"cancelled"|"rescheduled";
 };
 export type StoredAchievement={achievementId:string;earnedAt:string;metadata:Record<string,unknown>};
 
@@ -35,4 +35,3 @@ export type AwardProgress={
 export type StreakSummary={current:number;longest:number};
 export type AwardStreaks={trainingDays:StreakSummary;activeWeeks:StreakSummary;weeklyGoal:StreakSummary;plannedWeeks:StreakSummary;setraUse:StreakSummary};
 export type AwardEvaluation={awards:AwardProgress[];streaks:AwardStreaks;newlyEarned:StoredAchievement[];metrics:Record<string,number>};
-

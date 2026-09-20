@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern .next",
     "test:import": "node --experimental-strip-types --test lib/import/*.test.ts",
-    "test:awards": "node --experimental-strip-types --test lib/awards/*.test.ts"
+    "test:awards": "node --experimental-strip-types --test lib/awards/*.test.ts",
+    "test:reliability": "node --experimental-strip-types --test lib/data/*.test.ts lib/validation/*.test.ts lib/setra/completion.test.ts lib/analytics/*.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
