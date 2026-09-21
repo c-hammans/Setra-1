@@ -5,6 +5,7 @@ import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
 import type {WeekdayIndex} from "@/lib/setra/week";
 import { localImportSummary } from "./local-diary";
 import {runOrderedWrite} from "./write-coordinator";
+import {normalizeWriteError} from "./write-errors";
 
 // Supabase rows remain runtime-validated by the mapping below until generated DB types are added.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,24 +64,24 @@ export class DiaryService {
   }
 
   async saveTemplate(template:Template,revision=Date.now()*1000){
-    return runOrderedWrite(`strength-template:${template.id}`,async()=>{const {error}=await this.supabase.rpc("save_strength_template_revisioned",{p_template:template,p_revision:revision});if(error)throw error});
+    return runOrderedWrite(`strength-template:${template.id}`,async()=>{const {error}=await this.supabase.rpc("save_strength_template_revisioned",{p_template:template,p_revision:revision});if(error)throw normalizeWriteError(error)});
   }
 
   async saveCustomExercise(exercise:Exercise){
     const {error}=await this.supabase.from("exercises").upsert({id:exercise.id,owner_id:this.userId,name:exercise.name,muscle_group:exercise.group,equipment:exercise.equipment},{onConflict:"id"});if(error)throw error;
   }
 
-  async deleteTemplate(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`strength-template:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_strength_template_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw error})}
+  async deleteTemplate(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`strength-template:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_strength_template_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw normalizeWriteError(error)})}
 
   async replaceSchedule(items:ScheduledWorkout[],revision=Date.now()*1000){
-    return runOrderedWrite("schedule:current",async()=>{const {error}=await this.supabase.rpc("replace_strength_schedule_revisioned",{p_items:items,p_revision:revision});if(error)throw error});
+    return runOrderedWrite("schedule:current",async()=>{const {error}=await this.supabase.rpc("replace_strength_schedule_revisioned",{p_items:items,p_revision:revision});if(error)throw normalizeWriteError(error)});
   }
 
   async saveWorkout(workout:Workout,status:"in_progress"|"completed"="completed",revision=Date.now()*1000){
-    return runOrderedWrite(`workout:${workout.id}`,async()=>{const {data,error}=await this.supabase.rpc("save_strength_workout_revisioned",{p_workout:{...workout,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",completedAt:status==="completed"?new Date().toISOString():undefined},p_status:status,p_revision:revision});if(error)throw error;return data as string|undefined});
+    return runOrderedWrite(`workout:${workout.id}`,async()=>{const {data,error}=await this.supabase.rpc("save_strength_workout_revisioned",{p_workout:{...workout,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",completedAt:status==="completed"?new Date().toISOString():undefined},p_status:status,p_revision:revision});if(error)throw normalizeWriteError(error);return data as string|undefined});
   }
 
-  async deleteWorkout(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`workout:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_strength_workout_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw error})}
+  async deleteWorkout(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`workout:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_strength_workout_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw normalizeWriteError(error)})}
 
   async importLocal(data:AppData){
     const {data:existing,error:checkError}=await this.supabase.from("data_imports").select("id").eq("user_id",this.userId).eq("source","setra-local-storage-v1").maybeSingle();if(checkError)throw checkError;if(existing)throw new Error("This browser diary has already been imported.");

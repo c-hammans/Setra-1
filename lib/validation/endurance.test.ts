@@ -20,6 +20,11 @@ test("requires explicit confirmation for an otherwise empty completed activity",
   assert.equal(validateEnduranceRecord(session(),{today:"2026-09-19",allowMinimalCompleted:true}).length,0);
 });
 
+test("zero duration and distance do not bypass minimal-entry confirmation",()=>{
+  const issues=validateEnduranceRecord(session({durationMinutes:0,distanceKm:0,startedAt:"09:00"}),{today:"2026-09-19"});
+  assert.equal(issues.some(issue=>issue.code==="minimal_confirmation"),true);
+});
+
 test("validates nested targets and measured goals",()=>{
   const issues=validateEnduranceRecord(session({durationMinutes:30,blocks:[{id:"step",type:"interval",title:"Work",instructions:"",completionType:"distance",distanceMetres:0,targetMetric:"power",targetMinValue:300,targetMaxValue:250}]}),{today:"2026-09-19"});
   assert.equal(issues.filter(issue=>issue.tab==="structure").length,2);

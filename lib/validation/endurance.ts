@@ -40,7 +40,7 @@ export function validateEnduranceRecord(value:EnduranceSession|EnduranceTemplate
     if(!finite(session.rpe)||(session.rpe!=null&&(session.rpe<0||session.rpe>10)))add("rpe","details","Session RPE must be between 0 and 10.");
     if(!finite(session.averageHeartRate)||(session.averageHeartRate!=null&&(session.averageHeartRate<20||session.averageHeartRate>260)))add("heartRate","details","Average heart rate must be between 20 and 260 bpm.");
     if(!nonNegative(session.elevationGainMetres))add("elevation","details","Elevation cannot be negative or invalid.");
-    const meaningful=session.durationMinutes!=null||session.distanceKm!=null||session.blocks.length>0||Boolean(session.notes.trim())||Boolean(session.startedAt);
+    const meaningful=(session.durationMinutes??0)>0||(session.distanceKm??0)>0||session.blocks.length>0||Boolean(session.notes.trim())||session.rpe!=null||session.averageHeartRate!=null||(session.elevationGainMetres??0)>0;
     if(session.status==="completed"&&!meaningful&&!options.allowMinimalCompleted)add("minimal","details","This activity has no performance details. Confirm that you want to save a minimal diary entry.","minimal_confirmation");
   }
   const ids=new Set<string>();

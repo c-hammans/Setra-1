@@ -6,11 +6,13 @@ export type SetraAnalyticsEvent=
   |"import_started"
   |"import_reviewed"
   |"import_saved"
+  |"import_failed"
   |"workout_abandoned"
   |"save_failed"
   |"draft_recovered"
   |"weekly_return"
-  |"training_mode_used";
+  |"training_mode_used"
+  |"weekly_review_used";
 
 export type SafeAnalyticsProperties={
   modality?:"strength"|"endurance"|"hybrid";

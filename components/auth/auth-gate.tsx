@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import {usePathname} from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "./auth-provider";
@@ -10,6 +11,7 @@ const friendlyAuthMessage=(message:string)=>{const value=message.toLowerCase();i
 const withTimeout=<T,>(request:PromiseLike<T>)=>Promise.race([Promise.resolve(request),new Promise<never>((_,reject)=>window.setTimeout(()=>reject(new Error("network timeout")),15000))]);
 
 export function AuthGate({children}:{children:React.ReactNode}) {
+  const pathname=usePathname();
   const {configured,loading,user}=useAuth();
   const [mode,setMode]=useState<Mode>("signin");
   const [email,setEmail]=useState("");
@@ -18,7 +20,8 @@ export function AuthGate({children}:{children:React.ReactNode}) {
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
 
-  if(!configured) return <>{children}</>;
+  const publicRoute=pathname==="/support"||pathname==="/legal"||pathname.startsWith("/auth/");
+  if(!configured||publicRoute) return <>{children}</>;
   if(loading) return <main className="auth-shell"><div className="auth-loading"><span className="brand-mark">S</span><p>Opening your training diary…</p></div></main>;
   if(user) return <>{children}</>;
 

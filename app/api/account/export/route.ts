@@ -18,7 +18,10 @@ export async function GET(){
     {key:"premium_waitlist",table:"premium_waitlist",select:"*",owner:"user_id"},
     {key:"account_deletion_requests",table:"account_deletion_requests",select:"*",owner:"user_id"},
   ] as const;
-  const entries=await Promise.all(queries.map(async query=>{const {data,error}=await supabase.from(query.table).select(query.select).eq(query.owner,user.id);if(error)throw error;return[query.key,data] as const}));
-  const body=JSON.stringify({exportedAt:new Date().toISOString(),accountId:user.id,data:Object.fromEntries(entries)},null,2);
-  return new NextResponse(body,{headers:{"content-type":"application/json; charset=utf-8","content-disposition":`attachment; filename="setra-data-${new Date().toISOString().slice(0,10)}.json"`,"cache-control":"no-store"}});
+  try{
+    const pageSize=500;
+    const entries=await Promise.all(queries.map(async query=>{const rows:unknown[]=[];for(let from=0;;from+=pageSize){const {data,error}=await supabase.from(query.table).select(query.select).eq(query.owner,user.id).range(from,from+pageSize-1);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<pageSize)break}return[query.key,rows] as const}));
+    const body=JSON.stringify({exportedAt:new Date().toISOString(),accountId:user.id,scope:"Cloud-synced Setra data. Changes still waiting only on this device are not included.",data:Object.fromEntries(entries)},null,2);
+    return new NextResponse(body,{headers:{"content-type":"application/json; charset=utf-8","content-disposition":`attachment; filename="setra-data-${new Date().toISOString().slice(0,10)}.json"`,"cache-control":"no-store"}});
+  }catch(error){return NextResponse.json({error:"Your export could not be prepared. No data was changed. Please try again.",detail:process.env.NODE_ENV==="development"&&error instanceof Error?error.message:undefined},{status:500})}
 }

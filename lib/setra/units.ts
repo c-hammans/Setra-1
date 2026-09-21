@@ -8,6 +8,7 @@ export const kilogramsToDisplay=(kilograms:number,unit:StrengthUnit)=>unit==="lb
 export const displayToKilograms=(value:number,unit:StrengthUnit)=>rounded(unit==="lb"?value/POUNDS_PER_KILOGRAM:value);
 
 export const formatLoad=(kilograms:number|string,unit:StrengthUnit,includeUnit=true)=>{
+  if(typeof kilograms==="string"&&kilograms.trim()==="")return "Not recorded";
   const value=Number(kilograms);if(!Number.isFinite(value))return String(kilograms||"");
   const display=kilogramsToDisplay(value,unit);
   const formatted=new Intl.NumberFormat("en-AU",{maximumFractionDigits:display>=100?1:2}).format(display);

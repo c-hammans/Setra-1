@@ -23,3 +23,24 @@ export function normalizePendingChanges<T extends {key:string;updatedAt?:string;
     return {...item,updatedAt:item.updatedAt||new Date(fallbackTime).toISOString(),operationId:item.operationId||`legacy-${item.key}-${revision}-${index}`,revision};
   });
 }
+
+type ChangeLike=PendingChangeBase&{kind:string;payload?:unknown};
+const isDelete=(kind:string)=>kind.startsWith("delete_");
+
+// Keep one durable final intent per entity. Completion and deletion are
+// barriers: an older autosave must never be allowed to undo either one.
+export function compactPendingChanges<T extends ChangeLike>(items:T[]):T[]{
+  const byKey=new Map<string,T[]>();
+  for(const item of items)byKey.set(item.key,[...(byKey.get(item.key)||[]),item]);
+  const keep=new Set<string>();
+  for(const changes of byKey.values()){
+    const ordered=[...changes].sort((a,b)=>a.revision-b.revision);
+    const lastDelete=[...ordered].reverse().find(item=>isDelete(item.kind));
+    if(lastDelete){keep.add(lastDelete.operationId);continue}
+    const lastCompleted=[...ordered].reverse().find(item=>item.kind==="save_workout"&&((item.payload as {status?:string}|undefined)?.status==="completed"));
+    const newest=ordered[ordered.length-1];
+    if(lastCompleted&&newest.kind==="save_workout"&&((newest.payload as {status?:string}|undefined)?.status!=="completed"))keep.add(lastCompleted.operationId);
+    else keep.add(newest.operationId);
+  }
+  return items.filter(item=>keep.has(item.operationId));
+}
