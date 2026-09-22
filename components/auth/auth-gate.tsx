@@ -20,7 +20,7 @@ export function AuthGate({children}:{children:React.ReactNode}) {
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
 
-  const publicRoute=pathname==="/support"||pathname==="/legal"||pathname.startsWith("/auth/");
+  const publicRoute=pathname==="/support"||pathname==="/legal"||pathname.startsWith("/auth/")||(process.env.NODE_ENV!=="production"&&pathname==="/test-use-previous");
   if(!configured||publicRoute) return <>{children}</>;
   if(loading) return <main className="auth-shell"><div className="auth-loading"><span className="brand-mark">S</span><p>Opening your training diary…</p></div></main>;
   if(user) return <>{children}</>;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {useEffect,useMemo,useState} from "react";
 import {useAuth} from "@/components/auth/auth-provider";
-import {loadLocalAppearance,loadLocalAppColour,loadLocalTextScale,saveLocalAppearance,saveLocalAppColour,saveLocalTextScale} from "@/lib/data/local-diary";
+import {loadLocalAppearance,loadLocalAppColour,loadLocalTextScale,loadPendingDiaryChanges,saveLocalAppearance,saveLocalAppColour,saveLocalTextScale} from "@/lib/data/local-diary";
 import {ProfileService,type ProfileSettings} from "@/lib/profile/profile-service";
 import {usePremiumAccess} from "@/lib/premium/use-premium-access";
 import {contrastColour,createSetraTheme,useResolvedAppearance,type TextScale} from "@/lib/setra/appearance";
@@ -26,9 +26,11 @@ export default function ProfilePage(){
   const [saving,setSaving]=useState(false);
   const [accountBusy,setAccountBusy]=useState(false);
   const [message,setMessage]=useState("");
+  const [pendingExportChanges,setPendingExportChanges]=useState(0);
   const resolvedAppearance=useResolvedAppearance(settings.appearanceMode);
 
   useEffect(()=>{if(!service)return;const cached=loadLocalAppColour(user?.id);const cachedAppearance=loadLocalAppearance(user?.id);const cachedTextScale=loadLocalTextScale(user?.id);if(cached||cachedAppearance||cachedTextScale)setSettings(current=>({...current,...(cached?{appColour:cached}:{}),...(cachedAppearance?{appearanceMode:cachedAppearance}:{}),...(cachedTextScale?{textScale:cachedTextScale}:{})}));service.load().then(profile=>{const next={...profile,displayName:profile.displayName||user?.user_metadata?.display_name||""};setSettings(next);setSaved(next);saveLocalTextScale(next.textScale,user?.id)}).catch(error=>setMessage(error instanceof Error?error.message:"Profile settings could not be loaded.")).finally(()=>setLoading(false))},[service,user?.id,user?.user_metadata?.display_name]);
+  useEffect(()=>{setPendingExportChanges(loadPendingDiaryChanges(user?.id).length)},[user?.id]);
   const dirty=JSON.stringify(settings)!==JSON.stringify(saved);
   async function save(){if(!service||saving)return;setSaving(true);setMessage("");try{await service.save(settings);saveLocalAppColour(settings.appColour,user?.id);saveLocalAppearance(settings.appearanceMode,user?.id);saveLocalTextScale(settings.textScale,user?.id);setSaved(settings);router.replace("/")}catch(error){setMessage(error instanceof Error?error.message:"Settings could not be saved.")}finally{setSaving(false)}}
   async function requestDeletion(){if(accountBusy||!window.confirm("Request deletion of your Setra account and training data? This records a request for review; it does not delete anything immediately."))return;setAccountBusy(true);setMessage("");try{const response=await fetch("/api/account/deletion-request",{method:"POST"});const result=await response.json();if(!response.ok)throw new Error(result.error||"The request could not be recorded.");setMessage("Deletion request recorded. Your account remains active until the request is completed.")}catch(error){setMessage(error instanceof Error?error.message:"The request could not be recorded.")}finally{setAccountBusy(false)}}
@@ -54,7 +56,7 @@ export default function ProfilePage(){
 
       <section className="profile-premium"><span>✦ SETRA PREMIUM</span><h2>{subscription.tier==="premium"?"Premium access active":"Go further with your training record."}</h2><p>AI Coach, personal programming, deeper reviews and advanced insights are being built around your Setra history.</p><Link href="/premium">{subscription.tier==="premium"?"View Premium":"Explore Premium"} <b>→</b></Link></section>
 
-      <section className="profile-section profile-account"><header><span>ACCOUNT</span><h2>Your data</h2><p>Download a copy of your cloud records or request account deletion. A deletion request does not remove anything immediately.</p></header><div className="profile-cloud"><i/>Your Setra data is connected to your account.</div><a className="profile-data-action" href="/api/account/export" download>Download my data</a><button className="profile-delete-request" disabled={accountBusy} onClick={requestDeletion}>{accountBusy?"Requesting…":"Request account deletion"}</button><div className="profile-information-links"><Link href="/support">Support</Link><Link href="/legal">Privacy &amp; terms</Link></div><button onClick={signOut}>Sign out</button></section>
+      <section className="profile-section profile-account"><header><span>ACCOUNT</span><h2>Your data</h2><p>Download a copy of your cloud-synced records or request account deletion. A deletion request does not remove anything immediately.</p></header><div className="profile-cloud"><i/>Your Setra data is connected to your account.</div>{pendingExportChanges>0&&<p role="status" className="profile-export-warning">{pendingExportChanges} {pendingExportChanges===1?"change is":"changes are"} still waiting to sync on this device and will not be in this download yet.</p>}<a className="profile-data-action" href="/api/account/export" download>Download cloud data</a><small className="profile-export-note">The file reports whether every export section completed and records the export window. Avoid editing training until the download finishes for the cleanest snapshot.</small><button className="profile-delete-request" disabled={accountBusy} onClick={requestDeletion}>{accountBusy?"Requesting…":"Request account deletion"}</button><div className="profile-information-links"><Link href="/support">Support</Link><Link href="/legal">Privacy &amp; terms</Link></div><button onClick={signOut}>Sign out</button></section>
     </div>
     <footer className="profile-save"><div>{message&&<small>{message}</small>}<button disabled={!dirty||saving||loading} onClick={save}>{saving?"Saving…":dirty?"Save settings":"Settings saved ✓"}</button></div></footer>
   </main>;

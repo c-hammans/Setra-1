@@ -1,4 +1,4 @@
-import type {EnduranceTemplate,Exercise} from "@/lib/setra/types";
+import type {EnduranceTemplate,Exercise,PlannedLoad} from "@/lib/setra/types";
 
 export type ImportSourceType="pasted_text"|"uploaded_image"|"uploaded_file"|"future_ios_share"|"future_android_share";
 export type ImportModality="strength"|"endurance";
@@ -24,6 +24,7 @@ export type ImportedStrengthExercise={
   sets?:number;
   reps:string;
   notes:string;
+  plannedLoad?:PlannedLoad;
   groupKey?:string;
   groupLabel?:string;
   createCustom?:boolean;
@@ -31,4 +32,3 @@ export type ImportedStrengthExercise={
 export type StrengthImportDraft={kind:"strength";name:string;focus:string;exercises:ImportedStrengthExercise[];supersetNames:Record<string,string>};
 export type EnduranceImportDraft={kind:"endurance";template:EnduranceTemplate};
 export type ImportParseResult={payload:ImportSessionPayload;modality:ImportModality;confidence:ImportConfidence;issues:ImportIssue[];draft:StrengthImportDraft|EnduranceImportDraft};
-

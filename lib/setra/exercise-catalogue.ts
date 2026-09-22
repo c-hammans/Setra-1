@@ -57,7 +57,7 @@ const inferEquipment = (name: string): string => {
   const value = name.toLowerCase();
   const reviewed:Record<string,string>={
     "arnold press":"Dumbbell","bayesian curl":"Cable","concentration curl":"Dumbbell","drag curl":"Barbell","hammer curl":"Dumbbell","spider curl":"Dumbbell","zottman curl":"Dumbbell",
-    "cuban press":"Dumbbell","face pull":"Cable","pallof press":"Cable","front hold":"Plate","monkey row":"Dumbbell","poliquin raise":"Dumbbell",
+    "cuban press":"Dumbbell","face pull":"Cable","pallof press":"Cable","front hold":"Plate","monkey row":"Dumbbell","poliquin raise":"Dumbbell","behind the neck press":"Barbell","snatch grip behind the neck press":"Barbell",
     "leg extension":"Machine","lying leg curl":"Machine","one-legged leg extension":"Machine","one-legged lying leg curl":"Machine","one-legged seated leg curl":"Machine","seated leg curl":"Machine","standing leg curl":"Machine",
   };
   if(reviewed[value])return reviewed[value];

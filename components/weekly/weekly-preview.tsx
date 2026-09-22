@@ -18,17 +18,17 @@ export type WeeklyPreviewItem={
   startTime?:string;
 };
 
-type Props={items:WeeklyPreviewItem[];weekStartsOn:WeekdayIndex;today:string;onClose:()=>void;onSelect:(item:WeeklyPreviewItem)=>void;onPlan:()=>void};
+type Props={items:WeeklyPreviewItem[];weekStartsOn:WeekdayIndex;today:string;anchorDate?:string;onClose:()=>void;onSelect:(item:WeeklyPreviewItem)=>void;onPlan:()=>void};
 const dayHeading=(date:string)=>new Intl.DateTimeFormat("en-AU",{weekday:"short",day:"numeric"}).format(parseLocalDate(date)).toUpperCase();
 const fullDay=(date:string)=>new Intl.DateTimeFormat("en-AU",{weekday:"long",day:"numeric",month:"short"}).format(parseLocalDate(date));
 const rangeLabel=(dates:string[])=>{const first=parseLocalDate(dates[0]);const last=parseLocalDate(dates[6]);const start=new Intl.DateTimeFormat("en-AU",{day:"numeric",month:first.getMonth()===last.getMonth()?undefined:"short"}).format(first);const end=new Intl.DateTimeFormat("en-AU",{day:"numeric",month:"long"}).format(last);return `${start}–${end}`};
 
-export function WeeklyPreview({items,weekStartsOn,today,onClose,onSelect,onPlan}:Props){
-  const dates=weekDateKeys(today,weekStartsOn);
+export function WeeklyPreview({items,weekStartsOn,today,anchorDate=today,onClose,onSelect,onPlan}:Props){
+  const dates=weekDateKeys(anchorDate,weekStartsOn);const viewingCurrentWeek=dates.includes(today);
   const ordered=useMemo(()=>{
-    const dayOrder=new Map(weekDateKeys(today,weekStartsOn).map((date,index)=>[date,index]));
+    const dayOrder=new Map(weekDateKeys(anchorDate,weekStartsOn).map((date,index)=>[date,index]));
     return [...items].sort((a,b)=>(dayOrder.get(a.date)??7)-(dayOrder.get(b.date)??7)||(a.startTime||"99:99").localeCompare(b.startTime||"99:99")||a.title.localeCompare(b.title));
-  },[items,today,weekStartsOn]);
+  },[anchorDate,items,weekStartsOn]);
   const completed=ordered.filter(item=>item.status==="completed").length;
   const partial=ordered.filter(item=>item.status==="partial").length;
   const skipped=ordered.filter(item=>item.status==="skipped").length;
@@ -43,7 +43,7 @@ export function WeeklyPreview({items,weekStartsOn,today,onClose,onSelect,onPlan}
     <section className="weekly-preview-modal" role="dialog" aria-modal="true" aria-labelledby="weekly-preview-title">
       <header><div><small>WEEKLY PREVIEW</small><h2 id="weekly-preview-title">Your week</h2><p>{rangeLabel(dates)}</p></div><button onClick={onClose} aria-label="Close weekly preview">×</button></header>
       <div className="weekly-preview-progress">
-        <div><small>TODAY</small><b>{fullDay(today)}</b><span>Day {dayIndexInUserWeek(today,weekStartsOn)+1} of 7</span></div>
+        <div><small>{viewingCurrentWeek?"TODAY":"VIEWING"}</small><b>{fullDay(viewingCurrentWeek?today:anchorDate)}</b><span>Day {dayIndexInUserWeek(viewingCurrentWeek?today:anchorDate,weekStartsOn)+1} of 7</span></div>
         <div><small>TRAINING</small><b>{completed} of {ordered.length} sessions complete</b>{skipped>0&&<span>{skipped} skipped</span>}</div>
         <i aria-hidden="true"><span style={{width:`${progress*100}%`}}/></i>
       </div>

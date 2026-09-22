@@ -1,4 +1,15 @@
 export type PendingChangeBase={key:string;operationId:string;revision:number;updatedAt:string};
+export type DurablePendingChangeBase=PendingChangeBase&{supersedesOperationId?:string};
+
+export function mergeUniqueOperations<T extends {operationId:string}>(legacy:T[],current:T[]):T[]{
+  const merged=[...current];
+  const known=new Set(current.map(item=>item.operationId));
+  for(const item of legacy){
+    if(known.has(item.operationId))continue;
+    merged.push(item);known.add(item.operationId);
+  }
+  return merged;
+}
 
 export function nextRevision(current:PendingChangeBase[],key:string,now=Date.now()){
   const highest=current.filter(item=>item.key===key).reduce((value,item)=>Math.max(value,item.revision||0),0);
@@ -43,4 +54,17 @@ export function compactPendingChanges<T extends ChangeLike>(items:T[]):T[]{
     else keep.add(newest.operationId);
   }
   return items.filter(item=>keep.has(item.operationId));
+}
+
+// Operations written by one editor form an explicit chain. Independent tabs
+// that branch from the same cloud version remain separate leaves so one tab
+// can never silently overwrite the other in browser storage.
+export function selectDurablePendingLeaves<T extends ChangeLike&{supersedesOperationId?:string;protocolVersion?:number}>(items:T[]):T[]{
+  const ids=new Set(items.map(item=>item.operationId));
+  const superseded=new Set(items.map(item=>item.supersedesOperationId).filter((value):value is string=>Boolean(value&&ids.has(value))));
+  const durable=items.filter(item=>item.protocolVersion===2||item.supersedesOperationId||superseded.has(item.operationId));
+  const legacy=items.filter(item=>item.protocolVersion!==2&&!item.supersedesOperationId&&!superseded.has(item.operationId));
+  const durableLeaves=durable.filter(item=>!superseded.has(item.operationId));
+  const legacyLeaves=compactPendingChanges(legacy);
+  return [...durableLeaves,...legacyLeaves].sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt)||a.operationId.localeCompare(b.operationId));
 }

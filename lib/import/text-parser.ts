@@ -25,20 +25,26 @@ function parseStrength(payload:ImportSessionPayload,text:string,catalogue:Exerci
   const lines=text.split(/\r?\n/).map(cleanLine).filter(Boolean);const issues:ImportIssue[]=[];const exercises:ImportedStrengthExercise[]=[];const guidance:string[]=[];const groups:Record<string,string>={};let activeGroup:string|undefined;let groupCounter=0;
   const headingPattern=/^(?:super\s*set|superset|circuit)(?:\s+([a-z0-9]+))?(?:\s*[:—-]\s*(.+))?$/i;
   let title="Imported strength workout";
-  const first=lines[0];if(first&&!parsePrescription(first).sets&&!headingPattern.test(first)&&!strengthSignals.test(first))title=first;
+  const first=lines[0];if(first&&!/^(?:rest|tempo|notes?|instructions?|warm[ -]?up)\b/i.test(first)&&!parsePrescription(first).sets&&!headingPattern.test(first)&&!strengthSignals.test(first))title=first;
   for(const [lineIndex,line] of lines.entries()){
     if(line===title&&lineIndex===0)continue;
     const heading=line.match(headingPattern);if(heading){activeGroup=`import-group-${groupCounter++}`;groups[activeGroup]=heading[2]?.trim()||`Superset ${String.fromCharCode(65+groupCounter-1)}`;continue}
     const prefix=line.match(/^([A-Z])(\d+)[.)]?\s+(.+)$/);const content=prefix?prefix[3]:line;
-    if(/^(?:rest|tempo|notes?|instructions?|warm[ -]?up)\b/i.test(content)&&!parsePrescription(content).sets){guidance.push(content);issues.push({id:`guidance-${lineIndex}`,severity:"info",code:"preserved_guidance",message:`Preserved as workout guidance: “${content}”`});continue}
+    if(/^(?:rest|tempo)\b/i.test(content)&&!parsePrescription(content).sets){const previous=exercises.at(-1);if(previous){previous.notes=[previous.notes,content].filter(Boolean).join(" · ");issues.push({id:`guidance-${lineIndex}`,severity:"info",code:"exercise_guidance",itemId:previous.id,message:`Attributed “${content}” to ${previous.rawName}.`})}else{guidance.push(content);issues.push({id:`guidance-${lineIndex}`,severity:"warning",code:"ambiguous_guidance",message:`Could not confidently attribute “${content}”; it remains workout guidance.`})}continue}
+    if(/^(?:notes?|instructions?|warm[ -]?up)\b/i.test(content)&&!parsePrescription(content).sets){guidance.push(content);issues.push({id:`guidance-${lineIndex}`,severity:"info",code:"preserved_guidance",message:`Preserved as workout guidance: “${content}”`});continue}
     if(prefix){const key=`import-group-${prefix[1].toLowerCase()}`;activeGroup=key;groups[key]=`Superset ${prefix[1]}`}
     const prescription=parsePrescription(content);let name=content;
     if(prescription.sets!=null)name=(content.slice(0,prescription.start)+" "+content.slice(prescription.end)).trim();
-    name=name.replace(/\s*(?:@|,|—|-)?\s*(?:\d+(?:\.\d+)?\s*kg|rpe\s*\d+(?:\.\d+)?|rir\s*\d+|rest\s*\d+\s*(?:s|sec|secs|seconds?|min|mins|minutes?)|tempo\s*[\d-]+).*$/i,"").replace(/[:—-]+$/g,"").trim();
+    name=name.replace(/\s*(?:@|,|—|-)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|kgs?|lb|lbs?)|rpe\s*\d+(?:\.\d+)?|rir\s*\d+|rest\s*\d+\s*(?:s|sec|secs|seconds?|min|mins|minutes?)|tempo\s*[\d-]+).*$/i,"").replace(/[:—-]+$/g,"").trim();
     if(!name||!(/[a-z]/i.test(name))){guidance.push(content);issues.push({id:`unparsed-${lineIndex}`,severity:"warning",code:"unparsed_instruction",message:`Review this unparsed instruction: “${content}”`});continue}
     const match=matchExercise(name,catalogue);const itemId=id("import-exercise",lineIndex);
-    const noteParts:string[]=[];const detail=content.slice(Math.max(prescription.end||0,name.length)).replace(/^\s*[,—:@-]+\s*/,"").trim();if(detail)noteParts.push(detail);
-    const item:ImportedStrengthExercise={id:itemId,rawName:name,exerciseId:match.exercise?.id,matchStatus:match.status,suggestions:match.suggestions,sets:prescription.sets,reps:prescription.reps||"",notes:noteParts.join(" · "),groupKey:activeGroup,groupLabel:activeGroup?groups[activeGroup]:undefined};exercises.push(item);
+    const explicitLoad=content.match(/(?:@|\bload\s*)?\s*(\d+(?:\.\d+)?)\s*(kg|kgs?|lb|lbs?)\b/i);const sourceUnit=explicitLoad&&/^lb/i.test(explicitLoad[2])?"lb":"kg";const canonicalLoad=explicitLoad?(sourceUnit==="lb"?Number(explicitLoad[1])*0.45359237:Number(explicitLoad[1])):undefined;
+    const noteParts:string[]=[];let detail=content.slice(Math.max(prescription.end||0,name.length)).replace(/^\s*[,—:@-]+\s*/,"").trim();
+    // A prescribed load is structured data, not a completed set and not a note. Keep
+    // any surrounding coaching guidance, but remove the load token itself.
+    if(explicitLoad)detail=detail.replace(/(?:@|\bload\s*)?\s*\d+(?:\.\d+)?\s*(?:kg|kgs?|lb|lbs?)\b/i,"").replace(/^\s*[,—:@-]+\s*|\s*[,—:@-]+\s*$/g,"").trim();
+    if(detail)noteParts.push(detail);
+    const item:ImportedStrengthExercise={id:itemId,rawName:name,exerciseId:match.exercise?.id,matchStatus:match.status,suggestions:match.suggestions,sets:prescription.sets,reps:prescription.reps||"",notes:noteParts.join(" · "),plannedLoad:canonicalLoad==null?undefined:{mode:"kg",value:String(Math.round(canonicalLoad*1000)/1000),sourceUnit},groupKey:activeGroup,groupLabel:activeGroup?groups[activeGroup]:undefined};exercises.push(item);
     if(match.status!=="matched")issues.push({id:`match-${itemId}`,severity:"warning",code:"exercise_match",itemId,message:match.status==="unmatched"?`“${name}” was not found in your exercise library.`:`Please confirm which exercise “${name}” means.`});
     if(item.sets==null||!item.reps)issues.push({id:`prescription-${itemId}`,severity:"warning",code:"missing_prescription",itemId,message:`Check the sets and reps for “${name}”.`});
     if(!prefix&&activeGroup&&exercises.length>1&&/^(warm|cool|notes?|focus)/i.test(name))activeGroup=undefined;

@@ -4,6 +4,7 @@ import type {EnduranceSession,EnduranceTemplate,TrainingActivityType,TrainingBlo
 import {localDateKey} from "@/lib/setra/week";
 import {runOrderedWrite} from "@/lib/data/write-coordinator";
 import {normalizeWriteError} from "@/lib/data/write-errors";
+import {isVersionedOperation,legacyRevision,rpcVersion,type WriteOperation} from "@/lib/data/write-protocol";
 
 // Supabase rows are mapped here so the UI remains independent of database column names.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,16 +40,16 @@ export class TrainingSessionService{
     return ((data||[]) as AnyRow[]).map(row=>({id:String(row.client_id||row.id),activityType:row.activity_type as TrainingActivityType,title:String(row.title),plannedDurationMinutes:row.planned_duration_minutes==null?undefined:Number(row.planned_duration_minutes),plannedDistanceKm:row.planned_distance_metres==null?undefined:Number(row.planned_distance_metres)/1000,targetRpe:row.target_rpe==null?undefined:Number(row.target_rpe),environment:row.environment as TrainingEnvironment||undefined,category:row.training_category as TrainingCategory||undefined,notes:String(row.notes||""),blocks:mapBlocks(row.endurance_template_blocks as AnyRow[]||[])}));
   }
 
-  async save(session:EnduranceSession,revision=Date.now()*1000){
+  async save(session:EnduranceSession,operation:WriteOperation|number=Date.now()*1000){
     const payload={...session,localToday:localDateKey(),plannedDistanceMetres:metres(session.plannedDistanceKm),startedAt:isoFor(session.date,session.startedAt),endedAt:isoFor(session.date,session.endedAt),durationSeconds:seconds(session.durationMinutes),distanceMetres:metres(session.distanceKm),completedAt:session.status==="completed"?(session.completedAt||new Date().toISOString()):undefined};
-    return runOrderedWrite(`endurance-session:${session.id}`,async()=>{const {error}=await this.supabase.rpc("save_endurance_session_revisioned",{p_session:payload,p_revision:revision});if(error)throw normalizeWriteError(error)});
+    return runOrderedWrite(`endurance-session:${session.id}`,async()=>{if(isVersionedOperation(operation)){const {data,error}=await this.supabase.rpc("save_endurance_session_v2",{p_session:payload,p_operation_id:operation.operationId,p_expected_version:operation.expectedVersion});if(error)throw normalizeWriteError(error);return rpcVersion(data)}const {error}=await this.supabase.rpc("save_endurance_session_revisioned",{p_session:payload,p_revision:legacyRevision(operation)});if(error)throw normalizeWriteError(error);return 0});
   }
 
-  async saveTemplate(template:EnduranceTemplate,revision=Date.now()*1000){
-    return runOrderedWrite(`endurance-template:${template.id}`,async()=>{const {error}=await this.supabase.rpc("save_endurance_template_revisioned",{p_template:{...template,plannedDistanceMetres:metres(template.plannedDistanceKm)},p_revision:revision});if(error)throw normalizeWriteError(error)});
+  async saveTemplate(template:EnduranceTemplate,operation:WriteOperation|number=Date.now()*1000){
+    return runOrderedWrite(`endurance-template:${template.id}`,async()=>{const payload={...template,plannedDistanceMetres:metres(template.plannedDistanceKm)};if(isVersionedOperation(operation)){const {data,error}=await this.supabase.rpc("save_endurance_template_v2",{p_template:payload,p_operation_id:operation.operationId,p_expected_version:operation.expectedVersion});if(error)throw normalizeWriteError(error);return rpcVersion(data)}const {error}=await this.supabase.rpc("save_endurance_template_revisioned",{p_template:payload,p_revision:legacyRevision(operation)});if(error)throw normalizeWriteError(error);return 0});
   }
 
-  async deleteTemplate(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`endurance-template:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_endurance_template_revisioned",{p_client_id:clientId,p_revision:revision});if(error)throw normalizeWriteError(error)})}
+  async deleteTemplate(clientId:string,operation:WriteOperation|number=Date.now()*1000){return runOrderedWrite(`endurance-template:${clientId}`,async()=>{if(isVersionedOperation(operation)){const {data,error}=await this.supabase.rpc("delete_client_entity_v2",{p_entity_key:`endurance-template:${clientId}`,p_operation_id:operation.operationId,p_expected_version:operation.expectedVersion,p_delete_kind:"endurance-template",p_client_id:clientId});if(error)throw normalizeWriteError(error);return rpcVersion(data)}const {error}=await this.supabase.rpc("delete_endurance_template_revisioned",{p_client_id:clientId,p_revision:legacyRevision(operation)});if(error)throw normalizeWriteError(error);return 0})}
 
-  async delete(clientId:string,revision=Date.now()*1000){return runOrderedWrite(`endurance-session:${clientId}`,async()=>{const {error}=await this.supabase.rpc("delete_endurance_session_revisioned",{p_client_id:clientId,p_revision:revision,p_today:localDateKey()});if(error)throw normalizeWriteError(error)})}
+  async delete(clientId:string,operation:WriteOperation|number=Date.now()*1000){return runOrderedWrite(`endurance-session:${clientId}`,async()=>{if(isVersionedOperation(operation)){const {data,error}=await this.supabase.rpc("delete_client_entity_v2",{p_entity_key:`endurance-session:${clientId}`,p_operation_id:operation.operationId,p_expected_version:operation.expectedVersion,p_delete_kind:"endurance-session",p_client_id:clientId,p_today:localDateKey()});if(error)throw normalizeWriteError(error);return rpcVersion(data)}const {error}=await this.supabase.rpc("delete_endurance_session_revisioned",{p_client_id:clientId,p_revision:legacyRevision(operation),p_today:localDateKey()});if(error)throw normalizeWriteError(error);return 0})}
 }

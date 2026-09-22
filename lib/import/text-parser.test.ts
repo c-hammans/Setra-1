@@ -23,12 +23,22 @@ test("flags an unknown strength exercise instead of silently matching it",()=>{
 
 test("preserves load and standalone rest guidance from the reviewed example",()=>{
   const result=parseImportSession(payload,"Investor review test\nBench Press 3 x 8 @ 40 kg\nBack Squat 3 x 5 @ 60 kg\nRest 90 seconds",[...exercises,{id:"squat",name:"Back Squat",group:"Quads",equipment:"Barbell"}],"strength");if(result.draft.kind!=="strength")return;
-  assert.equal(result.draft.exercises[0].notes,"40 kg");assert.equal(result.draft.exercises[1].notes,"60 kg");assert.match(result.draft.focus,/Rest 90 seconds/);assert.match(result.payload.rawText||"",/Investor review test/);
+  assert.deepEqual(result.draft.exercises[0].plannedLoad,{mode:"kg",value:"40",sourceUnit:"kg"});assert.deepEqual(result.draft.exercises[1].plannedLoad,{mode:"kg",value:"60",sourceUnit:"kg"});assert.equal(result.draft.exercises[0].notes,"");assert.match(result.draft.exercises[1].notes,/Rest 90 seconds/);assert.ok(result.issues.some(issue=>issue.code==="exercise_guidance"));assert.match(result.payload.rawText||"",/Investor review test/);
 });
 
 test("keeps malformed unsupported instructions visible for review",()=>{
   const result=parseImportSession(payload,"Strength\nBench Press 3 x 8\nTempo controlled on every rep",exercises,"strength");if(result.draft.kind!=="strength")return;
-  assert.match(result.draft.focus,/Tempo controlled/);assert.ok(result.issues.some(issue=>issue.code==="preserved_guidance"));
+  assert.match(result.draft.exercises[0].notes,/Tempo controlled/);assert.ok(result.issues.some(issue=>issue.code==="exercise_guidance"));
+});
+
+test("preserves ambiguous guidance at workout level",()=>{
+  const result=parseImportSession(payload,"Rest 90 seconds\nBench Press 3 x 8",exercises,"strength");if(result.draft.kind!=="strength")return;
+  assert.match(result.draft.focus,/Rest 90 seconds/);assert.ok(result.issues.some(issue=>issue.code==="ambiguous_guidance"));
+});
+
+test("converts imported pounds to canonical kilograms without creating actual load",()=>{
+  const result=parseImportSession(payload,"Strength\nBench Press 3 x 8 @ 100 lb",exercises,"strength");if(result.draft.kind!=="strength")return;
+  assert.equal(result.draft.exercises[0].plannedLoad?.sourceUnit,"lb");assert.equal(result.draft.exercises[0].plannedLoad?.value,"45.359");assert.equal(result.draft.exercises[0].notes,"");
 });
 
 test("parses interval and nested-repeat running structure",()=>{

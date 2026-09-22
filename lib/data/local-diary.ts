@@ -1,6 +1,6 @@
 import type { AppData, EnduranceSession, EnduranceTemplate, Template, Workout } from "@/lib/setra/types";
 import type {AppearanceMode,TextScale} from "@/lib/setra/appearance";
-import {acknowledgeRevision,compactPendingChanges,nextRevision,normalizePendingChanges} from "@/lib/data/pending-queue";
+import {mergeUniqueOperations,nextRevision,normalizePendingChanges,selectDurablePendingLeaves} from "@/lib/data/pending-queue";
 
 const DIARY_KEY="form-strength-diary";
 const DRAFT_KEY="form-active-workout";
@@ -11,6 +11,8 @@ const TEXT_SCALE_KEY="form-text-scale";
 const ENDURANCE_KEY="form-endurance-sessions";
 const ENDURANCE_TEMPLATES_KEY="form-endurance-templates";
 const PENDING_CHANGES_KEY="form-pending-diary-changes";
+const PENDING_OPERATION_KEY="form-pending-diary-operation";
+const WRITE_VERSIONS_KEY="form-cloud-write-versions";
 const STRENGTH_EDITOR_DRAFT_KEY="form-strength-editor-draft";
 const ENDURANCE_EDITOR_DRAFT_KEY="form-endurance-editor-draft";
 const COMPLETED_WORKOUT_EDITOR_DRAFT_KEY="form-completed-workout-editor-draft";
@@ -20,7 +22,8 @@ export type LocalDraftSnapshot={workout:Workout;updatedAt:string};
 export type StrengthEditorDraft={template:Template;updatedAt:string};
 export type EnduranceEditorDraft={mode:"template"|"plan"|"log";value:EnduranceSession|EnduranceTemplate;updatedAt:string};
 export type CompletedWorkoutEditorDraft={workout:Workout;editingWorkoutId:string;updatedAt:string};
-type PendingMetadata={key:string;operationId:string;revision:number;updatedAt:string};
+export type PendingFailure={kind:"conflict"|"authentication"|"validation"|"permanent"|"transient";message:string;attempts:number;nextRetryAt?:string};
+type PendingMetadata={key:string;operationId:string;revision:number;expectedVersion:number;protocolVersion?:2;updatedAt:string;failure?:PendingFailure;supersedesOperationId?:string};
 export type PendingDiaryChange=PendingMetadata&(
   |{kind:"save_workout";payload:{workout:Workout;status:"in_progress"|"completed"}}
   |{kind:"replace_schedule";payload:{items:AppData["scheduled"]}}
@@ -42,7 +45,7 @@ type PendingDiaryChangeInput=
   |{key:string;kind:"delete_strength_template";payload:{clientId:string}}
   |{key:string;kind:"delete_endurance_session";payload:{clientId:string}}
   |{key:string;kind:"delete_endurance_template";payload:{clientId:string}};
-export type PendingQueueResult=LocalWriteResult&{operationId:string;revision:number};
+export type PendingQueueResult=LocalWriteResult&{key:string;operationId:string;revision:number;expectedVersion:number;protocolVersion:2};
 
 export function loadLocalDiary(userId?:string|null):AppData|null{
   if(typeof window==="undefined")return null;
@@ -62,9 +65,44 @@ export function clearEnduranceEditorDraft(userId?:string|null){if(typeof window!
 export function loadCompletedWorkoutEditorDraft(userId?:string|null):CompletedWorkoutEditorDraft|null{if(typeof window==="undefined")return null;try{const value=window.localStorage.getItem(accountKey(COMPLETED_WORKOUT_EDITOR_DRAFT_KEY,userId));return value?JSON.parse(value) as CompletedWorkoutEditorDraft:null}catch{return null}}
 export function saveCompletedWorkoutEditorDraft(workout:Workout,editingWorkoutId:string,userId?:string|null):LocalWriteResult{const updatedAt=new Date().toISOString();if(typeof window==="undefined")return{ok:false,updatedAt,error:"Browser storage is unavailable."};try{window.localStorage.setItem(accountKey(COMPLETED_WORKOUT_EDITOR_DRAFT_KEY,userId),JSON.stringify({workout,editingWorkoutId,updatedAt} satisfies CompletedWorkoutEditorDraft));return{ok:true,updatedAt}}catch(error){return{ok:false,updatedAt,error:error instanceof Error?error.message:"The completed workout edit could not be saved on this device."}}}
 export function clearCompletedWorkoutEditorDraft(userId?:string|null){if(typeof window!=="undefined")try{window.localStorage.removeItem(accountKey(COMPLETED_WORKOUT_EDITOR_DRAFT_KEY,userId))}catch{/* The saved completed workout remains unchanged. */}}
-export function loadPendingDiaryChanges(userId?:string|null):PendingDiaryChange[]{if(typeof window==="undefined")return[];try{const value=window.localStorage.getItem(accountKey(PENDING_CHANGES_KEY,userId));return value?normalizePendingChanges(JSON.parse(value) as PendingDiaryChange[]) as PendingDiaryChange[]:[]}catch{return[]}}
-export function queuePendingDiaryChange(change:PendingDiaryChangeInput,userId?:string|null):PendingQueueResult{const updatedAt=new Date().toISOString();const operationId=typeof crypto!=="undefined"&&"randomUUID" in crypto?crypto.randomUUID():`${Date.now()}-${Math.random().toString(36).slice(2)}`;if(typeof window==="undefined")return{ok:false,updatedAt,operationId,revision:Date.now()*1000,error:"Browser storage is unavailable."};try{const current=loadPendingDiaryChanges(userId);const revision=nextRevision(current,change.key);const pending={...change,operationId,revision,updatedAt} as PendingDiaryChange;window.localStorage.setItem(accountKey(PENDING_CHANGES_KEY,userId),JSON.stringify(compactPendingChanges([...current,pending])));return{ok:true,updatedAt,operationId,revision}}catch(error){return{ok:false,updatedAt,operationId,revision:Date.now()*1000,error:error instanceof Error?error.message:"Pending changes could not be stored."}}}
-export function removePendingDiaryChange(key:string,operationId:string,userId?:string|null){if(typeof window==="undefined")return;try{const next=acknowledgeRevision(loadPendingDiaryChanges(userId),key,operationId);if(next.length)window.localStorage.setItem(accountKey(PENDING_CHANGES_KEY,userId),JSON.stringify(next));else window.localStorage.removeItem(accountKey(PENDING_CHANGES_KEY,userId))}catch{/* Keep the queue if storage cannot be updated. */}}
+const operationPrefix=(userId?:string|null)=>`${accountKey(PENDING_OPERATION_KEY,userId)}:`;
+const operationStorageKey=(operationId:string,userId?:string|null)=>`${operationPrefix(userId)}${operationId}`;
+export function loadLocalWriteVersions(userId?:string|null):Record<string,number>{if(typeof window==="undefined")return{};try{const raw=window.localStorage.getItem(accountKey(WRITE_VERSIONS_KEY,userId));return raw?JSON.parse(raw) as Record<string,number>:{}}catch{return{}}}
+export function saveLocalWriteVersions(versions:Record<string,number>,userId?:string|null){if(typeof window!=="undefined")try{window.localStorage.setItem(accountKey(WRITE_VERSIONS_KEY,userId),JSON.stringify(versions))}catch{/* A later cloud refresh can restore versions. */}}
+export function recordAcceptedWrite(key:string,version:number,userId?:string|null){if(!Number.isSafeInteger(version)||version<0)return;const versions=loadLocalWriteVersions(userId);versions[key]=Math.max(versions[key]||0,version);saveLocalWriteVersions(versions,userId)}
+function loadAllPendingDiaryChanges(userId?:string|null):PendingDiaryChange[]{
+  if(typeof window==="undefined")return[];
+  const legacyKey=accountKey(PENDING_CHANGES_KEY,userId);
+  const legacyRaw=window.localStorage.getItem(legacyKey);
+  const legacy=(legacyRaw?normalizePendingChanges(JSON.parse(legacyRaw) as PendingDiaryChange[]):[]).map(item=>({...item,expectedVersion:(item as PendingDiaryChange).expectedVersion??0,protocolVersion:undefined})) as PendingDiaryChange[];
+  const operations:PendingDiaryChange[]=[];
+  const prefix=operationPrefix(userId);
+  for(let index=0;index<window.localStorage.length;index++){
+    const key=window.localStorage.key(index);
+    if(!key?.startsWith(prefix))continue;
+    const raw=window.localStorage.getItem(key);
+    if(!raw)continue;
+    const operation=JSON.parse(raw) as PendingDiaryChange;
+    operations.push(operation);
+  }
+  // Move the old single-array queue into independent records before deleting it.
+  // This preserves unrelated legacy edits when a new write is queued or another
+  // operation is acknowledged during a rolling deployment.
+  const merged=mergeUniqueOperations(legacy,operations);
+  const knownOperationIds=new Set(operations.map(item=>item.operationId));
+  for(const operation of merged){
+    if(knownOperationIds.has(operation.operationId))continue;
+    window.localStorage.setItem(operationStorageKey(operation.operationId,userId),JSON.stringify(operation));
+    knownOperationIds.add(operation.operationId);
+  }
+  if(legacyRaw)window.localStorage.removeItem(legacyKey);
+  return merged;
+}
+export function loadPendingDiaryChanges(userId?:string|null):PendingDiaryChange[]{if(typeof window==="undefined")return[];try{return selectDurablePendingLeaves(loadAllPendingDiaryChanges(userId))}catch{return[]}}
+export function queuePendingDiaryChange(change:PendingDiaryChangeInput,userId?:string|null):PendingQueueResult{const updatedAt=new Date().toISOString();const operationId=typeof crypto!=="undefined"&&"randomUUID" in crypto?crypto.randomUUID():`${Date.now()}-${Math.random().toString(36).slice(2)}`;const current=typeof window==="undefined"?[]:loadPendingDiaryChanges(userId);const revision=nextRevision(current,change.key);const parent=current.filter(item=>item.key===change.key).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt)||a.operationId.localeCompare(b.operationId)).at(-1);const expectedVersion=parent?.expectedVersion??loadLocalWriteVersions(userId)[change.key]??0;const result={ok:false,updatedAt,key:change.key,operationId,revision,expectedVersion,protocolVersion:2 as const};if(typeof window==="undefined")return{...result,error:"Browser storage is unavailable."};try{const pending={...change,operationId,revision,expectedVersion,protocolVersion:2 as const,updatedAt,supersedesOperationId:parent?.operationId} as PendingDiaryChange;window.localStorage.setItem(operationStorageKey(operationId,userId),JSON.stringify(pending));window.localStorage.removeItem(accountKey(PENDING_CHANGES_KEY,userId));return{...result,ok:true}}catch(error){return{...result,error:error instanceof Error?error.message:"Pending changes could not be stored."}}}
+export function removePendingDiaryChange(key:string,operationId:string,userId?:string|null,resultingVersion?:number){if(typeof window==="undefined")return;try{const all=loadAllPendingDiaryChanges(userId);const byId=new Map(all.map(item=>[item.operationId,item]));const acknowledged=new Set<string>();let cursor=byId.get(operationId);while(cursor&&cursor.key===key&&!acknowledged.has(cursor.operationId)){acknowledged.add(cursor.operationId);cursor=cursor.supersedesOperationId?byId.get(cursor.supersedesOperationId):undefined}for(const id of acknowledged)window.localStorage.removeItem(operationStorageKey(id,userId));window.localStorage.removeItem(accountKey(PENDING_CHANGES_KEY,userId));if(resultingVersion!=null){recordAcceptedWrite(key,resultingVersion,userId);for(const item of loadAllPendingDiaryChanges(userId).filter(item=>item.key===key)){let ancestor=item.supersedesOperationId?byId.get(item.supersedesOperationId):undefined;let followsAcknowledged=Boolean(item.supersedesOperationId&&acknowledged.has(item.supersedesOperationId));const seen=new Set<string>();while(ancestor&&!followsAcknowledged&&!seen.has(ancestor.operationId)){seen.add(ancestor.operationId);followsAcknowledged=acknowledged.has(ancestor.operationId);ancestor=ancestor.supersedesOperationId?byId.get(ancestor.supersedesOperationId):undefined}if(!followsAcknowledged)continue;const next={...item,expectedVersion:resultingVersion,failure:undefined,supersedesOperationId:undefined};window.localStorage.setItem(operationStorageKey(item.operationId,userId),JSON.stringify(next))}}}catch{/* Keep the queue if storage cannot be updated. */}}
+export function markPendingDiaryFailure(operationId:string,failure:PendingFailure,userId?:string|null){if(typeof window==="undefined")return;try{const key=operationStorageKey(operationId,userId);const raw=window.localStorage.getItem(key);if(!raw)return;window.localStorage.setItem(key,JSON.stringify({...JSON.parse(raw),failure}))}catch{/* Preserve the original operation if metadata cannot be updated. */}}
+export function clearPendingDiaryFailure(operationId:string,userId?:string|null){if(typeof window==="undefined")return;try{const key=operationStorageKey(operationId,userId);const raw=window.localStorage.getItem(key);if(!raw)return;const value=JSON.parse(raw);delete value.failure;window.localStorage.setItem(key,JSON.stringify(value))}catch{/* The recovery action can be tried again. */}}
 export function canImportLegacyDiary(userId:string){if(typeof window==="undefined")return false;const owner=window.localStorage.getItem(OWNER_KEY);return !owner||owner===userId}
 export function claimLegacyDiary(userId:string){if(typeof window!=="undefined")window.localStorage.setItem(OWNER_KEY,userId)}
 export function loadLocalAppColour(userId?:string|null){if(typeof window==="undefined")return null;return window.localStorage.getItem(accountKey(APP_COLOUR_KEY,userId))}
