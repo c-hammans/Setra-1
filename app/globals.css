@@ -256,6 +256,12 @@ html,body{background:#fff}.app-shell{background:var(--surface-page);color:var(--
 /* Live strength uses the same calm, accent-aware surface system as the rest of Setra. */
 .workout-screen{background:var(--surface-page);color:var(--text-primary)}
 .workout-screen .workout-header{height:calc(70px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;background:color-mix(in srgb,var(--surface-page) 92%,transparent);color:var(--text-primary);border-bottom:1px solid var(--border-subtle);box-shadow:none;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+
+/* iPhone interaction guardrails: controls stay readable without focus zoom and
+   the visual safe-zone fade never becomes an interactive layer. */
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+.app-shell::before,.premium-shell::before{pointer-events:none}
+@media(max-width:768px){input,select,textarea{font-size:max(16px,1em)}}
 .workout-screen .workout-header b{font-family:inherit;font-weight:800}.workout-screen .workout-header small{color:var(--accent-ink)}
 .workout-screen .view-app-button{color:var(--text-primary)!important}.workout-screen .save-draft-button{border:0!important;background:var(--surface-neutral)!important;color:var(--accent-ink)!important;box-shadow:none!important}
 .workout-screen .finish-button{background:var(--accent)!important;color:var(--accent-contrast)!important;box-shadow:none!important}

@@ -404,10 +404,14 @@ export default function Home() {
     const completedWorkoutEditorDraft=loadCompletedWorkoutEditorDraft(user?.id);if(completedWorkoutEditorDraft){setActive(completedWorkoutEditorDraft.workout);setEditingWorkoutId(completedWorkoutEditorDraft.editingWorkoutId)}
     setLoaded(true);
     setMotivation(motivations[Math.floor(Math.random()*motivations.length)]);
-    const requestedTab=new URLSearchParams(window.location.search).get("tab");if(requestedTab==="plan"||requestedTab==="history"||requestedTab==="pbs")setTab(requestedTab);
+    const requestedTab=new URLSearchParams(window.location.search).get("tab");
+    const storedTab=localStorage.getItem(`setra-last-tab:${user?.id||"guest"}`);
+    if(requestedTab==="plan"||requestedTab==="history"||requestedTab==="pbs")setTab(requestedTab);
+    else if(storedTab==="today"||storedTab==="plan"||storedTab==="history"||storedTab==="pbs")setTab(storedTab);
   }, [user?.id]);
   useEffect(()=>{const refreshDate=()=>setToday(current=>{const next=localDateKey();return next===current?current:next});const timer=window.setInterval(refreshDate,60_000);window.addEventListener("focus",refreshDate);document.addEventListener("visibilitychange",refreshDate);return()=>{window.clearInterval(timer);window.removeEventListener("focus",refreshDate);document.removeEventListener("visibilitychange",refreshDate)}},[]);
   useEffect(()=>{const restore=()=>{const requested=new URLSearchParams(window.location.search).get("tab");setTab(requested==="plan"||requested==="history"||requested==="pbs"?requested:"today")};window.addEventListener("popstate",restore);return()=>window.removeEventListener("popstate",restore)},[]);
+  useEffect(()=>{if(loaded)localStorage.setItem(`setra-last-tab:${user?.id||"guest"}`,tab)},[loaded,tab,user?.id]);
   useEffect(() => { if (loaded&&!saveLocalDiary(data,user?.id).ok){setCloudState("error");setCloudMessage("This device is out of storage. Cloud data is unchanged, but new offline changes may not be recoverable.")} }, [data, loaded,user?.id]);
   useEffect(()=>{if(loaded&&!saveLocalEnduranceSessions(enduranceSessions,user?.id).ok){setCloudState("error");setCloudMessage("This device is out of storage. Endurance changes may not be available offline.")}},[enduranceSessions,loaded,user?.id]);
   useEffect(()=>{if(loaded&&!saveLocalEnduranceTemplates(enduranceTemplates,user?.id).ok){setCloudState("error");setCloudMessage("This device is out of storage. Template changes may not be available offline.")}},[enduranceTemplates,loaded,user?.id]);

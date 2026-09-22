@@ -25,6 +25,8 @@
 
 /* Match the shared app header and give Premium a deliberate inverted nav state. */
 .premium-topbar{width:100%;max-width:1120px;height:calc(78px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 24px 0}
+
+.premium-shell::before{pointer-events:none}
 .premium-brand{gap:10px;transform:none}
 .premium-brand b{font-size:calc(24px * var(--text-scale-number,1));font-weight:900;line-height:normal;letter-spacing:-.04em}
 .premium-brand-mark{width:38px;height:30px;flex:none}
