@@ -24,11 +24,11 @@ export type SafeAnalyticsProperties={
 export interface AnalyticsAdapter{track(event:SetraAnalyticsEvent,properties?:SafeAnalyticsProperties):void}
 
 /**
- * Privacy-safe default: no external service and no durable browser identifier.
- * A future consented provider can subscribe to this event or replace the adapter.
+ * Privacy-safe first-party collection. Only the typed properties below are sent;
+ * workout notes, profile details and exercise data never enter analytics.
  */
 class BrowserEventAnalytics implements AnalyticsAdapter{
-  track(event:SetraAnalyticsEvent,properties:SafeAnalyticsProperties={}){if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("setra:analytics",{detail:{event,properties}}))}
+  track(event:SetraAnalyticsEvent,properties:SafeAnalyticsProperties={}){if(typeof window!=="undefined"){const detail={event,properties,clientEventId:crypto.randomUUID(),occurredAt:new Date().toISOString()};window.dispatchEvent(new CustomEvent("setra:analytics",{detail}));void fetch("/api/analytics",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(detail),keepalive:true}).catch(()=>{})}}
 }
 
 export const analytics:AnalyticsAdapter=new BrowserEventAnalytics();

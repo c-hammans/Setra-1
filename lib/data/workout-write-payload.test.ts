@@ -1,0 +1,3 @@
+import assert from "node:assert/strict";import {describe,it} from "node:test";import {workoutWritePayload} from "./workout-write-payload.ts";
+const workout={id:"w",name:"Workout",date:"2026-09-20",startedAt:"10:00",duration:30,note:"",exercises:[],completedAt:"2026-09-20T00:30:00.000Z"};
+describe("completed workout retry identity",()=>{it("keeps identical content when a successful response is lost and retried",()=>{const first=workoutWritePayload(workout,"completed","Australia/Melbourne",()=>"first");const retry=workoutWritePayload(workout,"completed","Australia/Melbourne",()=>"second");assert.deepEqual(retry,first);assert.equal(retry.completedAt,workout.completedAt)})});

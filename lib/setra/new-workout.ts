@@ -1,0 +1,3 @@
+import type {Template,Workout,WorkoutExercise} from "./types";
+export function newTemplateWorkout(template:Template,date:string,sequence:number,startedAt:string,exercises:WorkoutExercise[]):Workout{return{id:`workout-${date}-${sequence}-${template.id}`,templateId:template.id,name:template.name,date,startedAt,duration:0,note:"",supersetNames:template.supersetNames,warmup:(template.warmup||[]).map(item=>({...item,done:false})),exercises}}
+export function newBlankWorkout(date:string,sequence:number,startedAt:string):Workout{return{id:`workout-${date}-${sequence}-quick`,name:"Add as I go",date,startedAt,duration:0,note:"",warmup:[],exercises:[]}}

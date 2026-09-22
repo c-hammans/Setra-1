@@ -1,6 +1,7 @@
-import {NextResponse} from "next/server";
+import {NextRequest,NextResponse} from "next/server";
 import {createClient} from "@/lib/supabase/server";
 import {paginateExportRows,type ExportRow} from "@/lib/data/export-pagination";
+import {summarizeExportPreflight,type ExportSectionCheck} from "@/lib/data/export-preflight";
 
 const tables=[
   {key:"profile",table:"profiles",owner:"id"},{key:"custom_exercises",table:"exercises",owner:"owner_id"},
@@ -10,8 +11,14 @@ const tables=[
   {key:"awards",table:"user_achievements",owner:"user_id"},{key:"usage_days",table:"user_usage_days",owner:"user_id"},{key:"training_plan_occurrences",table:"training_plan_occurrences",owner:"user_id"},{key:"feedback",table:"beta_feedback",owner:"user_id"},{key:"premium_waitlist",table:"premium_waitlist",owner:"user_id"},{key:"account_deletion_requests",table:"account_deletion_requests",owner:"user_id"},
 ] as const;
 
-export async function GET(){
+export async function GET(request:NextRequest){
   const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Please sign in again."},{status:401});
+  if(request.nextUrl.searchParams.get("mode")==="check"){
+    const sections:ExportSectionCheck[]=[];
+    for(const item of tables){const {count,error}=await supabase.from(item.table).select("id",{count:"exact",head:true}).eq(item.owner,user.id);sections.push({section:item.key,count:count??null,...(error?{error:error.message}:{})})}
+    const result=summarizeExportPreflight(sections);
+    return NextResponse.json(result,{status:result.complete?200:207,headers:{"cache-control":"no-store"}});
+  }
   const startedAt=new Date().toISOString();const encoder=new TextEncoder();
   const stream=new ReadableStream<Uint8Array>({async start(controller){
     const write=(value:string)=>controller.enqueue(encoder.encode(value));const errors:{section:string;message:string}[]=[];
