@@ -194,7 +194,7 @@ html,body{touch-action:pan-x pan-y}
 
 /* Scrolling page header with protected, blurred iPhone safe areas */
 .topbar{position:relative;z-index:1;top:auto;background:transparent}
-.app-shell::before{content:"";position:fixed;z-index:100;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) + min(28px,env(safe-area-inset-top,0px)));background:transparent;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 60%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 60%,transparent 100%);pointer-events:auto}
+.app-shell::before{content:"";position:fixed;z-index:100;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) + 10px);background:transparent;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 100%);pointer-events:none}
 .app-shell::after{z-index:19;height:max(12px,env(safe-area-inset-bottom,0px));background:transparent;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);-webkit-mask-image:none;mask-image:none;pointer-events:auto}
 .app-shell[data-theme="dark"] .topbar{background:transparent}
 
@@ -262,6 +262,11 @@ html,body{background:#fff}.app-shell{background:var(--surface-page);color:var(--
 html{-webkit-text-size-adjust:100%;touch-action:manipulation}
 .app-shell::before,.premium-shell::before{pointer-events:none}
 @media(max-width:768px){input,select,textarea{font-size:max(16px,1em)}}
+
+/* All top-header actions begin below the safe-zone fade. Live workout actions
+   get a little more clearance because they contain the primary Save/Finish controls. */
+.workout-header{height:calc(74px + env(safe-area-inset-top,0px));padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 0}
+.workout-screen .workout-header.live-header{height:calc(82px + env(safe-area-inset-top,0px));padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 0}
 .workout-screen .workout-header b{font-family:inherit;font-weight:800}.workout-screen .workout-header small{color:var(--accent-ink)}
 .workout-screen .view-app-button{color:var(--text-primary)!important}.workout-screen .save-draft-button{border:0!important;background:var(--surface-neutral)!important;color:var(--accent-ink)!important;box-shadow:none!important}
 .workout-screen .finish-button{background:var(--accent)!important;color:var(--accent-contrast)!important;box-shadow:none!important}

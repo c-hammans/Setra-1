@@ -12,3 +12,6 @@
 .awards-sections>button.is-open i{transform:rotate(90deg);background:var(--accent);color:var(--accent-contrast)}
 .expanded-awards-section{animation:awards-expand .18s ease-out}
 @keyframes awards-expand{from{opacity:.25;transform:translateY(-5px)}to{opacity:1;transform:none}}
+
+/* Match the shorter global iPhone safe-zone fade so header actions remain clear. */
+.awards-screen::before{height:calc(env(safe-area-inset-top,0px) + 10px);-webkit-mask-image:linear-gradient(#000 0 68%,transparent);mask-image:linear-gradient(#000 0 68%,transparent)}
