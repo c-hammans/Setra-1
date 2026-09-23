@@ -1,5 +1,7 @@
 # Reliability remediation checklist
 
+The current A01–A24 assessment for the 23 September 2026 audit is maintained in [`AUDIT_REMEDIATION_2026-09-23.md`](./AUDIT_REMEDIATION_2026-09-23.md). The historical notes below are retained as evidence of earlier remediation passes.
+
 This checklist records the hands-on audit requested on 19 September 2026. It distinguishes implemented fixes from work that needs a connected test project or physical-device verification. It is not a production deployment record.
 
 ## 21 September complete-pass follow-up

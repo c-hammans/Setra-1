@@ -1,24 +1,17 @@
-import {NextRequest,NextResponse} from "next/server";
+import {NextResponse} from "next/server";
 import {createClient} from "@/lib/supabase/server";
 import {paginateExportRows,type ExportRow} from "@/lib/data/export-pagination";
-import {summarizeExportPreflight,type ExportSectionCheck} from "@/lib/data/export-preflight";
 
 const tables=[
   {key:"profile",table:"profiles",owner:"id"},{key:"custom_exercises",table:"exercises",owner:"owner_id"},
   {key:"strength_templates",table:"workout_templates",owner:"user_id"},{key:"strength_template_exercises",table:"template_exercises",owner:"user_id"},{key:"strength_template_supersets",table:"template_supersets",owner:"user_id"},{key:"strength_template_warmups",table:"template_warmup_items",owner:"user_id"},
   {key:"strength_schedule",table:"scheduled_workouts",owner:"user_id"},{key:"strength_workouts",table:"workouts",owner:"user_id"},{key:"strength_workout_exercises",table:"workout_exercises",owner:"user_id"},{key:"strength_workout_sets",table:"workout_sets",owner:"user_id"},{key:"strength_workout_warmups",table:"workout_warmup_items",owner:"user_id"},
   {key:"training_sessions",table:"training_sessions",owner:"user_id"},{key:"training_session_blocks",table:"training_session_blocks",owner:"user_id"},{key:"endurance_templates",table:"endurance_templates",owner:"user_id"},{key:"endurance_template_blocks",table:"endurance_template_blocks",owner:"user_id"},
-  {key:"awards",table:"user_achievements",owner:"user_id"},{key:"usage_days",table:"user_usage_days",owner:"user_id"},{key:"training_plan_occurrences",table:"training_plan_occurrences",owner:"user_id"},{key:"feedback",table:"beta_feedback",owner:"user_id"},{key:"premium_waitlist",table:"premium_waitlist",owner:"user_id"},{key:"account_deletion_requests",table:"account_deletion_requests",owner:"user_id"},
+  {key:"awards",table:"user_achievements",owner:"user_id"},{key:"usage_days",table:"user_usage_days",owner:"user_id"},{key:"training_plan_occurrences",table:"training_plan_occurrences",owner:"user_id"},{key:"analytics_events",table:"product_analytics_events",owner:"user_id"},{key:"feedback",table:"beta_feedback",owner:"user_id"},{key:"premium_waitlist",table:"premium_waitlist",owner:"user_id"},{key:"account_deletion_requests",table:"account_deletion_requests",owner:"user_id"},
 ] as const;
 
-export async function GET(request:NextRequest){
+export async function GET(){
   const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Please sign in again."},{status:401});
-  if(request.nextUrl.searchParams.get("mode")==="check"){
-    const sections:ExportSectionCheck[]=[];
-    for(const item of tables){const {count,error}=await supabase.from(item.table).select("id",{count:"exact",head:true}).eq(item.owner,user.id);sections.push({section:item.key,count:count??null,...(error?{error:error.message}:{})})}
-    const result=summarizeExportPreflight(sections);
-    return NextResponse.json(result,{status:result.complete?200:207,headers:{"cache-control":"no-store"}});
-  }
   const startedAt=new Date().toISOString();const encoder=new TextEncoder();
   const stream=new ReadableStream<Uint8Array>({async start(controller){
     const write=(value:string)=>controller.enqueue(encoder.encode(value));const errors:{section:string;message:string}[]=[];

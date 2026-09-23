@@ -13,5 +13,5 @@ test("positive single-session weeks remain visible",()=>{
 });
 
 test("duration coverage distinguishes missing values from recorded sessions",()=>{
-  assert.deepEqual(progressCoverage([{sessions:2,durationCoverage:1},{sessions:3,durationCoverage:0}]),{sessions:5,durationRecorded:1});
+  assert.deepEqual(progressCoverage([{sessions:2,durationCoverage:1},{sessions:3,durationCoverage:0}]),{sessions:5,durationRecorded:1,enduranceSessions:0,distanceRecorded:0});
 });

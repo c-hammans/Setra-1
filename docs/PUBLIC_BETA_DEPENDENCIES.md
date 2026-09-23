@@ -12,6 +12,18 @@ Setra deliberately does not invent these details. Before a public beta, the owne
 
 Until those inputs are supplied, `/legal` remains clearly labelled as unfinished and is not presented as an approved policy.
 
+The operational deletion-request process must also identify who receives a request, how identity is verified, how fulfilment/failure is communicated, how long completion takes, and how database/storage backups are handled. The current product records a request; it does not claim immediate erasure.
+
+# 24 September audit rollout gates
+
+- Back up the target database, then apply `20260924000100_analytics_milestone_deduplication.sql`. Verify the earliest existing first-plan/first-completion event remains and a later duplicate is rejected without failing the client request.
+- Use two disposable accounts to verify RLS for every owned table and write RPC. Do not use production personal training data for destructive tests.
+- With a disposable account, force an offline completion, reload, reconnect, then verify exactly one cloud completion and no remaining queue item.
+- Use two separate browser profiles/devices to edit the same disposable record, resolve the conflict each way, reload, and restore a retained recovery backup.
+- Verify sign-up confirmation, password reset, callback allow-listing and expired-session handling from the supported staging origin.
+- On a physical iPhone and installed web app, verify 320/360/390/430-equivalent layouts, keyboard-open forms, pinch zoom, enlarged text, safe areas, VoiceOver dialog focus, native-share success/cancel/failure and exported-image parity.
+- Run a large-account export with more than 1,000 records, inspect its JSON sections, and confirm partial/timeout copy under a controlled failure.
+
 # First-party product analytics
 
 `product_analytics_events` stores only the approved event name, event time and four optional non-sensitive dimensions: modality, source, outcome and count. It does not store workout notes, exercise details, profile fields or email addresses. `client_event_id` makes repeated delivery idempotent. The following definitions are used:

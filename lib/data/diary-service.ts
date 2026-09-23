@@ -8,6 +8,7 @@ import {runOrderedWrite} from "./write-coordinator";
 import {normalizeWriteError} from "./write-errors";
 import {isVersionedOperation,legacyRevision,rpcVersion,type WriteOperation} from "./write-protocol";
 import {workoutWritePayload} from "./workout-write-payload";
+import {loadSupabasePages} from "./supabase-pagination";
 
 // Supabase rows remain runtime-validated by the mapping below until generated DB types are added.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,28 +30,27 @@ export class DiaryService {
 
   async markWeeklyPreviewSeen(weekStart:string){const {error}=await this.supabase.from("profiles").update({last_weekly_preview_week_start:weekStart}).eq("id",this.userId);if(error)throw error}
 
-  async loadWriteVersions():Promise<Record<string,number>>{const {data,error}=await this.supabase.from("client_write_heads").select("entity_key,server_version").eq("user_id",this.userId);if(error){if(error.code==="42703"||error.code==="PGRST204")return{};throw error}return Object.fromEntries((data||[]).map(row=>[String(row.entity_key),Number(row.server_version)||0]))}
+  async loadWriteVersions():Promise<Record<string,number>>{try{const rows=await loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("client_write_heads").select("entity_key,server_version").eq("user_id",this.userId).order("entity_key").range(from,to));return Object.fromEntries(rows.map(row=>[String(row.entity_key),Number(row.server_version)||0]))}catch(error){const value=error as {code?:string};if(value.code==="42703"||value.code==="PGRST204")return{};throw error}}
 
   async updateAppColour(appColour:string){
     const {error}=await this.supabase.from("profiles").update({app_colour:appColour}).eq("id",this.userId);if(error)throw error;
   }
 
   async load():Promise<AppData>{
-    const [exerciseResult,templateResult,scheduleResult,workoutResult]=await Promise.all([
-      this.supabase.from("exercises").select("id,name,muscle_group,equipment").order("name"),
-      this.supabase.from("workout_templates").select("*,template_supersets(*),template_exercises(*),template_warmup_items(*)").order("created_at"),
-      this.supabase.from("scheduled_workouts").select("*,workout_templates(client_id)"),
-      this.supabase.from("workouts").select("*,workout_templates(client_id),workout_warmup_items(*),workout_exercises(*,workout_sets(*))").eq("status","completed").order("workout_date",{ascending:false}),
+    const [exerciseRows,templateRows,scheduleRows,workoutRows]=await Promise.all([
+      loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("exercises").select("id,name,muscle_group,equipment").order("name").order("id").range(from,to)),
+      loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("workout_templates").select("*,template_supersets(*),template_exercises(*),template_warmup_items(*)").order("created_at").order("id").range(from,to)),
+      loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("scheduled_workouts").select("*,workout_templates(client_id)").order("scheduled_date").order("id").range(from,to)),
+      loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("workouts").select("*,workout_templates(client_id),workout_warmup_items(*),workout_exercises(*,workout_sets(*))").eq("status","completed").order("workout_date",{ascending:false}).order("id",{ascending:false}).range(from,to)),
     ]);
-    const error=exerciseResult.error||templateResult.error||scheduleResult.error||workoutResult.error;if(error)throw error;
-    const exercises=(exerciseResult.data||[]).map((row:AnyRow):Exercise=>({id:row.id,name:row.name,group:row.muscle_group,equipment:row.equipment}));
-    const templates=(templateResult.data||[]).map((row:AnyRow):Template=>{
+    const exercises=exerciseRows.map((row:AnyRow):Exercise=>({id:row.id,name:row.name,group:row.muscle_group,equipment:row.equipment}));
+    const templates=templateRows.map((row:AnyRow):Template=>{
       const supersets=new Map((row.template_supersets||[]).map((item:AnyRow)=>[item.id,item]));
       const supersetNames=Object.fromEntries((row.template_supersets as AnyRow[]||[]).map((item:AnyRow)=>[String(item.client_group_key),String(item.name||"")]));
       return {id:row.client_id||row.id,name:row.name,focus:row.focus,color:row.colour,icon:row.icon,supersetNames:supersetNames as Record<string,string>,warmup:(row.template_warmup_items||[]).sort((a:AnyRow,b:AnyRow)=>a.position-b.position).map((item:AnyRow)=>({id:String(item.client_id||item.id),kind:item.item_type==="exercise"?"exercise":"instruction",exerciseId:item.exercise_id?String(item.exercise_id):undefined,title:String(item.title||""),instructions:String(item.instructions||"")})),exercises:(row.template_exercises||[]).sort((a:AnyRow,b:AnyRow)=>a.position-b.position).map((item:AnyRow)=>({exerciseId:item.exercise_id,sets:item.planned_sets,reps:item.rep_target,group:item.superset_id?(supersets.get(item.superset_id) as AnyRow)?.client_group_key:undefined,note:item.notes||"",plannedLoad:item.planned_load_mode?{mode:item.planned_load_mode,value:String(item.planned_load_value??item.planned_load_text??""),sourceUnit:item.planned_load_source_unit||undefined}:undefined}))};
     });
-    const scheduled=(scheduleResult.data||[]).map((row:AnyRow):ScheduledWorkout=>({date:row.scheduled_date,templateId:row.workout_templates?.client_id||row.template_id,skipped:row.skipped}));
-    const workouts=(workoutResult.data||[]).map((row:AnyRow)=>this.mapWorkout(row));
+    const scheduled=scheduleRows.map((row:AnyRow):ScheduledWorkout=>({date:row.scheduled_date,templateId:row.workout_templates?.client_id||row.template_id,skipped:row.skipped}));
+    const workouts=workoutRows.map((row:AnyRow)=>this.mapWorkout(row));
     return {exercises,templates,scheduled,workouts};
   }
 

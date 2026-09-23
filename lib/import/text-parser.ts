@@ -1,8 +1,9 @@
 import type {EnduranceTemplate,Exercise,TrainingActivityType,TrainingBlockType,TrainingCompletionType,TrainingSessionBlock} from "@/lib/setra/types";
+import {createRecordId} from "../setra/new-workout.ts";
 import {matchExercise} from "./exercise-matcher.ts";
 import type {EnduranceImportDraft,ImportIssue,ImportModality,ImportParseResult,ImportSessionPayload,ImportedStrengthExercise,StrengthImportDraft} from "./types";
 
-const id=(prefix:string,index:number)=>`${prefix}-${Date.now()}-${index}`;
+const id=(prefix:string,index:number)=>createRecordId(`${prefix}-${index}`);
 const cleanLine=(line:string)=>line.replace(/^\s*[-•*]\s*/,"").trim();
 const enduranceSignals=/\b(run|running|ride|cycling|bike|swim|rowing|row|walk|hike|warm[ -]?up|cool[ -]?down|interval|recovery|pace|watts?|power zone|heart.?rate|hr zone|cadence)\b|\/\s*(?:km|500\s*m|100\s*m)|\b\d+(?:\.\d+)?\s*(?:km|metres?|meters?)\b/i;
 const strengthSignals=/\b(sets?|reps?|rpe|rir|superset|circuit|squat|press|deadlift|curl|row|pulldown|pull.?up|lunge|raise|fly|extension)\b/i;
@@ -88,7 +89,7 @@ function parseEndurance(payload:ImportSessionPayload,text:string):{draft:Enduran
   const topLevel=blocks.filter(block=>!block.parentId&&block.type!=="repeat_group");const plannedDistance=topLevel.reduce((sum,block)=>sum+(block.distanceMetres||0),0);const plannedDuration=topLevel.reduce((sum,block)=>sum+(block.durationSeconds||0),0);
   if(!blocks.length)issues.push({id:"no-steps",severity:"warning",code:"simple_session",message:"No structured steps were found. You can keep this as a simple session or add structure during review."});
   if(activityType==="run"&&!/run|running|pace|\/km/i.test(text))issues.push({id:"confirm-sport",severity:"warning",code:"confirm_activity",message:"Please confirm the activity type. Run has been selected as the default."});
-  const template:EnduranceTemplate={id:`endurance-template-import-${Date.now()}`,activityType,title,plannedDistanceKm:plannedDistance?plannedDistance/1000:undefined,plannedDurationMinutes:plannedDuration?plannedDuration/60:undefined,notes:"",blocks};
+  const template:EnduranceTemplate={id:createRecordId("endurance-template-import"),activityType,title,plannedDistanceKm:plannedDistance?plannedDistance/1000:undefined,plannedDurationMinutes:plannedDuration?plannedDuration/60:undefined,notes:"",blocks};
   return {draft:{kind:"endurance",template},issues};
 }
 

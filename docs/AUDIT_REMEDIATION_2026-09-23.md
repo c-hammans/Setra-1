@@ -1,0 +1,54 @@
+# Setra audit remediation — 23 September 2026
+
+This checklist assesses the remediation of revision `54b9cf4`. It is an implementation and local-verification record, not a production deployment claim. “Implemented but verification blocked” means the code and available automated checks are complete, but acceptance still depends on a disposable connected account, a second device, production-like infrastructure, or a physical iPhone.
+
+## A01–A24 status
+
+| ID | Status | Implementation reference | Verification evidence / remaining boundary |
+| --- | --- | --- | --- |
+| A01 | Implemented but verification blocked | `app/page.tsx`: completion receipts are created only after the local operation is accepted; pending and synced receipts are distinct; failed strength completion retains the same completed record and releases its lock. Endurance follows the same queue-first ordering. | Retry identity unit test passes. A browser quota failure followed by a real UI retry still needs an isolated account and failure injection. |
+| A02 | Implemented but verification blocked | `lib/setra/new-workout.ts` and the strength/endurance launch paths preserve the explicitly selected date. | Historical-date regression test passes. Completing and sharing past blank/template sessions was not performed against the owner’s populated account. |
+| A03 | Fixed and verified | `lib/setra/week.ts` provides date-only recurrence utilities; schedule creation no longer round-trips calendar dates through UTC. | Recurrence tests cover DST/month/year transitions and Melbourne, Auckland, UTC and Los Angeles time zones. |
+| A04 | Fixed and verified | `createWorkoutId`/`createRecordId` use collision-resistant identities across workouts, templates, imports, endurance blocks and recovery copies. Existing IDs are retained. | Same-day 250-ID uniqueness and stable retry-identity tests pass. True simultaneous devices remain covered by UUID collision resistance rather than a destructive cloud test. |
+| A05 | Fixed and verified | `lib/data/recovery-comparison.ts` compares ordered exercises, load modes, prescribed/completed values, notes, date/status and recursive endurance blocks; recovery loads cloud drafts too. | Same-shaped/different exercise, reordered nested blocks and notes regression tests pass. |
+| A06 | Implemented but verification blocked | Recovery backups are retained per account, listed in the recovery dialog, restorable to the queue, and removable only after restoration is durably accepted. Separate copies use the source operation ID for idempotent identity; in-progress copies become resumable drafts. | Code, type and build checks pass. Every action under injected quota/cleanup failures and reload still needs a disposable browser profile. |
+| A07 | Implemented but verification blocked | Profile export now performs one bounded request, inspects that exact payload, distinguishes preparing/downloading/partial/failed/cancelled, includes product analytics, names partial downloads and revokes object URLs. Server paging is retained. | Export pagination/completeness/failure tests pass. A genuinely large connected-account download and browser cancellation need staging. |
+| A08 | Implemented but verification blocked | `effectiveHistoryMode` derives a valid view from preference, scope and tab while preserving Progress where supported. | Type/build checks pass; populated hybrid transitions remain a manual UI check. |
+| A09 | Implemented but verification blocked | Strength and endurance editors now have dialog semantics, names, initial focus, forward/reverse focus containment, inert background, Escape handling and unsaved-change confirmation. Shared trap follows the topmost nested dialog. | Playwright verifies forward/reverse focus containment and focus return in the shared dialog harness. VoiceOver and every nested production overlay need physical/manual coverage. |
+| A10 | Implemented but verification blocked | Profile links, header back, sign-out, reload and browser history exits protect dirty drafts; cancelled navigation keeps edits; successful save is the only automatic dirty reset. | Running app displayed the expected discard confirmation from Profile. Complete browser Back/Forward coverage remains manual. |
+| A11 | Implemented but verification blocked | Profile loads are generation/account scoped and cannot overwrite a dirty draft; load and save errors use separate states; save failures leave values intact. | Type/build and live loaded-profile inspection pass. Artificially delayed Supabase responses need staging. |
+| A12 | Implemented but verification blocked | The viewport no longer disables scaling. Mobile form controls retain 16px-or-larger typography to avoid unwanted iOS focus zoom. | Production build passes. Pinch zoom, enlarged text and installed-PWA safe areas require a physical iPhone. |
+| A13 | Implemented but verification blocked | Mobile live-workout headings wrap normally; action rows separate at phone widths; numeric inputs remain legible at 320px; persistent labels and units are retained. | CSS/build checks pass. The required 320/360/390/430 keyboard-open screenshot matrix remains a device/browser gate. |
+| A14 | Fixed and verified | Structured totals expose `unknown`, `partial` and `complete` coverage recursively. Home and workout view label known components rather than implying full totals. | Mixed/open/nested structured-total tests pass. |
+| A15 | Implemented but verification blocked | Progress captions use the actual six-week bounds; coverage distinguishes missing duration and endurance distance; weight units are reflected; chart semantics expose textual alternatives instead of hiding descendants behind `role=img`. | Progress regression tests pass. Screen-reader output needs VoiceOver verification. |
+| A16 | Implemented but verification blocked | Duplicate hybrid/endurance creation buttons were removed. Primary creation, template actions and occurrence lists remain distinct; Start today/Schedule/Edit/Delete retain their capabilities. | Running Plan page was inspected with populated strength/endurance data. Recurrence-series consequences still need connected scheduling checks. |
+| A17 | Fixed and verified | Singular/plural working-set copy, redundant endurance dates, recent date presentation, coverage-label sizing and actionable PB empty copy were corrected. | Lint/build and running core pages pass. Exhaustive visual copy review remains ongoing product QA. |
+| A18 | Implemented but verification blocked | Analytics uses a durable local outbox, stable event identity, acknowledgement-based weekly/milestone markers, bounded retry, account-wide first completion and server uniqueness for first-plan/first-completion milestones. Failures never block training. | Failure/retry/reload/duplicate unit tests pass. Migration `20260924000100_analytics_milestone_deduplication.sql` and staging-record inspection are still required. |
+| A19 | Implemented but verification blocked | Navigation storage is caught, account scoped, age/route validated and listener-cleaned. Account changes reset restoration. Deliberate Today writes a valid `/` resume record. | Running app cold-restored `/import`; Plan and Profile navigation worked. Restricted-storage behavior still needs an injected browser test. |
+| A20 | Implemented but verification blocked | All identified queue callers now gate optimistic changes or explicitly label device-only saves. Acknowledgement writes survivor rebases and accepted server versions before deleting acknowledged operations. | Queue compaction, exact acknowledgement, completion barrier and pending-overlay tests pass. Browser-storage interruption between individual writes requires synthetic failure injection. |
+| A21 | Implemented but verification blocked | Global status is derived from remaining operations; pending, synced and error are distinct; recovery remains accessible; transient retries back off; unchanged conflicts/permanent/auth/validation failures no longer retry every interval. | Error classification and queue tests pass. Real offline/reconnect plus mixed conflict/success needs staging. |
+| A22 | Implemented but verification blocked | Strength exercises/templates/schedules/workouts, endurance sessions/templates and write heads now load stable pages; later-page errors reject rather than silently truncating statistics. | 1,251-row pagination and later-page failure tests pass; browser harness tests pass. Full authenticated workflow automation and an actual >1,000-row Supabase account remain unavailable locally. |
+| A23 | Implemented but verification blocked | Owner dependencies remain explicit in `docs/PUBLIC_BETA_DEPENDENCIES.md`; no support/legal/deletion promises were invented. | Configured and unconfigured legal/support destinations require owner-provided content and deployment verification. |
+| A24 | Implemented but verification blocked | Code is prepared and local build/browser checks were run without destructive production actions. | Confirmation/reset emails, session expiry, migration order/recovery, multi-user RLS, real concurrent devices, physical iPhone/VoiceOver/PWA, native share and exported-image parity remain external gates. |
+
+## Checks run
+
+- Reliability suite: 59 tests passed.
+- Import suite: 8 tests passed.
+- Awards suite: 7 tests passed.
+- ESLint: passed.
+- TypeScript (`tsc --noEmit`): passed.
+- Production build (`next build`): passed; all routes compiled.
+- Playwright browser suite: 3 tests passed, including reload persistence and keyboard focus containment/restoration.
+- Running authenticated local app: Import cold restoration, populated Plan rendering, Profile rendering, and unsaved Profile navigation confirmation observed.
+
+## Environment limitations
+
+- Automated commands used the bundled Node 24 runtime while the application declares Node 22; the engine warning was recorded. The production build nevertheless passed. Vercel should continue using Node 22.
+- No production data was deleted or rewritten for testing.
+- The authenticated local browser used the existing owner account only for non-destructive viewing and a temporary unsaved field edit. No settings were saved.
+- Physical iPhone, VoiceOver, native share, email delivery, RLS penetration, true multi-device concurrency and production migration deployment were not available in this environment.
+
+## Deployment action
+
+Before relying on cross-device analytics milestone deduplication, apply `supabase/migrations/20260924000100_analytics_milestone_deduplication.sql` in the target Supabase project. It removes duplicate historical rows only for the two semantic one-off event names, retains the earliest event, and adds a partial unique index. Back up the database first and run the staging checks in `PUBLIC_BETA_DEPENDENCIES.md` before production rollout.

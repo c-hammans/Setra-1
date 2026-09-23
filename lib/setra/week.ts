@@ -7,6 +7,17 @@ export const weekdayOptions:[WeekdayIndex,string][]=[
 export const parseLocalDate=(value:string|Date)=>value instanceof Date?new Date(value.getFullYear(),value.getMonth(),value.getDate(),12):new Date(`${value}T12:00:00`);
 export const localDateKey=(date=new Date())=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 
+/** Adds calendar days without converting a date-only value through UTC. */
+export function addCalendarDays(value:string,days:number){
+  const date=parseLocalDate(value);
+  date.setDate(date.getDate()+days);
+  return localDateKey(date);
+}
+
+export function recurrenceDateKeys(start:string,intervalDays:number,count:number){
+  return Array.from({length:Math.max(0,count)},(_,index)=>addCalendarDays(start,index*intervalDays));
+}
+
 export function startOfUserWeek(value:string|Date,weekStartsOn:WeekdayIndex){
   const date=parseLocalDate(value);
   date.setDate(date.getDate()-((date.getDay()-weekStartsOn+7)%7));

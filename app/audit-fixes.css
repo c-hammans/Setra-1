@@ -9,11 +9,24 @@
 .recovery-comparison .different{box-shadow:inset 3px 0 var(--accent)}
 .recovery-actions,.recovery-confirm>div{display:flex;flex-wrap:wrap;gap:8px}
 .recovery-confirm{margin-top:10px;padding:12px;border-radius:12px;background:var(--surface-tint)}
+.recovery-backups{margin-top:18px;padding-top:16px;border-top:1px solid var(--border-subtle)}
+.recovery-backups>span{color:var(--accent);font-size:calc(9px * var(--text-scale-number,1));font-weight:800;letter-spacing:.14em}
+.recovery-backups>p{margin:6px 0 12px;color:var(--muted);font-size:calc(11px * var(--text-scale-number,1));line-height:1.45}
+.recovery-backups article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}
+.recovery-backups article+article{border-top:1px solid var(--border-subtle)}
+.recovery-backups article div{display:grid;gap:3px;min-width:0}.recovery-backups article small{color:var(--muted)}
+.recovery-backups article button{flex:0 0 auto;min-height:40px;padding:0 12px}
 @media(max-width:370px){.recovery-comparison>div{grid-template-columns:1fr}.recovery-comparison>div:first-child{display:none}}
 @media(max-width:480px){
   .live-exercise-title{grid-template-columns:minmax(0,1fr);align-items:start;gap:10px}
-  .live-exercise-title>div:first-child{min-width:0}.live-exercise-title h2{overflow-wrap:anywhere;line-height:1.15}
+  .live-exercise-title>div:first-child{min-width:0;width:100%}.live-exercise-title h2{min-width:0;overflow-wrap:break-word;word-break:normal;hyphens:auto;line-height:1.15}
   .exercise-title-actions{display:grid;grid-template-columns:minmax(82px,1fr) minmax(74px,auto) 44px;width:100%;gap:7px}
   .exercise-title-actions>button,.exercise-title-actions .load-mode{min-height:44px}
   .exercise-title-actions .manage-exercise{width:44px;min-width:44px}
+  .workout-screen .set-row input,.workout-screen .set-row input[maxlength="12"]{font-size:max(16px,calc(13px * var(--text-scale-number,1)));padding-inline:3px}
+  .workout-view-totals small{display:block;margin-top:3px;color:var(--muted);font-size:max(10px,calc(8px * var(--text-scale-number,1)));line-height:1.25}
+}
+@media(max-width:350px){
+  .set-head,.set-row{grid-template-columns:28px 52px repeat(3,minmax(42px,1fr)) 34px;gap:4px}
+  .live-exercise{padding-inline:8px}.set-head{letter-spacing:.04em}
 }

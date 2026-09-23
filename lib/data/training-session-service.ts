@@ -5,6 +5,7 @@ import {localDateKey} from "@/lib/setra/week";
 import {runOrderedWrite} from "@/lib/data/write-coordinator";
 import {normalizeWriteError} from "@/lib/data/write-errors";
 import {isVersionedOperation,legacyRevision,rpcVersion,type WriteOperation} from "@/lib/data/write-protocol";
+import {loadSupabasePages} from "@/lib/data/supabase-pagination";
 
 // Supabase rows are mapped here so the UI remains independent of database column names.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,9 +21,7 @@ export class TrainingSessionService{
   constructor(private userId:string){this.supabase=createClient()}
 
   async loadEndurance():Promise<EnduranceSession[]>{
-    const {data,error}=await this.supabase.from("training_sessions").select("*,training_session_blocks(*),endurance_templates(client_id)").eq("user_id",this.userId).eq("modality","endurance").order("session_date",{ascending:false}).order("created_at",{ascending:false});
-    if(error)throw error;
-    const rows=(data||[]) as AnyRow[];
+    const rows=await loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("training_sessions").select("*,training_session_blocks(*),endurance_templates(client_id)").eq("user_id",this.userId).eq("modality","endurance").order("session_date",{ascending:false}).order("created_at",{ascending:false}).order("id",{ascending:false}).range(from,to));
     const clientIdsByDatabaseId=new Map(rows.map(row=>[String(row.id),String(row.client_id||row.id)]));
     return rows.map(row=>this.map(row,clientIdsByDatabaseId));
   }
@@ -35,9 +34,8 @@ export class TrainingSessionService{
   }
 
   async loadEnduranceTemplates():Promise<EnduranceTemplate[]>{
-    const {data,error}=await this.supabase.from("endurance_templates").select("*,endurance_template_blocks(*)").eq("user_id",this.userId).order("updated_at",{ascending:false});
-    if(error)throw error;
-    return ((data||[]) as AnyRow[]).map(row=>({id:String(row.client_id||row.id),activityType:row.activity_type as TrainingActivityType,title:String(row.title),plannedDurationMinutes:row.planned_duration_minutes==null?undefined:Number(row.planned_duration_minutes),plannedDistanceKm:row.planned_distance_metres==null?undefined:Number(row.planned_distance_metres)/1000,targetRpe:row.target_rpe==null?undefined:Number(row.target_rpe),environment:row.environment as TrainingEnvironment||undefined,category:row.training_category as TrainingCategory||undefined,notes:String(row.notes||""),blocks:mapBlocks(row.endurance_template_blocks as AnyRow[]||[])}));
+    const rows=await loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("endurance_templates").select("*,endurance_template_blocks(*)").eq("user_id",this.userId).order("updated_at",{ascending:false}).order("id",{ascending:false}).range(from,to));
+    return rows.map(row=>({id:String(row.client_id||row.id),activityType:row.activity_type as TrainingActivityType,title:String(row.title),plannedDurationMinutes:row.planned_duration_minutes==null?undefined:Number(row.planned_duration_minutes),plannedDistanceKm:row.planned_distance_metres==null?undefined:Number(row.planned_distance_metres)/1000,targetRpe:row.target_rpe==null?undefined:Number(row.target_rpe),environment:row.environment as TrainingEnvironment||undefined,category:row.training_category as TrainingCategory||undefined,notes:String(row.notes||""),blocks:mapBlocks(row.endurance_template_blocks as AnyRow[]||[])}));
   }
 
   async save(session:EnduranceSession,operation:WriteOperation|number=Date.now()*1000){
