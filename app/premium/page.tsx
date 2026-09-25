@@ -36,7 +36,7 @@ export default function PremiumPage(){
 
     <section className="premium-hero"><span>THE NEXT LAYER OF YOUR TRAINING DIARY</span><h1>The work<br/><em>adds up.</em></h1><p>Setra Premium is being designed to turn the training you already record into clearer decisions, more personal programming and a coach that understands your history.</p><a href="#early-access">Join early access <b>→</b></a><div className="premium-status"><i/>{subscription.tier==="premium"?"Premium access active":"Premium is in development"}</div></section>
 
-    <section className="premium-vision"><span>THE VISION</span><h2>Your record becomes useful in a new way.</h2><p>Not a generic chatbot. Not another dashboard full of noise. Setra Premium will be built around your sessions, exercises, patterns and goals—with the training diary remaining at the centre.</p></section>
+    <section className="premium-vision"><span>THE VISION</span><h2>Your record becomes useful in a new way.</h2><p>Not a generic chatbot. Not another dashboard full of noise. Setra Premium will be built around your sessions, exercises, patterns and goals–with the training diary remaining at the centre.</p></section>
 
     <section className="coach-preview"><div className="premium-section-heading"><span>AI COACH</span><h2>A coach with context.</h2><p>A future conversation layer designed to understand what you planned, what you completed and how your training is changing.</p></div><CoachConversationPlaceholder/><div className="coach-support-grid"><RecommendationPlaceholder/><TrainingInsightPlaceholder/></div></section>
 

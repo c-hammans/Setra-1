@@ -1,0 +1,9 @@
+export type SocialConnectionStatus="pending"|"accepted"|"blocked";
+export type SocialShareType="strength_workout"|"endurance_workout"|"strength_template"|"endurance_template";
+export type SocialProfile={userId:string;username:string;displayName:string;avatarUrl?:string|null;connectionStatus?:SocialConnectionStatus|null};
+export type SocialConnection={connectionId:string;otherUserId:string;username:string;displayName:string;avatarUrl?:string|null;status:SocialConnectionStatus;direction:"incoming"|"outgoing";createdAt:string};
+export type FriendPrivacy={sharePbs:boolean;shareCompletedWorkouts:boolean;shareTrainingSummary:boolean};
+export type SharedItem={id:string;senderUserId:string;recipientUserId:string;itemType:SocialShareType;sourceClientId?:string|null;title:string;snapshot:Record<string,unknown>;recipientStatus:"new"|"viewed"|"saved"|"dismissed";createdAt:string;sender?:SocialProfile};
+export type SocialNotification={notificationId:string;notificationType:"friend_request"|"friend_accepted"|"workout_shared"|"template_shared";actorUserId:string;actorUsername:string;actorDisplayName:string;sharedItemId?:string|null;createdAt:string;readAt?:string|null};
+export type FriendProfile=SocialProfile&{permissions:{pbs:boolean;completedWorkouts:boolean;trainingSummary:boolean};strengthPbs:{exercise_id:string;exercise_name:string;weight:number;reps:string;workout_date:string}[];endurancePbs:{distance_metres:number;activity_type:string;duration_seconds:number;session_date:string}[];recentWorkouts:{type:"strength"|"endurance";title:string;date:string;durationMinutes?:number;distanceKm?:number;activityType?:string}[];trainingSummary:Record<string,number>};
+export type SocialShareDraft={itemType:SocialShareType;sourceClientId:string;title:string;snapshot:Record<string,unknown>};

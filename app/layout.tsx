@@ -7,7 +7,7 @@ import {OnboardingGate} from "@/components/onboarding/onboarding-gate";
 import {NavigationResume} from "@/components/navigation/navigation-resume";
 
 export const metadata: Metadata = {
-  title: "setra — The work adds up.",
+  title: "setra – The work adds up.",
   description: "Your training diary for strength and beyond. Plan, log and look back.",
   icons: {
     icon: "/favicon-v4.svg",
@@ -26,6 +26,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: "#0F172A",
 };

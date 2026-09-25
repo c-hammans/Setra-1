@@ -51,7 +51,7 @@ export function WeeklyPreview({items,weekStartsOn,today,anchorDate=today,onClose
         {groups.length?groups.map(group=><section className={group.date===today?"weekly-day is-today":"weekly-day"} key={group.date}>
           <h3>{dayHeading(group.date)}{group.date===today&&<em>TODAY</em>}</h3>
           <div>{group.items.map(item=><button key={item.id} className={`weekly-session is-${item.status} ${item.status==="planned"&&item.date<today?"is-overdue":""}`} onClick={()=>onSelect(item)}>
-            <i aria-hidden="true">{item.status==="completed"?"✓":item.status==="partial"?"◐":item.status==="skipped"?"—":""}</i>
+            <i aria-hidden="true">{item.status==="completed"?"✓":item.status==="partial"?"◐":item.status==="skipped"?"–":""}</i>
             <span><b>{item.title}</b><small>{item.status==="skipped"?"Skipped":item.status==="partial"?`Partial · ${item.descriptor||"Session"}`:item.status==="planned"&&item.date<today?`Overdue · ${item.descriptor||"Session"}`:item.descriptor||item.activityType&&activityLabel(item.activityType)||"Session"}</small></span><em>›</em>
           </button>)}</div>
         </section>):<div className="weekly-preview-empty"><b>Nothing planned yet</b><p>Your week is open. Add a session when you&apos;re ready.</p><button onClick={onPlan}>Plan session</button></div>}

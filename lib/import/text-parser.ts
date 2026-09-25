@@ -17,14 +17,14 @@ export function detectModality(text:string,hint?:ImportModality):{modality:Impor
 }
 
 const parsePrescription=(line:string)=>{
-  const match=line.match(/(?:^|\s)(\d+)\s*(?:x|×)\s*(\d+(?:\s*[-–]\s*\d+)?)(?:\s*(?:reps?))?/i);
+  const match=line.match(/(?:^|\s)(\d+)\s*(?:x|×)\s*(\d+(?:\s*[-\u2013\u2014]\s*\d+)?)(?:\s*(?:reps?))?/i);
   if(!match)return {};
   return {sets:Number(match[1]),reps:match[2].replace(/\s+/g,"").replace("–","-"),start:match.index||0,end:(match.index||0)+match[0].length};
 };
 
 function parseStrength(payload:ImportSessionPayload,text:string,catalogue:Exercise[]):{draft:StrengthImportDraft;issues:ImportIssue[]}{
   const lines=text.split(/\r?\n/).map(cleanLine).filter(Boolean);const issues:ImportIssue[]=[];const exercises:ImportedStrengthExercise[]=[];const guidance:string[]=[];const groups:Record<string,string>={};let activeGroup:string|undefined;let groupCounter=0;
-  const headingPattern=/^(?:super\s*set|superset|circuit)(?:\s+([a-z0-9]+))?(?:\s*[:—-]\s*(.+))?$/i;
+  const headingPattern=/^(?:super\s*set|superset|circuit)(?:\s+([a-z0-9]+))?(?:\s*[:\u2013\u2014-]\s*(.+))?$/i;
   let title="Imported strength workout";
   const first=lines[0];if(first&&!/^(?:rest|tempo|notes?|instructions?|warm[ -]?up)\b/i.test(first)&&!parsePrescription(first).sets&&!headingPattern.test(first)&&!strengthSignals.test(first))title=first;
   for(const [lineIndex,line] of lines.entries()){
@@ -36,14 +36,14 @@ function parseStrength(payload:ImportSessionPayload,text:string,catalogue:Exerci
     if(prefix){const key=`import-group-${prefix[1].toLowerCase()}`;activeGroup=key;groups[key]=`Superset ${prefix[1]}`}
     const prescription=parsePrescription(content);let name=content;
     if(prescription.sets!=null)name=(content.slice(0,prescription.start)+" "+content.slice(prescription.end)).trim();
-    name=name.replace(/\s*(?:@|,|—|-)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|kgs?|lb|lbs?)|rpe\s*\d+(?:\.\d+)?|rir\s*\d+|rest\s*\d+\s*(?:s|sec|secs|seconds?|min|mins|minutes?)|tempo\s*[\d-]+).*$/i,"").replace(/[:—-]+$/g,"").trim();
+    name=name.replace(/\s*(?:@|,|\u2013|\u2014|-)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|kgs?|lb|lbs?)|rpe\s*\d+(?:\.\d+)?|rir\s*\d+|rest\s*\d+\s*(?:s|sec|secs|seconds?|min|mins|minutes?)|tempo\s*[\d-]+).*$/i,"").replace(/[:\u2013\u2014-]+$/g,"").trim();
     if(!name||!(/[a-z]/i.test(name))){guidance.push(content);issues.push({id:`unparsed-${lineIndex}`,severity:"warning",code:"unparsed_instruction",message:`Review this unparsed instruction: “${content}”`});continue}
     const match=matchExercise(name,catalogue);const itemId=id("import-exercise",lineIndex);
     const explicitLoad=content.match(/(?:@|\bload\s*)?\s*(\d+(?:\.\d+)?)\s*(kg|kgs?|lb|lbs?)\b/i);const sourceUnit=explicitLoad&&/^lb/i.test(explicitLoad[2])?"lb":"kg";const canonicalLoad=explicitLoad?(sourceUnit==="lb"?Number(explicitLoad[1])*0.45359237:Number(explicitLoad[1])):undefined;
-    const noteParts:string[]=[];let detail=content.slice(Math.max(prescription.end||0,name.length)).replace(/^\s*[,—:@-]+\s*/,"").trim();
+    const noteParts:string[]=[];let detail=content.slice(Math.max(prescription.end||0,name.length)).replace(/^\s*[,\u2013\u2014:@-]+\s*/,"").trim();
     // A prescribed load is structured data, not a completed set and not a note. Keep
     // any surrounding coaching guidance, but remove the load token itself.
-    if(explicitLoad)detail=detail.replace(/(?:@|\bload\s*)?\s*\d+(?:\.\d+)?\s*(?:kg|kgs?|lb|lbs?)\b/i,"").replace(/^\s*[,—:@-]+\s*|\s*[,—:@-]+\s*$/g,"").trim();
+    if(explicitLoad)detail=detail.replace(/(?:@|\bload\s*)?\s*\d+(?:\.\d+)?\s*(?:kg|kgs?|lb|lbs?)\b/i,"").replace(/^\s*[,\u2013\u2014:@-]+\s*|\s*[,\u2013\u2014:@-]+\s*$/g,"").trim();
     if(detail)noteParts.push(detail);
     const item:ImportedStrengthExercise={id:itemId,rawName:name,exerciseId:match.exercise?.id,matchStatus:match.status,suggestions:match.suggestions,sets:prescription.sets,reps:prescription.reps||"",notes:noteParts.join(" · "),plannedLoad:canonicalLoad==null?undefined:{mode:"kg",value:String(Math.round(canonicalLoad*1000)/1000),sourceUnit},groupKey:activeGroup,groupLabel:activeGroup?groups[activeGroup]:undefined};exercises.push(item);
     if(match.status!=="matched")issues.push({id:`match-${itemId}`,severity:"warning",code:"exercise_match",itemId,message:match.status==="unmatched"?`“${name}” was not found in your exercise library.`:`Please confirm which exercise “${name}” means.`});

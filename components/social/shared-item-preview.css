@@ -1,0 +1,143 @@
+.shared-preview-structure {
+  margin-top: 17px;
+}
+
+.shared-preview-structure > span {
+  color: var(--accent-ink);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.shared-workout-structure {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.shared-workout-structure > article {
+  padding: 12px;
+  border-radius: 13px;
+  background: var(--surface-neutral);
+}
+
+.shared-workout-structure article > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shared-workout-structure article > header b {
+  font-size: 12px;
+}
+
+.shared-workout-structure article > header small,
+.shared-workout-structure article > p {
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+
+.shared-set-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.shared-set-list > div {
+  display: grid;
+  grid-template-columns: 22px minmax(58px, 0.8fr) 1fr auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 31px;
+  padding: 4px 7px;
+  border-radius: 9px;
+  background: var(--surface-card);
+}
+
+.shared-set-list span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--surface-tint);
+  color: var(--accent-ink);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.shared-set-list b,
+.shared-set-list strong {
+  font-size: 10px;
+}
+
+.shared-set-list small {
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+
+.shared-endurance-structure {
+  display: grid;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.shared-endurance-structure > div {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 10px;
+  background: var(--surface-neutral);
+}
+
+.shared-endurance-structure > div > span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--surface-tint);
+  color: var(--accent-ink);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.shared-endurance-structure p {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin: 0;
+}
+
+.shared-endurance-structure b,
+.shared-endurance-structure strong {
+  font-size: 10px;
+}
+
+.shared-endurance-structure small {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+
+.shared-preview-empty {
+  margin: 9px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-neutral);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+@media (max-width: 380px) {
+  .shared-set-list > div {
+    grid-template-columns: 22px 1fr 1fr;
+  }
+
+  .shared-set-list small {
+    grid-column: 2 / 4;
+  }
+}

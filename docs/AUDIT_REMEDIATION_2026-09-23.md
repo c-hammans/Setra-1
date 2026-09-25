@@ -1,4 +1,4 @@
-# Setra audit remediation — 23 September 2026
+# Setra audit remediation – 23 September 2026
 
 This checklist assesses the remediation of revision `54b9cf4`. It is an implementation and local-verification record, not a production deployment claim. “Implemented but verification blocked” means the code and available automated checks are complete, but acceptance still depends on a disposable connected account, a second device, production-like infrastructure, or a physical iPhone.
 

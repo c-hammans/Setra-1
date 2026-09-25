@@ -16,7 +16,7 @@
 /* Match the primary Setra wordmark and let the page header scroll away */
 .premium-brand b{font-size:calc(24px * var(--text-scale-number,1));font-weight:900;line-height:1.5;letter-spacing:-.04em}
 .premium-topbar{position:relative;z-index:1;top:auto;background:transparent}
-.premium-shell::before{content:"";position:fixed;z-index:100;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) + 10px);background:transparent;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 100%);pointer-events:none}
+.premium-shell::before{content:"";position:fixed;z-index:100;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) + 4px);background:transparent;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 4px),transparent 100%);mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 4px),transparent 100%);pointer-events:none}
 .premium-shell::after{z-index:19;height:max(12px,env(safe-area-inset-bottom,0px));background:transparent;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);-webkit-mask-image:none;mask-image:none;pointer-events:auto}
 @media(max-width:620px){.premium-brand b{font-size:calc(24px * var(--text-scale-number,1))}}
 
