@@ -28,13 +28,11 @@ import {
   type FeedbackCategory,
 } from "@/lib/feedback/feedback-service";
 import {
-  backupPendingDiaryChange,
   canImportLegacyDiary,
   claimLegacyDiary,
   clearCompletedWorkoutEditorDraft,
   clearEnduranceEditorDraft,
-  clearLocalDraft,
-  clearPendingDiaryFailure,
+  clearLocalDraftIfMatches,
   clearStrengthEditorDraft,
   loadCompletedWorkoutEditorDraft,
   loadEnduranceEditorDraft,
@@ -51,6 +49,7 @@ import {
   localImportSummary,
   markPendingDiaryFailure,
   queuePendingDiaryChange,
+  rebasePendingDiaryChange,
   removePendingDiaryChange,
   removeRecoveryBackup,
   saveCompletedWorkoutEditorDraft,
@@ -67,6 +66,11 @@ import {
   type PendingDiaryChange,
 } from "@/lib/data/local-diary";
 import { recoveryComparison } from "@/lib/data/recovery-comparison";
+import {
+  completedCloudContainsDraft,
+  completedCloudSupersedesDraft,
+  recoveryCopyClientId,
+} from "@/lib/data/workout-sync-recovery";
 import {
   contrastColour,
   createSetraTheme,
@@ -106,6 +110,11 @@ import {
   type WeeklyPreviewItem,
 } from "@/components/weekly/weekly-preview";
 import { applyPreviousSetValues } from "@/lib/setra/workout-updates";
+import {
+  moveScheduledWorkout,
+  removeLiveWorkoutExercise,
+  reorderLiveWorkoutExercises,
+} from "@/lib/setra/live-workout-management";
 import { useDialogFocusTrap } from "@/components/ui/use-dialog-focus-trap";
 import { PreviousSetButton } from "@/components/workout/previous-set-button";
 import { HomeStreak } from "@/components/awards/home-streak";
@@ -162,6 +171,19 @@ type PBResult = {
   previousWeight?: number;
 };
 type PBSort = "weight" | "name" | "bodyweight";
+type MoveSessionTarget =
+  | {
+      modality: "strength";
+      date: string;
+      templateId: string;
+      title: string;
+    }
+  | {
+      modality: "endurance";
+      date: string;
+      sessionId: string;
+      title: string;
+    };
 const betaFeedbackEnabled = true;
 const localTime = (date = new Date()) =>
   `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -1353,6 +1375,7 @@ const calendarDateLabel = (
   date: string,
   counts: {
     planned: number;
+    inProgress: number;
     completed: number;
     partial: number;
     skipped: number;
@@ -1368,6 +1391,10 @@ const calendarDateLabel = (
     }).format(new Date(`${date}T12:00:00`)),
   ];
   if (selected) parts.push("selected");
+  if (counts.inProgress)
+    parts.push(
+      `${counts.inProgress} in-progress ${counts.inProgress === 1 ? "session" : "sessions"}`,
+    );
   if (counts.completed)
     parts.push(
       `${counts.completed} completed ${counts.completed === 1 ? "session" : "sessions"}`,
@@ -1388,6 +1415,7 @@ const calendarDateLabel = (
     !counts.completed &&
     !counts.partial &&
     !counts.planned &&
+    !counts.inProgress &&
     !counts.skipped
   )
     parts.push("no sessions");
@@ -1573,6 +1601,15 @@ export default function Home() {
   const [active, setActive] = useState<Workout | null>(null);
   const [savedDraft, setSavedDraft] = useState<Workout | null>(null);
   const [liveEditIndex, setLiveEditIndex] = useState<number | null>(null);
+  const [liveOrderOpen, setLiveOrderOpen] = useState(false);
+  const [liveNotesOpen, setLiveNotesOpen] = useState(false);
+  const [deleteLiveExerciseIndex, setDeleteLiveExerciseIndex] = useState<
+    number | null
+  >(null);
+  const [draggedLiveExerciseIndex, setDraggedLiveExerciseIndex] = useState<
+    number | null
+  >(null);
+  const draggedLiveExerciseRef = useRef<number | null>(null);
   const [liveAddOpen, setLiveAddOpen] = useState(false);
   const [liveAddQuery, setLiveAddQuery] = useState("");
   const [liveSwapQuery, setLiveSwapQuery] = useState("");
@@ -1589,6 +1626,9 @@ export default function Home() {
     date: string;
     templateId: string;
   } | null>(null);
+  const [moveSession, setMoveSession] = useState<MoveSessionTarget | null>(null);
+  const [moveSessionDate, setMoveSessionDate] = useState(today);
+  const [moveSessionError, setMoveSessionError] = useState("");
   const [libraryQuery, setLibraryQuery] = useState("");
   const [editorQuery, setEditorQuery] = useState("");
   const [warmupQuery, setWarmupQuery] = useState("");
@@ -1624,6 +1664,7 @@ export default function Home() {
   const warmupIdRef = useRef(0);
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const completionLockRef = useRef(false);
+  const recoveryActionLockRef = useRef(new Set<string>());
   const initialActionHandledRef = useRef(false);
   const feedbackLinkHandledRef = useRef(false);
   const [completionSaving, setCompletionSaving] = useState(false);
@@ -1708,6 +1749,7 @@ export default function Home() {
       editor ||
       picker ||
       swapPlanned ||
+      moveSession ||
       scheduleTemplateId ||
       scheduleEnduranceTemplateId ||
       finishDialogOpen ||
@@ -1721,6 +1763,8 @@ export default function Home() {
       deleteWorkoutId ||
       deleteTemplateId ||
       liveEditIndex !== null ||
+      liveOrderOpen ||
+      deleteLiveExerciseIndex !== null ||
       liveAddOpen ||
       exerciseHistoryId ||
       feedbackOpen ||
@@ -1941,7 +1985,10 @@ export default function Home() {
     openFeedback();
   }, [profileReady]);
   useEffect(() => {
-    if (liveEditIndex !== null) setLiveSwapQuery("");
+    if (liveEditIndex !== null) {
+      setLiveSwapQuery("");
+      setLiveNotesOpen(false);
+    }
   }, [liveEditIndex]);
   useEffect(() => {
     if (!active || editingWorkoutId) return;
@@ -2085,17 +2132,68 @@ export default function Home() {
                 change,
               );
             }
-            removePendingDiaryChange(
+            const removed = removePendingDiaryChange(
               change.key,
               change.operationId,
               user.id,
               version,
             );
+            if (
+              removed.ok &&
+              change.kind === "save_workout" &&
+              change.payload.status === "completed"
+            ) {
+              clearLocalDraftIfMatches(change.payload.workout.id, user.id);
+              setSavedDraft((current) =>
+                current?.id === change.payload.workout.id ? null : current,
+              );
+            }
           } catch (error) {
             const normalized = normalizeWriteError(error);
             if (normalized.kind === "stale" && change.protocolVersion !== 2) {
               removePendingDiaryChange(change.key, change.operationId, user.id);
               continue;
+            }
+            if (
+              change.kind === "save_workout" &&
+              change.payload.status === "in_progress" &&
+              normalized.kind === "conflict"
+            ) {
+              try {
+                const [latest, versions] = await Promise.all([
+                  diaryService.load(),
+                  diaryService.loadWriteVersions(),
+                ]);
+                const cloudWorkout = latest.workouts.find(
+                  (item) => item.id === change.payload.workout.id,
+                );
+                if (
+                  completedCloudSupersedesDraft(
+                    change,
+                    cloudWorkout,
+                    versions[change.key],
+                  )
+                ) {
+                  const removed = removePendingDiaryChange(
+                    change.key,
+                    change.operationId,
+                    user.id,
+                    versions[change.key],
+                  );
+                  if (removed.ok) {
+                    clearLocalDraftIfMatches(
+                      change.payload.workout.id,
+                      user.id,
+                    );
+                    setSavedDraft((current) =>
+                      current?.id === change.payload.workout.id ? null : current,
+                    );
+                    continue;
+                  }
+                }
+              } catch {
+                // If verification cannot load, retain the device copy for review.
+              }
             }
             const attempts = (change.failure?.attempts || 0) + 1;
             const nextRetryAt =
@@ -2199,9 +2297,13 @@ export default function Home() {
       else if (feedbackOpen) setFeedbackOpen(false);
       else if (exerciseHistoryId) setExerciseHistoryId(null);
       else if (liveEditIndex !== null) setLiveEditIndex(null);
+      else if (liveOrderOpen) setLiveOrderOpen(false);
+      else if (deleteLiveExerciseIndex !== null)
+        setDeleteLiveExerciseIndex(null);
       else if (liveAddOpen) setLiveAddOpen(false);
       else if (picker) setPicker(false);
       else if (swapPlanned) setSwapPlanned(null);
+      else if (moveSession) setMoveSession(null);
       else if (scheduleTemplateId || scheduleEnduranceTemplateId) {
         setScheduleTemplateId(null);
         setScheduleEnduranceTemplateId(null);
@@ -2227,9 +2329,12 @@ export default function Home() {
     feedbackOpen,
     exerciseHistoryId,
     liveEditIndex,
+    liveOrderOpen,
+    deleteLiveExerciseIndex,
     liveAddOpen,
     picker,
     swapPlanned,
+    moveSession,
     scheduleTemplateId,
     scheduleEnduranceTemplateId,
     deleteWorkoutId,
@@ -2256,9 +2361,56 @@ export default function Home() {
       .then(([cloud, draft, profile, writeVersions]) => {
         if (cancelled) return;
         saveLocalWriteVersions(writeVersions, user?.id);
+        let pendingChanges = loadPendingDiaryChanges(user?.id);
+        let localDraft = loadLocalDraftSnapshot(user?.id);
+        for (const change of pendingChanges) {
+          if (
+            change.kind !== "save_workout" ||
+            change.payload.status !== "in_progress"
+          )
+            continue;
+          const completed = cloud.workouts.find(
+            (item) => item.id === change.payload.workout.id,
+          );
+          if (
+            !completedCloudSupersedesDraft(
+              change,
+              completed,
+              writeVersions[change.key],
+            )
+          )
+            continue;
+          const removed = removePendingDiaryChange(
+            change.key,
+            change.operationId,
+            user?.id,
+            writeVersions[change.key],
+          );
+          if (removed.ok) {
+            clearLocalDraftIfMatches(change.payload.workout.id, user?.id);
+            setSavedDraft((current) =>
+              current?.id === change.payload.workout.id ? null : current,
+            );
+          }
+        }
+        localDraft = loadLocalDraftSnapshot(user?.id);
+        if (localDraft) {
+          const completed = cloud.workouts.find(
+            (item) => item.id === localDraft?.workout.id,
+          );
+          if (completedCloudContainsDraft(localDraft.workout, completed)) {
+            const staleDraftId = localDraft.workout.id;
+            clearLocalDraftIfMatches(staleDraftId, user?.id);
+            setSavedDraft((current) =>
+              current?.id === staleDraftId ? null : current,
+            );
+            localDraft = null;
+          }
+        }
+        pendingChanges = loadPendingDiaryChanges(user?.id);
         cloud = overlayPendingStrength(
           cloud,
-          loadPendingDiaryChanges(user?.id),
+          pendingChanges,
         );
         const reconciledSchedule = cloud.scheduled.filter(
           (item) =>
@@ -2309,12 +2461,29 @@ export default function Home() {
               cloud.exercises,
             ),
           });
-        const localDraft = loadLocalDraftSnapshot(user?.id);
-        const cloudUpdated = draft?.updatedAt || "1970-01-01T00:00:00.000Z";
+        const pendingCompletionIds = new Set(
+          pendingChanges
+            .filter(
+              (change) =>
+                change.kind === "save_workout" &&
+                change.payload.status === "completed",
+            )
+            .map((change) =>
+              change.kind === "save_workout"
+                ? change.payload.workout.id
+                : "",
+            ),
+        );
+        const eligibleCloudDraft =
+          draft && !pendingCompletionIds.has(draft.id) ? draft : null;
+        const cloudUpdated =
+          eligibleCloudDraft?.updatedAt || "1970-01-01T00:00:00.000Z";
         const newestDraft =
-          localDraft && localDraft.updatedAt > cloudUpdated
+          localDraft &&
+          !pendingCompletionIds.has(localDraft.workout.id) &&
+          localDraft.updatedAt > cloudUpdated
             ? localDraft.workout
-            : draft;
+            : eligibleCloudDraft;
         if (newestDraft) {
           const restoredDraft = restoreMissingTemplateExercises(
             newestDraft,
@@ -2859,21 +3028,41 @@ export default function Home() {
       );
     return recoverySnapshot.strength.scheduled;
   };
-  function retrySyncIssue(change: PendingDiaryChange) {
-    clearPendingDiaryFailure(change.operationId, user?.id);
-    setSyncIssues((current) =>
-      current.filter((item) => item.operationId !== change.operationId),
-    );
-    window.dispatchEvent(new Event("online"));
+  async function retrySyncIssue(change: PendingDiaryChange) {
+    if (!diaryService || recoveryActionLockRef.current.has(change.operationId))
+      return;
+    recoveryActionLockRef.current.add(change.operationId);
+    try {
+      const versions = await diaryService.loadWriteVersions();
+      const cloud = serverRecord(change);
+      const completeWorkout =
+        change.kind === "save_workout" &&
+        change.payload.status === "in_progress" &&
+        Boolean((cloud as Workout | null)?.completedAt);
+      const rebased = rebasePendingDiaryChange(
+        change.operationId,
+        versions[change.key] || 0,
+        user?.id,
+        completeWorkout,
+      );
+      if (!rebased.ok) {
+        setCloudMessage(
+          rebased.error || "The device copy could not be prepared for retry.",
+        );
+        return;
+      }
+      setSyncIssues((current) =>
+        current.filter((item) => item.operationId !== change.operationId),
+      );
+      setCloudState("pending");
+      window.dispatchEvent(new Event("online"));
+    } catch (error) {
+      setCloudMessage(userWriteErrorMessage(error));
+    } finally {
+      recoveryActionLockRef.current.delete(change.operationId);
+    }
   }
   function discardSyncIssue(change: PendingDiaryChange) {
-    const backup = backupPendingDiaryChange(change, user?.id);
-    if (!backup.ok) {
-      setCloudMessage(
-        "Setra could not create a recoverable backup, so the device copy was kept.",
-      );
-      return;
-    }
     const removed = removePendingDiaryChange(
       change.key,
       change.operationId,
@@ -2884,6 +3073,12 @@ export default function Home() {
         "The device copy could not be removed and remains available for recovery.",
       );
       return;
+    }
+    if (change.kind === "save_workout") {
+      clearLocalDraftIfMatches(change.payload.workout.id, user?.id);
+      setSavedDraft((current) =>
+        current?.id === change.payload.workout.id ? null : current,
+      );
     }
     setRecoveryBackups(loadRecoveryBackups(user?.id));
     setSyncIssues((current) =>
@@ -2951,13 +3146,17 @@ export default function Home() {
     window.dispatchEvent(new Event("online"));
   }
   function saveSyncIssueAsCopy(change: PendingDiaryChange) {
-    const suffix = `recovered-${change.operationId}`;
+    if (recoveryActionLockRef.current.has(change.operationId)) return;
+    recoveryActionLockRef.current.add(change.operationId);
     let queued: { ok: boolean; error?: string } | null = null;
     let apply: () => void = () => {};
     if (change.kind === "save_workout") {
       const workout = {
         ...change.payload.workout,
-        id: `${change.payload.workout.id}-${suffix}`,
+        id: recoveryCopyClientId(
+          change.payload.workout.id,
+          change.operationId,
+        ),
         name: `${change.payload.workout.name} (recovered copy)`,
       };
       queued = queuePendingDiaryChange(
@@ -2984,7 +3183,10 @@ export default function Home() {
     } else if (change.kind === "save_strength_template") {
       const template = {
         ...change.payload.template,
-        id: `${change.payload.template.id}-${suffix}`,
+        id: recoveryCopyClientId(
+          change.payload.template.id,
+          change.operationId,
+        ),
         name: `${change.payload.template.name} (recovered copy)`,
       };
       queued = queuePendingDiaryChange(
@@ -3005,7 +3207,10 @@ export default function Home() {
     } else if (change.kind === "save_endurance_session") {
       const session = {
         ...change.payload.session,
-        id: `${change.payload.session.id}-${suffix}`,
+        id: recoveryCopyClientId(
+          change.payload.session.id,
+          change.operationId,
+        ),
         title: `${change.payload.session.title} (recovered copy)`,
         plannedSessionId: undefined,
       };
@@ -3026,7 +3231,10 @@ export default function Home() {
     } else if (change.kind === "save_endurance_template") {
       const template = {
         ...change.payload.template,
-        id: `${change.payload.template.id}-${suffix}`,
+        id: recoveryCopyClientId(
+          change.payload.template.id,
+          change.operationId,
+        ),
         title: `${change.payload.template.title} (recovered copy)`,
       };
       queued = queuePendingDiaryChange(
@@ -3045,6 +3253,7 @@ export default function Home() {
         );
     } else return;
     if (!queued?.ok) {
+      recoveryActionLockRef.current.delete(change.operationId);
       setCloudMessage(
         "The separate copy could not be stored. Your original device change is still safe.",
       );
@@ -3057,11 +3266,14 @@ export default function Home() {
       user?.id,
     );
     if (!removed.ok) {
+      recoveryActionLockRef.current.delete(change.operationId);
       setCloudMessage(
         "The separate copy was saved, and the original remains available until Setra can safely clear it.",
       );
       return;
     }
+    if (change.kind === "save_workout")
+      clearLocalDraftIfMatches(change.payload.workout.id, user?.id);
     setSyncIssues((current) =>
       current.filter((item) => item.operationId !== change.operationId),
     );
@@ -3378,6 +3590,8 @@ export default function Home() {
     [enduranceSessions],
   );
   const calendarCounts = (date: string) => {
+    const strengthDraftOnDate =
+      showStrength && savedDraft?.date === date ? savedDraft : null;
     const strengthScheduled = showStrength
       ? data.scheduled.filter((item) => item.date === date)
       : [];
@@ -3394,8 +3608,16 @@ export default function Home() {
       : [];
     return {
       planned:
-        strengthScheduled.filter((item) => !item.skipped).length +
+        strengthScheduled.filter(
+          (item) =>
+            !item.skipped &&
+            !(
+              strengthDraftOnDate?.templateId &&
+              strengthDraftOnDate.templateId === item.templateId
+            ),
+        ).length +
         endurancePlanned.filter((session) => !session.skipped).length,
+      inProgress: strengthDraftOnDate ? 1 : 0,
       completed:
         strengthPerformed.filter(
           (workout) => strengthCompletion(workout).status === "complete",
@@ -3485,6 +3707,9 @@ export default function Home() {
             workout.templateId === item.templateId &&
             hasCompletedStrengthWork(workout),
         );
+        const inProgress =
+          savedDraft?.date === item.date &&
+          savedDraft.templateId === item.templateId;
         if (completed) representedStrengthWorkouts.add(completed.id);
         items.push({
           id: `strength-${item.date}-${item.templateId}`,
@@ -3498,6 +3723,8 @@ export default function Home() {
             ? strengthCompletion(completed).status === "partial"
               ? "partial"
               : "completed"
+            : inProgress
+              ? "in_progress"
             : item.skipped
               ? "skipped"
               : "planned",
@@ -3600,6 +3827,7 @@ export default function Home() {
     data.templates,
     data.workouts,
     enduranceSessions,
+    savedDraft,
   ]);
   const enduranceThisWeek = useMemo(() => {
     const sessions = enduranceSessions.filter(
@@ -3663,7 +3891,7 @@ export default function Home() {
             ? `${partial} partially completed ${partial === 1 ? "session" : "sessions"}.`
             : "No training planned for this day.";
     }
-    if (active || savedDraft?.date === today)
+    if (active || savedDraft)
       return "Workout in progress – your latest changes are saved.";
     const plannedToday = weeklyPreviewItems.filter(
       (item) => item.date === today && item.status === "planned",
@@ -3735,6 +3963,10 @@ export default function Home() {
       setDetailId(item.completedId);
       return;
     }
+    if (item.status === "in_progress" && savedDraft) {
+      resumeSavedWorkout();
+      return;
+    }
     setExpandedPlanned((current) => new Set(current).add(item.sourceId));
   }
   useEffect(() => {
@@ -3774,6 +4006,25 @@ export default function Home() {
       );
     return exercise ? completedSets(exercise) : [];
   };
+  function resumeSavedWorkout() {
+    if (!savedDraft) return;
+    const restoredDraft = restoreMissingTemplateExercises(
+      savedDraft,
+      data.templates.find(
+        (template) => template.id === savedDraft.templateId,
+      ),
+    );
+    setSelectedDate(restoredDraft.date);
+    setExpandedLiveExercises(new Set());
+    setWarmupExpanded(
+      !(
+        restoredDraft.warmup?.length &&
+        restoredDraft.warmup.every((item) => item.done)
+      ),
+    );
+    setActive(restoredDraft);
+    setSavedDraft(null);
+  }
   function startWorkout(template: Template, workoutDate = today) {
     if (workoutInProgress) return;
     completionLockRef.current = false;
@@ -3991,6 +4242,11 @@ export default function Home() {
           version,
         );
         if (removed.ok) {
+          clearLocalDraftIfMatches(completed.id, user?.id);
+          clearCompletedWorkoutEditorDraft(user?.id);
+          setSavedDraft((current) =>
+            current?.id === completed.id ? null : current,
+          );
           setCompletionReceiptSync("synced");
           void persistSchedule(nextScheduled).then((scheduleSaved) => {
             if (scheduleSaved)
@@ -3999,8 +4255,6 @@ export default function Home() {
         }
       }
     });
-    clearLocalDraft(user?.id);
-    clearCompletedWorkoutEditorDraft(user?.id);
     setSavedDraft(null);
     setActive(null);
     setEditingWorkoutId(null);
@@ -4214,13 +4468,79 @@ export default function Home() {
       ),
     });
   }
-  function moveLiveExercise(from: number, to: number) {
-    if (!active || to < 0 || to >= active.exercises.length) return;
-    const exercises = [...active.exercises];
-    const [moved] = exercises.splice(from, 1);
-    exercises.splice(to, 0, moved);
-    setActive({ ...active, exercises });
-    setLiveEditIndex(to);
+  function reorderLiveExercise(from: number, to: number) {
+    setActive((current) =>
+      current ? reorderLiveWorkoutExercises(current, from, to) : current,
+    );
+    setExpandedLiveExercises(new Set());
+  }
+  function beginLiveReorder(
+    index: number,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    draggedLiveExerciseRef.current = index;
+    setDraggedLiveExerciseIndex(index);
+  }
+  function moveLiveReorder(event: ReactPointerEvent<HTMLButtonElement>) {
+    const from = draggedLiveExerciseRef.current;
+    if (from === null) return;
+    event.preventDefault();
+    const scroller = document.querySelector<HTMLElement>(
+      ".live-order-exercises",
+    );
+    if (scroller) {
+      const bounds = scroller.getBoundingClientRect();
+      if (event.clientY < bounds.top + 58) scroller.scrollBy({ top: -14 });
+      else if (event.clientY > bounds.bottom - 58)
+        scroller.scrollBy({ top: 14 });
+    }
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-live-order-index]");
+    if (!target) return;
+    const to = Number(target.dataset.liveOrderIndex);
+    if (!Number.isInteger(to) || to === from) return;
+    reorderLiveExercise(from, to);
+    draggedLiveExerciseRef.current = to;
+    setDraggedLiveExerciseIndex(to);
+  }
+  function endLiveReorder(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    draggedLiveExerciseRef.current = null;
+    setDraggedLiveExerciseIndex(null);
+  }
+  function liveExerciseHasEnteredData(exercise: WorkoutExercise) {
+    return (
+      Boolean(exercise.note.trim()) ||
+      exercise.sets.some(
+        (set) =>
+          set.done ||
+          Boolean(set.weight.trim()) ||
+          Boolean(set.reps.trim()) ||
+          Boolean(set.rpe.trim()) ||
+          Boolean(set.note?.trim()),
+      )
+    );
+  }
+  function removeLiveExercise(index: number) {
+    if (!active || !active.exercises[index]) return;
+    setActive(removeLiveWorkoutExercise(active, index));
+    setExpandedLiveExercises(new Set());
+    setLiveEditIndex(null);
+    setDeleteLiveExerciseIndex(null);
+  }
+  function requestDeleteLiveExercise(index: number) {
+    if (!active?.exercises[index]) return;
+    if (liveExerciseHasEnteredData(active.exercises[index])) {
+      setLiveEditIndex(null);
+      setDeleteLiveExerciseIndex(index);
+      return;
+    }
+    removeLiveExercise(index);
   }
   function groupLiveExercise(index: number, adjacentIndex: number) {
     if (!active) return;
@@ -4523,6 +4843,127 @@ export default function Home() {
     });
     setSwapPlanned(null);
   }
+  function openMoveSession(target: MoveSessionTarget) {
+    setMoveSession(target);
+    setMoveSessionDate(target.date);
+    setMoveSessionError("");
+  }
+  async function confirmMoveSession() {
+    if (!moveSession || !moveSessionDate) return;
+    if (moveSessionDate === moveSession.date) {
+      setMoveSession(null);
+      return;
+    }
+    setMoveSessionError("");
+    if (moveSession.modality === "strength") {
+      const scheduled = moveScheduledWorkout(
+        data.scheduled,
+        { date: moveSession.date, templateId: moveSession.templateId },
+        moveSessionDate,
+      );
+      if (!scheduled) {
+        setMoveSessionError(
+          "That workout is already planned for the selected date, or the original occurrence is no longer available.",
+        );
+        return;
+      }
+      const draftMatches =
+        savedDraft?.date === moveSession.date &&
+        savedDraft.templateId === moveSession.templateId;
+      const movedDraft = draftMatches
+        ? { ...savedDraft, date: moveSessionDate }
+        : null;
+      const localDraftWrite = movedDraft
+        ? saveLocalDraft(movedDraft, user?.id)
+        : null;
+      if (localDraftWrite && !localDraftWrite.ok) {
+        setMoveSessionError(
+          "The live workout date could not be saved on this device.",
+        );
+        return;
+      }
+      if (!(await persistSchedule(scheduled))) {
+        if (draftMatches && savedDraft) saveLocalDraft(savedDraft, user?.id);
+        return;
+      }
+      setData((current) => ({ ...current, scheduled }));
+      if (movedDraft) {
+        const local = localDraftWrite!;
+        const key = `workout:${movedDraft.id}`;
+        const queued = queuePendingDiaryChange(
+          {
+            key,
+            kind: "save_workout",
+            payload: {
+              workout: { ...movedDraft, updatedAt: local.updatedAt },
+              status: "in_progress",
+            },
+          },
+          user?.id,
+        );
+        if (!queued.ok) {
+          setMoveSessionError(
+            "The live workout is safe on this device, but its new date could not be queued for cloud sync.",
+          );
+          setSavedDraft(movedDraft);
+          setSelectedDate(moveSessionDate);
+          window.dispatchEvent(new Event("setra-training-changed"));
+          return;
+        }
+        runCloud((service) =>
+          service.saveWorkout(
+            { ...movedDraft, updatedAt: local.updatedAt },
+            "in_progress",
+            queued,
+          ),
+        )?.then((version) => {
+          if (version != null)
+            removePendingDiaryChange(
+              key,
+              queued.operationId,
+              user?.id,
+              version,
+            );
+        });
+        setSavedDraft(movedDraft);
+      }
+    } else {
+      const session = enduranceSessions.find(
+        (item) => item.id === moveSession.sessionId,
+      );
+      if (!session || session.status !== "planned") {
+        setMoveSessionError("Only an uncompleted planned session can be moved.");
+        return;
+      }
+      const updated = { ...session, date: moveSessionDate };
+      const key = `endurance-session:${updated.id}`;
+      const queued = queuePendingDiaryChange(
+        { key, kind: "save_endurance_session", payload: { session: updated } },
+        user?.id,
+      );
+      if (!queued.ok) {
+        setMoveSessionError("This session could not be moved on this device.");
+        return;
+      }
+      setEnduranceSessions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      runTrainingCloud((service) => service.save(updated, queued))?.then(
+        (version) => {
+          if (version != null)
+            removePendingDiaryChange(
+              key,
+              queued.operationId,
+              user?.id,
+              version,
+            );
+        },
+      );
+    }
+    setSelectedDate(moveSessionDate);
+    setMoveSession(null);
+    window.dispatchEvent(new Event("setra-training-changed"));
+  }
   function scheduleEnduranceWorkout() {
     if (!scheduleEnduranceTemplateId) return;
     const template = enduranceTemplates.find(
@@ -4695,15 +5136,6 @@ export default function Home() {
                     : "Changes waiting to sync"}
                 </div>
               )}{" "}
-            {recoveryBackups.length > 0 && cloudState !== "error" && (
-              <button
-                className="cloud-sync-chip"
-                onClick={() => setSyncRecoveryOpen(true)}
-              >
-                <i />
-                Recovery backups <span>Review</span>
-              </button>
-            )}{" "}
             {configured && showImport && (
               <div className="cloud-notice">
                 <b>Bring your existing diary into your account</b>
@@ -4819,6 +5251,12 @@ export default function Home() {
                           <i className="planned-dot" key={`p-${index}`} />
                         ))}
                         {Array.from(
+                          { length: counts.inProgress },
+                          (_, index) => (
+                            <i className="in-progress-dot" key={`i-${index}`} />
+                          ),
+                        )}
+                        {Array.from(
                           { length: counts.completed },
                           (_, index) => (
                             <i className="completed-dot" key={`c-${index}`} />
@@ -4870,6 +5308,15 @@ export default function Home() {
                             { length: counts.planned },
                             (_, index) => (
                               <i className="planned-dot" key={`p-${index}`} />
+                            ),
+                          )}
+                          {Array.from(
+                            { length: counts.inProgress },
+                            (_, index) => (
+                              <i
+                                className="in-progress-dot"
+                                key={`i-${index}`}
+                              />
                             ),
                           )}
                           {Array.from(
@@ -5000,12 +5447,13 @@ export default function Home() {
                 </div>
               </section>
             )}{" "}
-            {showStrength && savedDraft?.date === selectedDate && (
+            {showStrength && savedDraft && (
               <article className="resume-card">
                 <div>
                   <span>WORKOUT IN PROGRESS</span>
                   <h2>{savedDraft.name}</h2>
                   <p>
+                    {formatDate(savedDraft.date)} ·{" "}
                     {savedDraft.exercises.reduce(
                       (sum, e) => sum + e.sets.filter((s) => s.done).length,
                       0,
@@ -5018,27 +5466,29 @@ export default function Home() {
                     sets complete
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    const restoredDraft = restoreMissingTemplateExercises(
-                      savedDraft,
-                      data.templates.find(
-                        (template) => template.id === savedDraft.templateId,
-                      ),
-                    );
-                    setExpandedLiveExercises(new Set());
-                    setWarmupExpanded(
-                      !(
-                        restoredDraft.warmup?.length &&
-                        restoredDraft.warmup.every((item) => item.done)
-                      ),
-                    );
-                    setActive(restoredDraft);
-                    setSavedDraft(null);
-                  }}
-                >
-                  Resume →
-                </button>
+                <div className="resume-card-actions">
+                  {savedDraft.templateId &&
+                    data.scheduled.some(
+                      (item) =>
+                        item.date === savedDraft.date &&
+                        item.templateId === savedDraft.templateId,
+                    ) && (
+                      <button
+                        className="resume-move-button"
+                        onClick={() =>
+                          openMoveSession({
+                            modality: "strength",
+                            date: savedDraft.date,
+                            templateId: savedDraft.templateId!,
+                            title: savedDraft.name,
+                          })
+                        }
+                      >
+                        Move
+                      </button>
+                    )}
+                  <button onClick={resumeSavedWorkout}>Resume →</button>
+                </div>
               </article>
             )}{" "}
             {showEndurance &&
@@ -5183,6 +5633,18 @@ export default function Home() {
                         ))}{" "}
                       {expanded && (
                         <div className="planned-session-actions">
+                          <button
+                            onClick={() =>
+                              openMoveSession({
+                                modality: "strength",
+                                date: selectedDate,
+                                templateId: template.id,
+                                title: template.name,
+                              })
+                            }
+                          >
+                            Move session
+                          </button>
                           <button
                             onClick={() =>
                               setSwapPlanned({
@@ -5387,6 +5849,28 @@ export default function Home() {
                 </button>
               )}
             </div>{" "}
+            {showStrength && savedDraft && (
+              <article className="plan-live-workout">
+                <div>
+                  <span>IN PROGRESS · {formatDate(savedDraft.date)}</span>
+                  <b>{savedDraft.name}</b>
+                  <small>
+                    {savedDraft.exercises.reduce(
+                      (sum, exercise) =>
+                        sum + exercise.sets.filter((set) => set.done).length,
+                      0,
+                    )}{" "}
+                    of{" "}
+                    {savedDraft.exercises.reduce(
+                      (sum, exercise) => sum + exercise.sets.length,
+                      0,
+                    )}{" "}
+                    sets complete
+                  </small>
+                </div>
+                <button onClick={resumeSavedWorkout}>Resume →</button>
+              </article>
+            )}{" "}
             {showEndurance && (
               <div
                 className={`plan-type-actions preference-${trainingPreference}`}
@@ -5957,7 +6441,7 @@ export default function Home() {
                   </p>
                 )}
                 <div className="pb-list">
-                  {sortedPersonalBests.map(({ exercise, best }, index) => {
+                  {sortedPersonalBests.map(({ exercise, best }) => {
                     const relative = bodyWeightKg
                       ? (Number(best.set.weight) / bodyWeightKg) * 100
                       : null;
@@ -5966,7 +6450,6 @@ export default function Home() {
                         key={exercise.id}
                         onClick={() => setExerciseHistoryId(exercise.id)}
                       >
-                        <span className="pb-medal">{index + 1}</span>
                         <span className="pb-info">
                           <b>{exercise.name}</b>
                           <small>
@@ -6217,6 +6700,65 @@ export default function Home() {
           </section>
         </div>
       )}{" "}
+      {moveSession && (
+        <div
+          className="overlay high-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setMoveSession(null);
+          }}
+        >
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+          <section
+            className="sheet move-session-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-session-title"
+            tabIndex={-1}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="sheet-handle" />
+            <div className="sheet-title">
+              <div>
+                <span>PLANNED SESSION</span>
+                <h2 id="move-session-title">Move session</h2>
+                <p>
+                  {moveSession.title} · {formatDate(moveSession.date)}
+                </p>
+              </div>
+              <button onClick={() => setMoveSession(null)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <label className="schedule-field">
+              NEW DATE
+              <span className="schedule-date-control">
+                <span>{formatDate(moveSessionDate)}</span>
+                <b aria-hidden="true">▣</b>
+                <input
+                  type="date"
+                  value={moveSessionDate}
+                  onChange={(event) => {
+                    setMoveSessionDate(event.target.value);
+                    setMoveSessionError("");
+                  }}
+                  aria-label="New session date"
+                />
+              </span>
+            </label>
+            {moveSessionError && (
+              <p className="move-session-error" role="alert">
+                {moveSessionError}
+              </p>
+            )}
+            <button
+              className="primary-button schedule-confirm"
+              onClick={confirmMoveSession}
+            >
+              Move session <span>→</span>
+            </button>
+          </section>
+        </div>
+      )}{" "}
       {(scheduleTemplateId || scheduleEnduranceTemplateId) && (
         <div
           className="overlay high-overlay"
@@ -6353,6 +6895,9 @@ export default function Home() {
                 {editingWorkoutId ? "EDIT WORKOUT" : "LIVE WORKOUT"}
               </small>
               <b>{active.name}</b>
+              <span className="live-workout-date">
+                {formatDate(active.date)}
+              </span>
             </div>
             <button
               className="save-draft-button"
@@ -7283,6 +7828,19 @@ export default function Home() {
               ? () => toggleEnduranceSkipped(enduranceDetail)
               : undefined
           }
+          onMove={
+            enduranceDetail.status === "planned"
+              ? () => {
+                  setEnduranceDetailId(null);
+                  openMoveSession({
+                    modality: "endurance",
+                    date: enduranceDetail.date,
+                    sessionId: enduranceDetail.id,
+                    title: enduranceDetail.title,
+                  });
+                }
+              : undefined
+          }
           onDelete={() => setDeleteEnduranceId(enduranceDetail.id)}
         />
       )}{" "}
@@ -7539,25 +8097,38 @@ export default function Home() {
             </div>{" "}
             <div className="live-edit-actions">
               <button
-                className="move-menu-action"
-                disabled={liveEditIndex === 0}
-                onClick={() =>
-                  moveLiveExercise(liveEditIndex, liveEditIndex - 1)
-                }
+                className="order-menu-action"
+                disabled={active.exercises.length < 2}
+                onClick={() => {
+                  setLiveEditIndex(null);
+                  setLiveOrderOpen(true);
+                }}
               >
-                <b>↑</b>
-                <span>Move earlier</span>
+                <b>⠿</b>
+                <span>Edit order</span>
               </button>
               <button
-                className="move-menu-action"
-                disabled={liveEditIndex === active.exercises.length - 1}
-                onClick={() =>
-                  moveLiveExercise(liveEditIndex, liveEditIndex + 1)
-                }
+                className="notes-menu-action"
+                onClick={() => setLiveNotesOpen((value) => !value)}
               >
-                <b>↓</b>
-                <span>Move later</span>
+                <b>✎</b>
+                <span>Add/edit notes</span>
               </button>
+              {liveNotesOpen && (
+                <label className="live-exercise-note-field">
+                  EXERCISE NOTE
+                  <textarea
+                    autoFocus
+                    value={active.exercises[liveEditIndex].note}
+                    onChange={(event) =>
+                      updateWorkoutExercise(liveEditIndex, {
+                        note: event.target.value,
+                      })
+                    }
+                    placeholder="Technique, setup or anything to remember"
+                  />
+                </label>
+              )}
               {active.exercises[liveEditIndex].group ? (
                 <button
                   className="superset-menu-action ungroup-action"
@@ -7596,6 +8167,13 @@ export default function Home() {
                     ? "Unskip exercise"
                     : "Skip for today"}
                 </span>
+              </button>
+              <button
+                className="delete-live-exercise-action"
+                onClick={() => requestDeleteLiveExercise(liveEditIndex)}
+              >
+                <b>×</b>
+                <span>Delete exercise</span>
               </button>
             </div>{" "}
             <div className="replace-heading">
@@ -7653,6 +8231,127 @@ export default function Home() {
                 ))}
             </div>{" "}
           </section>{" "}
+        </div>
+      )}{" "}
+      {active && liveOrderOpen && (
+        <div
+          className="overlay high-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setLiveOrderOpen(false);
+          }}
+        >
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+          <section
+            className="sheet live-order-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="live-order-title"
+            tabIndex={-1}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="sheet-handle" />
+            <div className="sheet-title">
+              <div>
+                <span>LIVE WORKOUT</span>
+                <h2 id="live-order-title">Edit order</h2>
+                <p>Press and drag exercises into position.</p>
+              </div>
+              <button onClick={() => setLiveOrderOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <div className="live-order-exercises">
+              {active.exercises.map((exercise, index) => (
+                <div
+                  data-live-order-index={index}
+                  className={
+                    draggedLiveExerciseIndex === index
+                      ? "dragging-exercise"
+                      : ""
+                  }
+                  key={`${exercise.exerciseId}-${index}`}
+                >
+                  <button
+                    className="drag-handle"
+                    type="button"
+                    aria-label={`Reorder ${exerciseName(exercise.exerciseId)}`}
+                    onPointerDown={(event) =>
+                      beginLiveReorder(index, event)
+                    }
+                    onPointerMove={moveLiveReorder}
+                    onPointerUp={endLiveReorder}
+                    onPointerCancel={endLiveReorder}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowUp" && index > 0) {
+                        event.preventDefault();
+                        reorderLiveExercise(index, index - 1);
+                      }
+                      if (
+                        event.key === "ArrowDown" &&
+                        index < active.exercises.length - 1
+                      ) {
+                        event.preventDefault();
+                        reorderLiveExercise(index, index + 1);
+                      }
+                    }}
+                  >
+                    ⠿
+                  </button>
+                  <span>
+                    <b>{exerciseName(exercise.exerciseId)}</b>
+                    <small>
+                      {exercise.sets.filter((set) => set.done).length} of{" "}
+                      {exercise.sets.length} sets complete
+                    </small>
+                  </span>
+                  <em>{String(index + 1).padStart(2, "0")}</em>
+                </div>
+              ))}
+            </div>
+            <button
+              className="primary-button live-order-done"
+              onClick={() => setLiveOrderOpen(false)}
+            >
+              Done
+            </button>
+          </section>
+        </div>
+      )}{" "}
+      {active && deleteLiveExerciseIndex !== null && (
+        <div
+          className="overlay high-overlay confirm-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget)
+              setDeleteLiveExerciseIndex(null);
+          }}
+        >
+          <section
+            className="confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-live-exercise-title"
+          >
+            <span className="confirm-icon">!</span>
+            <h2 id="delete-live-exercise-title">Delete this exercise?</h2>
+            <p>
+              {exerciseName(
+                active.exercises[deleteLiveExerciseIndex].exerciseId,
+              )}{" "}
+              contains entered or completed set data. It will only be removed
+              from this live workout.
+            </p>
+            <div className="confirm-actions">
+              <button onClick={() => setDeleteLiveExerciseIndex(null)}>
+                Cancel
+              </button>
+              <button
+                className="confirm-delete"
+                onClick={() => removeLiveExercise(deleteLiveExerciseIndex)}
+              >
+                Delete exercise
+              </button>
+            </div>
+          </section>
         </div>
       )}{" "}
       {active && liveAddOpen && (
@@ -7995,7 +8694,7 @@ export default function Home() {
                       </div>
                     )}
                     <div className="recovery-actions">
-                      <button onClick={() => retrySyncIssue(change)}>
+                      <button onClick={() => void retrySyncIssue(change)}>
                         Try device copy again
                       </button>
                       <button
@@ -8015,9 +8714,9 @@ export default function Home() {
                     {discardRecoveryId === change.operationId && (
                       <div className="recovery-confirm" role="alert">
                         <p>
-                          <b>Replace the device change?</b> Setra will keep a
-                          recoverable browser backup, discard this pending
-                          version, then reload the cloud copy.
+                          <b>Replace the device change?</b> Setra will discard
+                          this pending version, remove its matching active
+                          draft, then reload the cloud copy.
                         </p>
                         <div>
                           <button onClick={() => setDiscardRecoveryId(null)}>

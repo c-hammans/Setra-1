@@ -4,8 +4,8 @@ import type {PendingDiaryChange} from "./local-diary";
 export type RecoveryField={label:string;device:string;cloud:string;different:boolean};
 
 const text=(value:unknown)=>value==null||value===""?"Not recorded":String(value);
-const setSummary=(set:{weight:string;reps:string;rpe:string;done:boolean;note?:string},index:number)=>`set ${index+1}: ${set.done?"done":"planned"}, load ${set.weight||"–"}, reps ${set.reps||"–"}, RPE ${set.rpe||"–"}${set.note?`, note ${set.note}`:""}`;
-const exerciseSummary=(item:Workout["exercises"][number],index:number)=>`${index+1}. ${item.exerciseId} · ${item.loadMode||"kg"}${item.group?` · group ${item.group}`:""}${item.repTarget?` · target ${item.repTarget}`:""}${item.plannedLoad?` · planned ${item.plannedLoad.mode} ${item.plannedLoad.value}`:""}${item.skipped?" · skipped":""} · ${item.sets.map(setSummary).join("; ")||"no sets"}`;
+const setSummary=(set:{weight:string;reps:string;rpe:string;done:boolean},index:number)=>`${index+1}: ${set.done?"done":"planned"} · ${set.weight||"–"} × ${set.reps||"–"}${set.rpe?` · RPE ${set.rpe}`:""}`;
+const exerciseSummary=(item:Workout["exercises"][number])=>`${item.skipped?"Skipped":`${item.sets.filter(set=>set.done).length}/${item.sets.length} sets`} · ${item.sets.map(setSummary).join("; ")||"no sets"}`;
 const blockSummary=(item:EnduranceSession["blocks"][number],index:number)=>`${index+1}. ${item.title||item.type} [${item.type}]${item.parentId?` · parent ${item.parentId}`:""}${item.repetitions?` · repeat ×${item.repetitions}`:""}${item.completionType?` · ends ${item.completionType}`:""}${item.distanceMetres!=null?` · ${item.distanceMetres} m`:""}${item.durationSeconds!=null?` · ${item.durationSeconds} sec`:""}${item.recoveryDistanceMetres!=null?` · recovery ${item.recoveryDistanceMetres} m`:""}${item.recoveryDurationSeconds!=null?` · recovery ${item.recoveryDurationSeconds} sec`:""}${item.targetMetric?` · ${item.targetMetric} ${item.targetMinValue??""}${item.targetMaxValue!=null?`–${item.targetMaxValue}`:""} ${item.targetUnit||""}`:""}${item.intensityTarget?` · guidance ${item.intensityTarget}`:""}${item.instructions?` · instructions ${item.instructions}`:""}`;
 const workoutSummary=(workout:Workout,status?:"in_progress"|"completed")=>({
   Name:workout.name,
@@ -14,7 +14,6 @@ const workoutSummary=(workout:Workout,status?:"in_progress"|"completed")=>({
   Exercises:`${workout.exercises.length}`,
   Sets:`${workout.exercises.reduce((sum,item)=>sum+item.sets.length,0)}`,
   "Completed sets":`${workout.exercises.reduce((sum,item)=>sum+item.sets.filter(set=>set.done).length,0)}`,
-  "Exercise detail":workout.exercises.map(exerciseSummary).join(" | ")||"Not recorded",
   "Session notes":workout.note||"Not recorded",
   "Exercise notes":workout.exercises.map((item,index)=>item.note||item.planNote?`${index+1}. ${item.exerciseId}: ${[item.planNote,item.note].filter(Boolean).join(" / ")}`:"").filter(Boolean).join(" | ")||"Not recorded",
   "Warm-up":(workout.warmup||[]).map((item,index)=>`${index+1}. ${item.kind}: ${item.title||item.exerciseId||"Instructions"}${item.instructions?` · ${item.instructions}`:""}${item.done?" · done":""}`).join(" | ")||"Not recorded",
@@ -26,10 +25,23 @@ const enduranceTemplateSummary=(template:EnduranceTemplate)=>({Title:template.ti
 
 export function recoveryComparison(change:PendingDiaryChange,cloud:unknown):RecoveryField[]{
   let device:Record<string,string>={};let remote:Record<string,string>={};
-  if(change.kind==="save_workout"){device=workoutSummary(change.payload.workout,change.payload.status);if(cloud)remote=workoutSummary(cloud as Workout)}
+  if(change.kind==="save_workout"){
+    const deviceWorkout=change.payload.workout;const cloudWorkout=cloud as Workout|null;
+    device=workoutSummary(deviceWorkout,change.payload.status);if(cloudWorkout)remote=workoutSummary(cloudWorkout);
+    const fields=Object.keys(device).map(label=>({label,device:text(device[label]),cloud:cloudWorkout?text(remote[label]):"No cloud record",different:!cloudWorkout||device[label]!==remote[label]})).filter(field=>field.different);
+    const count=Math.max(deviceWorkout.exercises.length,cloudWorkout?.exercises.length||0);
+    for(let index=0;index<count;index++){
+      const local=deviceWorkout.exercises[index];const remoteExercise=cloudWorkout?.exercises[index];
+      const localText=local?`${local.exerciseId} · ${exerciseSummary(local)}`:"Not present";
+      const remoteText=remoteExercise?`${remoteExercise.exerciseId} · ${exerciseSummary(remoteExercise)}`:"Not present";
+      if(localText!==remoteText)fields.push({label:`Exercise ${index+1}`,device:localText,cloud:remoteText,different:true});
+    }
+    return fields.length?fields:[{label:"Workout",device:"No content differences",cloud:"No content differences",different:false}];
+  }
   else if(change.kind==="save_strength_template"){device=templateSummary(change.payload.template);if(cloud)remote=templateSummary(cloud as Template)}
   else if(change.kind==="save_endurance_session"){device=enduranceSummary(change.payload.session);if(cloud)remote=enduranceSummary(cloud as EnduranceSession)}
   else if(change.kind==="save_endurance_template"){device=enduranceTemplateSummary(change.payload.template);if(cloud)remote=enduranceTemplateSummary(cloud as EnduranceTemplate)}
   else return [{label:"Change",device:change.kind.startsWith("delete_")?"Delete pending":"Schedule update pending",cloud:cloud?"Cloud version exists":"No cloud record",different:true}];
-  return Object.keys(device).map(label=>({label,device:text(device[label]),cloud:cloud?text(remote[label]):"No cloud record",different:!cloud||device[label]!==remote[label]}));
+  const fields=Object.keys(device).map(label=>({label,device:text(device[label]),cloud:cloud?text(remote[label]):"No cloud record",different:!cloud||device[label]!==remote[label]})).filter(field=>field.different);
+  return fields.length?fields:[{label:"Item",device:"No content differences",cloud:"No content differences",different:false}];
 }

@@ -14,7 +14,7 @@ describe("recovery comparison",()=>{
     const base={id:"w",name:"Session",date:"2026-01-01",startedAt:"08:00",duration:30,note:"",exercises:[{exerciseId:"squat",note:"",loadMode:"kg" as const,sets:[{weight:"60",reps:"5",rpe:"8",done:true}]}]};
     const change={key:"workout:w",operationId:"op",revision:1,expectedVersion:0,protocolVersion:2,updatedAt:"2026-01-01",kind:"save_workout",payload:{status:"completed",workout:base}} as PendingDiaryChange;
     const cloud={...base,exercises:[{exerciseId:"bench-press",note:"",loadMode:"kg" as const,sets:[{weight:"40",reps:"5",rpe:"8",done:true}]}]};
-    const field=recoveryComparison(change,cloud).find(item=>item.label==="Exercise detail");
+    const field=recoveryComparison(change,cloud).find(item=>item.label==="Exercise 1");
     assert.equal(field?.different,true);assert.match(field?.device||"",/squat/);assert.match(field?.cloud||"",/bench-press/);
   });
   it("detects reordered and nested endurance blocks",()=>{
