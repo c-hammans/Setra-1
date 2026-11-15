@@ -26,9 +26,11 @@
 
 .finish-time-dialog{min-width:0;max-width:min(390px,100%);overflow-x:hidden}
 .finish-summary{min-width:0;overflow-wrap:anywhere}
-.session-time-fields{grid-template-columns:repeat(auto-fit,minmax(min(100%,128px),1fr));min-width:0}
-.session-time-fields label{min-width:0;max-width:100%;overflow:hidden;overflow-wrap:anywhere}
-.session-time-fields input{display:block;min-width:0;max-width:100%;inline-size:100%;box-sizing:border-box;font-size:clamp(14px,calc(15px * var(--text-scale-number,1)),18px);font-variant-numeric:tabular-nums}
+.finish-time-dialog{box-sizing:border-box;max-inline-size:min(390px,calc(100vw - 24px));overflow:hidden}
+.session-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;inline-size:100%;min-inline-size:0}
+.session-time-fields label{inline-size:100%;min-inline-size:0;max-inline-size:100%;overflow:hidden;overflow-wrap:anywhere}
+.session-time-fields input{display:block;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box;overflow:hidden;font-size:clamp(14px,calc(15px * var(--text-scale-number,1)),18px);font-variant-numeric:tabular-nums}
+@media(max-width:420px){.finish-time-dialog{max-inline-size:calc(100vw - 20px);padding-inline:16px}.session-time-fields{grid-template-columns:minmax(0,1fr);gap:9px}.session-time-fields input{block-size:48px}}
 
 .day-dots .in-progress-dot,.month-dots .in-progress-dot{border:1px solid var(--accent)!important;background:transparent!important}
 .day.active-day .in-progress-dot,.month-grid .selected-date .in-progress-dot{border-color:var(--accent-contrast)!important;background:var(--accent-contrast)!important}
@@ -55,3 +57,7 @@
   .set-head,.set-row{grid-template-columns:28px 52px repeat(3,minmax(42px,1fr)) 34px;gap:4px}
   .live-exercise{padding-inline:8px}.set-head{letter-spacing:.04em}
 }
+
+.move-session-error,.app-shell[data-theme=dark] .move-session-error{background:var(--destructive-surface);color:var(--destructive)}
+.live-edit-actions .delete-live-exercise-action,.app-shell[data-theme=dark] .live-edit-actions .delete-live-exercise-action{border-color:color-mix(in srgb,var(--destructive) 35%,var(--border-subtle));background:var(--destructive-surface);color:var(--destructive)}
+.live-edit-actions .delete-live-exercise-action b{background:color-mix(in srgb,var(--destructive) 12%,var(--destructive-surface))!important;color:var(--destructive)!important}

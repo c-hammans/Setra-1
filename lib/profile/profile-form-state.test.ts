@@ -17,6 +17,7 @@ const baseline: ProfileSettings = {
   textScale: 1,
   showWorkoutTimingPopup: true,
   showPbPopup: true,
+  plannedWorkoutProgress: "sets",
   weekStartsOn: 1,
   lastWeeklyPreviewWeekStart: null,
   weeklySessionGoal: 4,

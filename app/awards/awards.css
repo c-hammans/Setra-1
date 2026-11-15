@@ -15,3 +15,9 @@
 
 /* Match the shorter global iPhone safe-zone fade so header actions remain clear. */
 .awards-screen::before{height:calc(env(safe-area-inset-top,0px) + 4px);-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 4px),transparent 100%);mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 4px),transparent 100%)}
+
+.awards-intro small,.streak-record header span,.recent-awards header span,.award-category header span{color:var(--text-secondary)}
+.award-badge{box-shadow:inset 0 0 0 1px transparent}
+.award-badge.is-earned{background:var(--surface-tint);box-shadow:inset 0 0 0 1px var(--accent-border)}
+.award-badge.is-locked{opacity:1;color:var(--text-secondary)}
+.award-badge.is-locked b{color:var(--text-primary)}

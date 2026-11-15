@@ -1,8 +1,8 @@
-import type {EnduranceSession,Workout} from "@/lib/setra/types";
-import type {ShareCardData,ShareMetric,ShareSport} from "@/lib/share/share-types";
-import type {AwardProgress} from "@/lib/awards/types";
-import {formatLoad,type StrengthUnit} from "@/lib/setra/units";
-import {strengthCompletion} from "@/lib/setra/completion";
+import type {EnduranceSession,Workout} from "../setra/types.ts";
+import type {ShareCardData,ShareMetric,ShareSport} from "./share-types.ts";
+import type {AwardProgress} from "../awards/types.ts";
+import {formatLoad,type StrengthUnit} from "../setra/units.ts";
+import {strengthCompletion} from "../setra/completion.ts";
 
 const clock=(seconds:number)=>{const rounded=Math.max(0,Math.round(seconds));const hours=Math.floor(rounded/3600);const minutes=Math.floor((rounded%3600)/60);const secs=rounded%60;return hours?`${hours}:${String(minutes).padStart(2,"0")}:${String(secs).padStart(2,"0")}`:`${minutes}:${String(secs).padStart(2,"0")}`};
 const duration=(minutes?:number)=>minutes?clock(minutes*60):"";
@@ -14,13 +14,15 @@ export function strengthWorkoutShareData(workout:Workout,unit:StrengthUnit="kg")
   const completion=strengthCompletion(workout);
   const included=workout.exercises.filter(exercise=>!exercise.skipped);
   const completedSets=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).length,0);
+  const completedReps=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done).reduce((setSum,set)=>setSum+(Number(set.reps)||0),0),0);
   const volume=included.reduce((sum,exercise)=>sum+exercise.sets.filter(set=>set.done&&(exercise.loadMode==null||exercise.loadMode==="kg")).reduce((setSum,set)=>setSum+(Number(set.weight)||0)*(Number(set.reps)||0),0),0);
   const metrics:ShareMetric[]=[];
   const elapsed=sessionDuration(workout.startedAt,workout.endedAt);
+  metrics.push({label:"Sets",value:String(completedSets)});
+  metrics.push({label:"Reps",value:String(completedReps)});
   if(elapsed)metrics.push({label:"Duration",value:elapsed});
-  if(completedSets)metrics.push({label:"Sets",value:String(completedSets)});
   if(volume)metrics.push({label:"Volume",value:formatLoad(volume,unit)});
-  return{id:workout.id,kind:"workout",sport:"strength",label:completion.status==="partial"?"Strength · partial":"Strength complete",title:workout.name||"Workout complete",result:completion.status==="partial"?`${completion.completedSets} of ${completion.plannedSets} sets`:"Workout complete",date:workout.date,metrics};
+  return{id:workout.id,kind:"workout",sport:"strength",label:completion.status==="partial"?"Strength · partial":"Strength complete",title:workout.name||"Workout complete",result:`${completedSets} sets`,date:workout.date,metrics};
 }
 
 export function enduranceWorkoutShareData(session:EnduranceSession):ShareCardData{
@@ -41,7 +43,7 @@ export function enduranceWorkoutShareData(session:EnduranceSession):ShareCardDat
 
 export function strengthPBShareData(pb:{exerciseId:string;name:string;weight:number;reps:string;previousWeight?:number},unit:StrengthUnit="kg"):ShareCardData{
   const improvement=pb.previousWeight&&pb.weight>pb.previousWeight?pb.weight-pb.previousWeight:undefined;
-  return{id:pb.exerciseId,kind:"pb",sport:"strength",label:"New highest load",title:pb.name,result:formatLoad(pb.weight,unit),secondary:pb.reps?`× ${pb.reps} reps`:undefined,improvement:improvement?`+${formatLoad(improvement,unit)}`:undefined,previous:pb.previousWeight?`Previous highest load ${formatLoad(pb.previousWeight,unit)}`:undefined,metrics:[]};
+  return{id:pb.exerciseId,kind:"pb",sport:"strength",label:"New PB",title:pb.name,result:formatLoad(pb.weight,unit),secondary:pb.reps?`× ${pb.reps}`:undefined,improvement:improvement?`↑ ${formatLoad(improvement,unit)}`:undefined,metrics:[]};
 }
 
 export function awardShareData(award:AwardProgress):ShareCardData{

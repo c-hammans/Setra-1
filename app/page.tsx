@@ -143,6 +143,15 @@ import {
 } from "@/lib/analytics/events";
 import { strengthCompletion } from "@/lib/setra/completion";
 import {
+  workoutProgress,
+  workoutProgressLabel,
+  type PlannedWorkoutProgressPreference,
+} from "@/lib/setra/planned-workout-progress";
+import {
+  isRecentNavigationResume,
+  type NavigationResumeState,
+} from "@/lib/navigation/resume-state";
+import {
   createRecordId,
   createWorkoutId,
   newBlankWorkout,
@@ -1726,6 +1735,8 @@ export default function Home() {
   const [textScale, setTextScale] = useState<TextScale>(1);
   const [showWorkoutTimingPopup, setShowWorkoutTimingPopup] = useState(true);
   const [showPbPopup, setShowPbPopup] = useState(true);
+  const [plannedWorkoutProgress, setPlannedWorkoutProgress] =
+    useState<PlannedWorkoutProgressPreference>("sets");
   const [preferredUnit, setPreferredUnit] = useState<StrengthUnit>("kg");
   const [bodyWeightKg, setBodyWeightKg] = useState<number | null>(null);
   const [pbSort, setPbSort] = useState<PBSort>("weight");
@@ -1825,8 +1836,17 @@ export default function Home() {
     setMotivation(motivations[Math.floor(Math.random() * motivations.length)]);
     const requestedTab = new URLSearchParams(window.location.search).get("tab");
     let storedTab: string | null = null;
+    let recentResume = false;
     try {
-      storedTab = localStorage.getItem(`setra-last-tab:${user?.id || "guest"}`);
+      storedTab = sessionStorage.getItem(
+        `setra-current-tab:${user?.id || "guest"}`,
+      );
+      const resume = JSON.parse(
+        sessionStorage.getItem(
+          `setra-navigation-resume:${user?.id || "guest"}`,
+        ) || "null",
+      ) as NavigationResumeState | null;
+      recentResume = isRecentNavigationResume(resume);
     } catch {
       /* Restricted storage falls back to Today. */
     }
@@ -1837,10 +1857,11 @@ export default function Home() {
     )
       setTab(requestedTab);
     else if (
-      storedTab === "today" ||
-      storedTab === "plan" ||
-      storedTab === "history" ||
-      storedTab === "pbs"
+      recentResume &&
+      (storedTab === "today" ||
+        storedTab === "plan" ||
+        storedTab === "history" ||
+        storedTab === "pbs")
     )
       setTab(storedTab);
   }, [user?.id]);
@@ -1874,7 +1895,10 @@ export default function Home() {
   useEffect(() => {
     if (loaded)
       try {
-        localStorage.setItem(`setra-last-tab:${user?.id || "guest"}`, tab);
+        sessionStorage.setItem(
+          `setra-current-tab:${user?.id || "guest"}`,
+          tab,
+        );
       } catch {
         /* Navigation remains functional without storage. */
       }
@@ -2513,6 +2537,7 @@ export default function Home() {
         setBodyWeightKg(profile.bodyWeightKg);
         setShowWorkoutTimingPopup(profile.showWorkoutTimingPopup);
         setShowPbPopup(profile.showPbPopup);
+        setPlannedWorkoutProgress(profile.plannedWorkoutProgress);
         setWeekStartsOn(profile.weekStartsOn);
         setLastWeeklyPreviewWeekStart(profile.lastWeeklyPreviewWeekStart);
         setProfileReady(true);
@@ -2659,11 +2684,7 @@ export default function Home() {
     const url = next === "today" ? "/" : `/?tab=${next}`;
     try {
       if (user?.id) {
-        window.localStorage.setItem(`setra-last-tab:${user.id}`, next);
-        window.localStorage.setItem(
-          `setra-last-location:${user.id}`,
-          JSON.stringify({ location: url, savedAt: Date.now() }),
-        );
+        window.sessionStorage.setItem(`setra-current-tab:${user.id}`, next);
       }
     } catch {
       /* Navigation remains available when storage is restricted. */
@@ -5454,16 +5475,10 @@ export default function Home() {
                   <h2>{savedDraft.name}</h2>
                   <p>
                     {formatDate(savedDraft.date)} ·{" "}
-                    {savedDraft.exercises.reduce(
-                      (sum, e) => sum + e.sets.filter((s) => s.done).length,
-                      0,
-                    )}{" "}
-                    of{" "}
-                    {savedDraft.exercises.reduce(
-                      (sum, e) => sum + e.sets.length,
-                      0,
-                    )}{" "}
-                    sets complete
+                    {workoutProgressLabel(
+                      savedDraft,
+                      plannedWorkoutProgress,
+                    )}
                   </p>
                 </div>
                 <div className="resume-card-actions">
@@ -5855,17 +5870,10 @@ export default function Home() {
                   <span>IN PROGRESS · {formatDate(savedDraft.date)}</span>
                   <b>{savedDraft.name}</b>
                   <small>
-                    {savedDraft.exercises.reduce(
-                      (sum, exercise) =>
-                        sum + exercise.sets.filter((set) => set.done).length,
-                      0,
-                    )}{" "}
-                    of{" "}
-                    {savedDraft.exercises.reduce(
-                      (sum, exercise) => sum + exercise.sets.length,
-                      0,
-                    )}{" "}
-                    sets complete
+                    {workoutProgressLabel(
+                      savedDraft,
+                      plannedWorkoutProgress,
+                    )}
                   </small>
                 </div>
                 <button onClick={resumeSavedWorkout}>Resume →</button>
@@ -6915,18 +6923,7 @@ export default function Home() {
             </button>
           </header>{" "}
           {(() => {
-            const included = active.exercises.filter(
-              (exercise) => !exercise.skipped,
-            );
-            const completed = included.reduce(
-              (sum, exercise) =>
-                sum + exercise.sets.filter((set) => set.done).length,
-              0,
-            );
-            const total = included.reduce(
-              (sum, exercise) => sum + exercise.sets.length,
-              0,
-            );
+            const progress = workoutProgress(active);
             const saveLabel =
               draftSaveState === "saving"
                 ? "Saving…"
@@ -6941,9 +6938,7 @@ export default function Home() {
                         : "Auto-save on";
             return (
               <div className="live-progress">
-                <span>
-                  {completed} / {total} sets
-                </span>
+                <span>{workoutProgressLabel(active, plannedWorkoutProgress)}</span>
                 <small
                   className={`live-save-status state-${draftSaveState}`}
                   role="status"
@@ -6953,7 +6948,7 @@ export default function Home() {
                 <div>
                   <i
                     style={{
-                      width: `${total ? (100 * completed) / total : 0}%`,
+                      width: `${progress.percentage}%`,
                     }}
                   />
                 </div>
@@ -7349,13 +7344,9 @@ export default function Home() {
       {active &&
         finishDialogOpen &&
         (() => {
-          const plannedSets = active.exercises
-            .filter((exercise) => !exercise.skipped)
-            .reduce((sum, exercise) => sum + exercise.sets.length, 0);
-          const completedSetCount = active.exercises.reduce(
-            (sum, exercise) => sum + completedSets(exercise).length,
-            0,
-          );
+          const progress = workoutProgress(active);
+          const plannedSets = progress.plannedSets;
+          const completedSetCount = progress.completedSets;
           const skippedExercises = active.exercises.filter(
             (exercise) => exercise.skipped,
           ).length;
@@ -7388,9 +7379,7 @@ export default function Home() {
                   {formatDate(active.date)} · {active.name}
                 </p>
                 <div className="finish-summary">
-                  <b>
-                    {completedSetCount} of {plannedSets} planned sets completed
-                  </b>
+                  <b>{workoutProgressLabel(active, plannedWorkoutProgress)}</b>
                   {skippedExercises > 0 && (
                     <small>
                       {skippedExercises}{" "}

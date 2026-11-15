@@ -1,52 +1,51 @@
 "use client";
 
 import {useEffect,useRef} from "react";
-import {usePathname} from "next/navigation";
 import {useAuth} from "@/components/auth/auth-provider";
-
-const MAX_RESUME_AGE_MS=24*60*60*1000;
-const resumableLocation=(value:string)=>value==="/"||/^\/(?:profile|premium|awards|import|support|legal)(?:[?#].*)?$/.test(value)||/^\/\?tab=(?:plan|history|pbs)(?:[&#].*)?$/.test(value);
-
-type SavedLocation={location:string;savedAt:number};
+import {isRecentNavigationResume,resumableLocation,type NavigationResumeState} from "@/lib/navigation/resume-state";
 
 export function NavigationResume(){
   const {user}=useAuth();
-  const pathname=usePathname();
   const handled=useRef(false);
-  const restoring=useRef(false);
   const activeUser=useRef<string|null>(null);
 
   useEffect(()=>{
     if(!user?.id)return;
-    if(activeUser.current!==user.id){activeUser.current=user.id;handled.current=false;restoring.current=false}
+    if(activeUser.current!==user.id){activeUser.current=user.id;handled.current=false}
     if(handled.current)return;
     handled.current=true;
-    const key=`setra-last-location:${user.id}`;
+    const key=`setra-navigation-resume:${user.id}`;
+    let resettingToToday=false;
     const current=()=>`${window.location.pathname}${window.location.search}${window.location.hash}`;
-    const save=()=>{const location=current();if(!resumableLocation(location))return;try{localStorage.setItem(key,JSON.stringify({location,savedAt:Date.now()} satisfies SavedLocation))}catch{/* Navigation remains usable when device storage is restricted or full. */}};
-
-    if(current()==="/"){
-      try{
-        const saved=JSON.parse(localStorage.getItem(key)||"null") as SavedLocation|null;
-        if(saved&&saved.location!=="/"&&resumableLocation(saved.location)&&Date.now()-saved.savedAt<=MAX_RESUME_AGE_MS){
-          restoring.current=true;
-          window.location.replace(saved.location);
-          return;
-        }
-      }catch{/* Ignore an invalid or unavailable device cache. */}
+    const read=()=>{try{return JSON.parse(sessionStorage.getItem(key)||"null") as NavigationResumeState|null}catch{return null}};
+    const clear=()=>{try{sessionStorage.removeItem(key);sessionStorage.removeItem(`setra-current-tab:${user.id}`)}catch{/* Navigation remains usable when device storage is restricted. */}};
+    const save=()=>{if(resettingToToday)return;const location=current();if(!resumableLocation(location))return;try{sessionStorage.setItem(key,JSON.stringify({location,backgroundedAt:Date.now()} satisfies NavigationResumeState))}catch{/* Navigation remains usable when device storage is restricted or full. */}};
+    const saved=read();
+    if(saved&&!isRecentNavigationResume(saved)){
+      clear();
+      if(current()!=="/"){
+        resettingToToday=true;
+        window.location.replace("/");
+        return;
+      }
     }
-
-    const onVisibilityChange=()=>{if(document.visibilityState==="hidden")save()};
+    else if(current()==="/"&&saved?.location!=="/"&&saved&&resumableLocation(saved.location)){
+      window.location.replace(saved.location);
+      return;
+    }
+    const onVisibilityChange=()=>{
+      if(document.visibilityState==="hidden"){save();return}
+      const resume=read();
+      if(resume&&!isRecentNavigationResume(resume)){
+        clear();
+        resettingToToday=true;
+        window.location.replace("/");
+      }
+    };
     document.addEventListener("visibilitychange",onVisibilityChange);
     window.addEventListener("pagehide",save);
     return()=>{document.removeEventListener("visibilitychange",onVisibilityChange);window.removeEventListener("pagehide",save)};
   },[user?.id]);
-
-  useEffect(()=>{
-    if(!user?.id||restoring.current)return;
-    const location=`${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if(resumableLocation(location))try{localStorage.setItem(`setra-last-location:${user.id}`,JSON.stringify({location,savedAt:Date.now()} satisfies SavedLocation))}catch{/* Safe fallback: the current page remains open. */}
-  },[pathname,user?.id]);
 
   return null;
 }

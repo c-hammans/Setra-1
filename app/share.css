@@ -8,3 +8,84 @@
 .share-preview{--text-scale-number:1}.share-card{container-type:inline-size}.share-background-photo{z-index:0}.share-photo-shade{z-index:1}.share-information-layer{position:relative;z-index:2}.share-result strong,.share-pb-content>strong{font-size:clamp(34px,14cqw,59px);overflow-wrap:anywhere}.share-format-story .share-result strong,.share-format-story .share-pb-content>strong{font-size:clamp(32px,16cqw,54px)}.share-sticker-content strong{font-size:clamp(15px,6.5cqw,25px);line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.share-completed-button{display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--accent)!important;background:var(--surface-tint)!important;color:var(--accent-ink)!important;font-weight:900}.detail-share-button{width:100%;min-height:44px;margin-top:14px;border:0;border-radius:11px}.detail-share-button+.delete-workout-button{margin-top:7px}.share-background-transparent .share-brand,.share-background-transparent .share-information-layer>header>span,.share-background-transparent .share-sport-glyph{color:var(--share-accent)}
 
 .share-workout-content .share-result{margin-top:auto}.share-sticker-content{grid-template-columns:minmax(0,1fr) minmax(110px,.8fr)}
+
+.share-studio-heading span,.share-controls legend{color:var(--text-secondary)}
+.share-export-actions button{border-color:var(--border-control);background:var(--surface-card);color:var(--text-primary)}
+
+/* Share tiles use one responsive composition for preview and export. */
+.share-card{font-family:Arial,Helvetica,sans-serif;font-variant-numeric:tabular-nums}
+.share-information-layer{padding:5.75%;border-width:1.5px;border-radius:6cqw;text-shadow:none}
+.share-information-layer>header{flex:0 0 auto}
+.share-information-layer>header>span{max-width:52%;font-size:clamp(6px,2.25cqw,11px);line-height:1.2;text-align:right}
+.share-brand{gap:1.8cqw}
+.share-brand i{width:8.2cqw;height:8.2cqw}
+.share-brand b{font-size:clamp(13px,4.8cqw,22px);letter-spacing:-.035em}
+.share-background-transparent .share-information-layer{background:transparent}
+.share-background-transparent.share-tone-light{color:#fff}
+.share-background-transparent.share-tone-dark{color:#0f172a}
+
+.share-workout-content,.share-pb-content{min-width:0}
+.share-session-heading{margin-top:15%;min-width:0}
+.share-session-heading small,.share-pb-content>small{display:block;color:var(--share-accent);font-size:clamp(7px,2.25cqw,11px);font-weight:900;letter-spacing:.14em;line-height:1.2;text-transform:uppercase}
+.share-session-heading h2,.share-pb-content h2{margin:2.2cqw 0 0;color:currentColor;font-size:clamp(23px,8.4cqw,42px);font-weight:900;letter-spacing:-.045em;line-height:.98;overflow-wrap:anywhere}
+.share-session-heroes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7cqw;margin-top:auto}
+.share-session-heroes p{position:relative}
+.share-session-heroes p:first-child:after{position:absolute;top:5%;right:-3.6cqw;width:1.2cqw;height:90%;border-radius:999px;background:var(--share-accent);content:""}
+.share-hero-metric,.share-session-secondary p,.share-compact-session p{display:flex;min-width:0;flex-direction:column;margin:0}
+.share-hero-metric b{font-size:clamp(39px,18cqw,82px);font-weight:900;letter-spacing:-.07em;line-height:.82;overflow-wrap:anywhere}
+.share-hero-metric span{margin-top:2cqw;font-size:clamp(8px,3.6cqw,17px);font-weight:900;letter-spacing:.09em;line-height:1;text-transform:uppercase}
+.share-session-secondary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5cqw;margin-top:8%;padding-top:5%;border-top:1.2cqw solid var(--share-accent)}
+.share-session-secondary b{font-size:clamp(17px,6.4cqw,31px);font-weight:900;letter-spacing:-.04em;line-height:1;overflow-wrap:anywhere}
+.share-session-secondary span{margin-top:1.6cqw;font-size:clamp(6px,2.1cqw,10px);font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.share-workout-content time{margin-top:5%;font-size:clamp(6px,2cqw,10px);font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+
+.share-endurance-session .share-session-heading{margin-top:22%}
+.share-endurance-session .share-session-heading h2{font-size:clamp(40px,16cqw,74px);line-height:.9}
+.share-endurance-session .share-session-secondary{margin-top:auto;border-top-width:1px}
+
+.share-pb-content{justify-content:flex-start;padding-top:20%}
+.share-pb-content>small{width:max-content;padding:2.2cqw 3.4cqw;border-radius:999px;background:color-mix(in srgb,var(--share-accent) 16%,transparent)}
+.share-pb-result{display:flex;min-width:0;align-items:baseline;gap:2.4cqw;margin-top:8%}
+.share-pb-result strong{font-size:clamp(46px,20cqw,92px);font-weight:900;letter-spacing:-.075em;line-height:.82;overflow-wrap:anywhere}
+.share-pb-result span{font-size:clamp(25px,9.5cqw,46px);font-weight:900;letter-spacing:-.055em;line-height:.9;white-space:nowrap}
+.share-pb-content>b{margin-top:5%;color:var(--share-accent);font-size:clamp(20px,8cqw,38px);font-weight:900;letter-spacing:-.045em;line-height:1}
+.share-background-photo .share-pb-content>small,.share-background-solid .share-pb-content>small,.share-background-gradient .share-pb-content>small{background:color-mix(in srgb,currentColor 15%,transparent);color:currentColor}
+.share-background-photo .share-pb-content>b,.share-background-solid .share-pb-content>b,.share-background-gradient .share-pb-content>b{color:currentColor}
+.share-award-content>strong{margin-top:auto;font-size:clamp(36px,13cqw,64px);line-height:.92}
+
+.share-format-story .share-information-layer{padding:7%;border-radius:7cqw}
+.share-format-story .share-session-heading{margin-top:34%}
+.share-format-story .share-session-heading h2{font-size:clamp(28px,11cqw,48px)}
+.share-format-story .share-session-heroes{margin-top:26%}
+.share-format-story .share-hero-metric b{font-size:clamp(42px,21cqw,90px)}
+.share-format-story .share-session-secondary{margin-top:18%}
+.share-format-story .share-pb-content{padding-top:38%}
+.share-format-story .share-pb-content h2{font-size:clamp(32px,12cqw,54px)}
+.share-format-story .share-pb-result{margin-top:12%;flex-wrap:wrap}
+
+.share-format-sticker .share-information-layer{display:grid;grid-template-columns:minmax(72px,20%) minmax(0,1fr);gap:4%;padding:3.2%;border-radius:6cqw}
+.share-format-sticker .share-information-layer>header{position:static;display:flex;min-width:0;align-items:flex-start;justify-content:center;padding-right:12%;border-right:1.1cqw solid var(--share-accent);flex-direction:column}
+.share-format-sticker .share-information-layer>header>span{max-width:100%;margin-top:3cqw;font-size:clamp(5px,1.85cqw,8px);text-align:left}
+.share-format-sticker .share-brand{gap:1.4cqw}
+.share-format-sticker .share-brand i{width:7.2cqw;height:7.2cqw}
+.share-format-sticker .share-brand b{font-size:clamp(11px,3.7cqw,17px)}
+.share-compact-pb,.share-compact-session{min-width:0;height:100%}
+.share-compact-pb{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;align-items:center;column-gap:3cqw}
+.share-compact-pb small{width:max-content;padding:1.2cqw 2.4cqw;border-radius:999px;background:var(--share-accent);color:var(--accent-contrast,#fff);font-size:clamp(6px,2.2cqw,10px);font-style:normal;font-weight:900;letter-spacing:.08em}
+.share-compact-pb b{grid-column:1;align-self:end;min-width:0;font-size:clamp(11px,3.8cqw,18px);line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-compact-pb strong{grid-column:1;align-self:start;margin-top:.6cqw;font-size:clamp(22px,8cqw,38px);font-weight:900;letter-spacing:-.055em;line-height:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-compact-pb em{grid-column:2;grid-row:1/3;color:var(--share-accent);font-size:clamp(15px,6cqw,28px);font-style:normal;font-weight:900;letter-spacing:-.04em;white-space:nowrap}
+.share-background-photo .share-compact-pb small,.share-background-solid .share-compact-pb small,.share-background-gradient .share-compact-pb small{background:color-mix(in srgb,currentColor 15%,transparent);color:currentColor}
+.share-background-photo .share-compact-pb em,.share-background-solid .share-compact-pb em,.share-background-gradient .share-compact-pb em{color:currentColor}
+.share-compact-session{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-rows:auto 1fr;align-items:center;column-gap:4cqw}
+.share-compact-title{grid-column:1;align-self:end;min-width:0}
+.share-compact-title small{display:block;color:var(--share-accent);font-size:clamp(5px,1.85cqw,8px);font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.share-compact-title b{display:block;margin-top:.7cqw;font-size:clamp(10px,3.5cqw,16px);line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-compact-primary{display:grid;grid-column:1;grid-template-columns:repeat(2,minmax(0,1fr));align-self:start;gap:3cqw;margin-top:1cqw}
+.share-compact-primary .share-hero-metric b{font-size:clamp(20px,7.8cqw,36px);line-height:.9}
+.share-compact-primary .share-hero-metric span{margin-top:.7cqw;font-size:clamp(5px,1.8cqw,8px)}
+.share-compact-secondary{display:grid;grid-column:2;grid-row:1/3;grid-template-columns:repeat(2,minmax(0,1fr));gap:2.5cqw}
+.share-compact-secondary b{font-size:clamp(10px,3.4cqw,16px);line-height:1}
+.share-compact-secondary span{margin-top:1cqw;font-size:clamp(5px,1.55cqw,7px);font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+
+@media(max-width:380px){.share-preview-sticker{aspect-ratio:3/1}.share-format-sticker .share-information-layer{grid-template-columns:minmax(64px,21%) minmax(0,1fr);gap:3%}.share-compact-session{column-gap:3cqw}.share-compact-secondary{gap:1.5cqw}}

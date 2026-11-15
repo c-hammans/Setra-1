@@ -3,3 +3,8 @@
 .import-exercise-row .import-raw-name{height:auto;padding:0;border:0;background:transparent;font-size:16px;font-weight:800;outline-color:var(--accent)}
 
 .import-original{margin:0 0 12px;padding:11px 12px;border-radius:12px;background:var(--surface-neutral);color:var(--text-secondary)}.import-original summary{cursor:pointer;color:var(--accent-ink);font-size:calc(9px * var(--text-scale-number,1));font-weight:850}.import-original pre{max-height:180px;margin:10px 0 0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-primary);font:inherit;font-size:calc(10px * var(--text-scale-number,1));line-height:1.45}
+
+.import-header small,.import-intro>span,.review-list-heading>span,.import-fields label,.import-exercise-row label,.import-input-card>label,.import-options label{color:var(--text-secondary)}
+.import-input-card textarea,.import-input-card input,.import-input-card select,.import-fields input,.import-exercise-row input,.import-exercise-row select,.import-exercise-row textarea{border-color:var(--border-control);background:var(--control-background)}
+.import-error,.duplicate-warning{background:var(--destructive-surface);color:var(--destructive)}
+.import-secondary,.add-review-exercise{color:var(--text-primary)}

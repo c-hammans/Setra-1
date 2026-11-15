@@ -9,7 +9,7 @@ import {useDialogFocusTrap} from "@/components/ui/use-dialog-focus-trap";
 
 type Props={items:ShareCardData[];accent:string;onClose:()=>void;footer?:ReactNode};
 const modes:[ShareBackgroundMode,string][]=[["transparent","Transparent"],["photo","Photo"],["solid","Solid"],["gradient","Gradient"]];
-const formats:[ShareFormat,string][]=[["square","Square"],["story","Story"],["sticker","Sticker"]];
+const formats:[ShareFormat,string][]=[["square","Full"],["story","Story"],["sticker","Compact"]];
 
 export function ShareStudio({items,accent,onClose,footer}:Props){
   useDialogFocusTrap(true);
