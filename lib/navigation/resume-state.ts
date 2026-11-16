@@ -3,6 +3,7 @@ export const NAVIGATION_RESUME_WINDOW_MS = 5 * 60 * 1000;
 export type NavigationResumeState = {
   location: string;
   backgroundedAt: number;
+  view?: "live-workout";
 };
 
 export function mostRecentNavigationResume(

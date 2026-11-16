@@ -32,7 +32,8 @@ export function NavigationResume(){
       if(resettingToToday)return;
       const location=current();
       if(!resumableLocation(location))return;
-      const value=JSON.stringify({location,backgroundedAt:Date.now()} satisfies NavigationResumeState);
+      const view=document.querySelector(".workout-screen")?"live-workout" as const:undefined;
+      const value=JSON.stringify({location,backgroundedAt:Date.now(),view} satisfies NavigationResumeState);
       for(const storage of [window.localStorage,window.sessionStorage])try{storage.setItem(key,value)}catch{/* The other device storage remains available as a fallback. */}
     };
     const saved=read();

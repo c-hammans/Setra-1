@@ -1803,7 +1803,8 @@ export default function Home() {
         })),
         exercises: mergeExerciseCatalogues(sampleExercises, stored.exercises),
       });
-    setSavedDraft(loadLocalDraftSnapshot(user?.id)?.workout || null);
+    const localDraftWorkout = loadLocalDraftSnapshot(user?.id)?.workout || null;
+    setSavedDraft(localDraftWorkout);
     setRecoveryBackups(loadRecoveryBackups(user?.id));
     setEnduranceSessions(loadLocalEnduranceSessions(user?.id));
     setEnduranceTemplates(loadLocalEnduranceTemplates(user?.id));
@@ -1851,6 +1852,13 @@ export default function Home() {
       ) as NavigationResumeState | null;
       const resume = mostRecentNavigationResume([sessionResume, localResume]);
       recentResume = isRecentNavigationResume(resume);
+      if (
+        recentResume &&
+        resume?.view === "live-workout" &&
+        localDraftWorkout &&
+        !completedWorkoutEditorDraft
+      )
+        setActive(structuredClone(localDraftWorkout));
       if (!storedTab && recentResume && resume) {
         const resumedTab = new URL(resume.location, window.location.origin)
           .searchParams.get("tab");

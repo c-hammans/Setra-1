@@ -52,6 +52,24 @@ test("durable navigation state restores when temporary session state is missing"
   );
 });
 
+test("live workout view survives selection of the newest resume record", () => {
+  assert.deepEqual(
+    mostRecentNavigationResume([
+      { location: "/", backgroundedAt: 800 },
+      {
+        location: "/",
+        backgroundedAt: 1_000,
+        view: "live-workout",
+      },
+    ]),
+    {
+      location: "/",
+      backgroundedAt: 1_000,
+      view: "live-workout",
+    },
+  );
+});
+
 test("only Setra application locations can be resumed", () => {
   assert.equal(resumableLocation("/?tab=plan"), true);
   assert.equal(resumableLocation("/friends"), true);
