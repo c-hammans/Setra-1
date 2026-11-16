@@ -194,7 +194,7 @@ html,body{touch-action:pan-x pan-y}
 
 /* Scrolling page header with protected, blurred iPhone safe areas */
 .topbar{position:relative;z-index:1;top:auto;background:transparent}
-.app-shell::before{content:"";position:fixed;z-index:100;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) + 4px);background:transparent;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 4px),transparent 100%);mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 4px),transparent 100%);pointer-events:none}
+.app-shell::before{content:"";position:fixed;z-index:100;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) + 2px);overflow:hidden;background:transparent;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);clip-path:inset(0);-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 8px),transparent 100%);mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 8px),transparent 100%);pointer-events:none}
 .app-shell::after{z-index:19;height:max(12px,env(safe-area-inset-bottom,0px));background:transparent;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);-webkit-mask-image:none;mask-image:none;pointer-events:auto}
 .app-shell[data-theme="dark"] .topbar{background:transparent}
 
@@ -425,7 +425,7 @@ html,body{background:var(--surface-page);color:var(--text-primary)}
 
 /* Statuses use a shape or label as well as colour. */
 .set-row.complete,.warmup-complete,.weekly-session.is-completed,.planned-card-completed{background:var(--success-surface);color:var(--text-primary)}
-.completed-check,.feedback-success>i,.template-save-success>i{background:var(--success);color:#fff}
+.feedback-success>i,.template-save-success>i{background:var(--success);color:#fff}.completed-check{background:var(--accent);color:var(--accent-contrast)}
 .planned-skipped-label,.weekly-session.is-skipped,.skipped-exercise{color:var(--text-secondary)}
 .finish-partial-warning,.profile-export-warning{background:var(--warning-surface);color:var(--text-primary)}
 :is(.delete-workout-button,.remove-step,.remove-warmup-item,.profile-delete-request){background:var(--destructive-surface)!important;color:var(--destructive)!important;border-color:color-mix(in srgb,var(--destructive) 35%,var(--border-subtle))!important}
