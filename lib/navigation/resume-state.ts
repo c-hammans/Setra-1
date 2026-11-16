@@ -5,6 +5,14 @@ export type NavigationResumeState = {
   backgroundedAt: number;
 };
 
+export function mostRecentNavigationResume(
+  states: Array<NavigationResumeState | null>,
+) {
+  return states
+    .filter((state): state is NavigationResumeState => Boolean(state))
+    .sort((a, b) => b.backgroundedAt - a.backgroundedAt)[0] || null;
+}
+
 export function isRecentNavigationResume(
   state: NavigationResumeState | null,
   now = Date.now(),

@@ -9,6 +9,8 @@ test("strength session share data separates completed sets and reps",()=>{
   assert.deepEqual(data.metrics,[{label:"Sets",value:"3"},{label:"Reps",value:"18"},{label:"Duration",value:"1h 8m"},{label:"Volume",value:"640 kg"}]);
   assert.equal(data.result,"3 sets");
   assert.equal(data.result.includes("/"),false);
+  assert.equal(data.label,"Strength");
+  assert.equal(/partial|complete/i.test(data.label),false);
 });
 
 test("strength PB share data omits the previous result",()=>{
@@ -23,5 +25,6 @@ test("endurance share data keeps sport-specific metrics",()=>{
   const session:EnduranceSession={id:"run-1",activityType:"run",status:"completed",title:"Tempo Run",date:"2026-11-11",durationMinutes:48,distanceKm:10.2,averagePaceSecondsPerKm:285,elevationGainMetres:62,notes:"",blocks:[]};
   const data=enduranceWorkoutShareData(session);
   assert.equal(data.result,"10.2 km");
+  assert.equal(data.label,"Run");
   assert.deepEqual(data.metrics,[{label:"Time",value:"48:00"},{label:"Avg pace",value:"4:45 /km"},{label:"Elevation",value:"62 m"}]);
 });

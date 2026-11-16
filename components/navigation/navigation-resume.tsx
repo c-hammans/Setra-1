@@ -2,7 +2,7 @@
 
 import {useEffect,useRef} from "react";
 import {useAuth} from "@/components/auth/auth-provider";
-import {isRecentNavigationResume,resumableLocation,type NavigationResumeState} from "@/lib/navigation/resume-state";
+import {isRecentNavigationResume,mostRecentNavigationResume,resumableLocation,type NavigationResumeState} from "@/lib/navigation/resume-state";
 
 export function NavigationResume(){
   const {user}=useAuth();
@@ -17,9 +17,24 @@ export function NavigationResume(){
     const key=`setra-navigation-resume:${user.id}`;
     let resettingToToday=false;
     const current=()=>`${window.location.pathname}${window.location.search}${window.location.hash}`;
-    const read=()=>{try{return JSON.parse(sessionStorage.getItem(key)||"null") as NavigationResumeState|null}catch{return null}};
-    const clear=()=>{try{sessionStorage.removeItem(key);sessionStorage.removeItem(`setra-current-tab:${user.id}`)}catch{/* Navigation remains usable when device storage is restricted. */}};
-    const save=()=>{if(resettingToToday)return;const location=current();if(!resumableLocation(location))return;try{sessionStorage.setItem(key,JSON.stringify({location,backgroundedAt:Date.now()} satisfies NavigationResumeState))}catch{/* Navigation remains usable when device storage is restricted or full. */}};
+    const read=()=>{
+      const states:NavigationResumeState[]=[];
+      for(const storage of [window.localStorage,window.sessionStorage]){
+        try{const value=JSON.parse(storage.getItem(key)||"null") as NavigationResumeState|null;if(value)states.push(value)}catch{/* Try the other device storage. */}
+      }
+      return mostRecentNavigationResume(states);
+    };
+    const clear=()=>{
+      for(const storage of [window.localStorage,window.sessionStorage])try{storage.removeItem(key)}catch{/* Navigation remains usable when device storage is restricted. */}
+      try{sessionStorage.removeItem(`setra-current-tab:${user.id}`)}catch{/* Navigation remains usable when device storage is restricted. */}
+    };
+    const save=()=>{
+      if(resettingToToday)return;
+      const location=current();
+      if(!resumableLocation(location))return;
+      const value=JSON.stringify({location,backgroundedAt:Date.now()} satisfies NavigationResumeState);
+      for(const storage of [window.localStorage,window.sessionStorage])try{storage.setItem(key,value)}catch{/* The other device storage remains available as a fallback. */}
+    };
     const saved=read();
     if(saved&&!isRecentNavigationResume(saved)){
       clear();

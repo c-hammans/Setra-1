@@ -23,13 +23,20 @@
 .exercise-title-actions{display:grid!important;grid-template-columns:minmax(82px,110px) minmax(74px,max-content) 44px;justify-content:start!important;width:100%;max-width:none!important;gap:7px!important}
 .exercise-title-actions>button,.exercise-title-actions .load-mode{min-height:44px}
 .exercise-title-actions .manage-exercise{width:44px;min-width:44px}
+.exercise-title-actions .load-mode{position:relative;display:grid!important;grid-template-columns:auto minmax(0,1fr);align-items:center!important;gap:5px!important;min-width:0;padding:0 9px!important;border:1px solid var(--accent-border);overflow:hidden}
+.exercise-title-actions .load-mode>span{color:var(--accent-ink)!important;line-height:1}
+.exercise-title-actions .load-mode select{display:block;width:100%;min-width:0;height:42px;margin:0;padding:0 20px 0 1px;border:0;border-radius:0;background:transparent!important;color:var(--accent-ink);font:inherit;font-size:max(16px,calc(12px * var(--text-scale-number,1)));font-weight:900;line-height:42px;text-align:center;text-align-last:center;-webkit-appearance:none;appearance:none}
+.exercise-title-actions .load-mode:after{position:absolute;right:10px;top:50%;width:7px;height:7px;border-right:2px solid var(--accent-ink);border-bottom:2px solid var(--accent-ink);content:"";pointer-events:none;transform:translateY(-68%) rotate(45deg)}
 
 .finish-time-dialog{min-width:0;max-width:min(390px,100%);overflow-x:hidden}
 .finish-summary{min-width:0;overflow-wrap:anywhere}
 .finish-time-dialog{box-sizing:border-box;max-inline-size:min(390px,calc(100vw - 24px));overflow:hidden}
 .session-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;inline-size:100%;min-inline-size:0}
 .session-time-fields label{inline-size:100%;min-inline-size:0;max-inline-size:100%;overflow:hidden;overflow-wrap:anywhere}
-.session-time-fields input{display:block;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box;overflow:hidden;font-size:clamp(14px,calc(15px * var(--text-scale-number,1)),18px);font-variant-numeric:tabular-nums}
+.session-time-fields input{display:block;inline-size:100%;min-inline-size:0;max-inline-size:100%;block-size:52px;box-sizing:border-box;overflow:hidden;padding-block:0;padding-inline:10px;font-size:clamp(16px,calc(16px * var(--text-scale-number,1)),19px);font-variant-numeric:tabular-nums;line-height:1;text-align:center;-webkit-appearance:none;appearance:none}
+.session-time-fields input::-webkit-date-and-time-value{display:flex;min-height:100%;align-items:center;justify-content:center;margin:0;text-align:center}
+.session-time-fields input::-webkit-datetime-edit{display:flex;min-width:0;align-items:center;justify-content:center;padding:0}
+.session-time-fields input::-webkit-calendar-picker-indicator{flex:0 0 auto;margin:0;padding:2px}
 @media(max-width:420px){.finish-time-dialog{max-inline-size:calc(100vw - 20px);padding-inline:16px}.session-time-fields{grid-template-columns:minmax(0,1fr);gap:9px}.session-time-fields input{block-size:48px}}
 
 .day-dots .in-progress-dot,.month-dots .in-progress-dot{border:1px solid var(--accent)!important;background:transparent!important}

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isRecentNavigationResume,
+  mostRecentNavigationResume,
   NAVIGATION_RESUME_WINDOW_MS,
   resumableLocation,
 } from "./resume-state.ts";
@@ -31,6 +32,23 @@ test("navigation resumes only inside the five minute lifecycle window", () => {
       now,
     ),
     false,
+  );
+});
+
+test("durable navigation state restores when temporary session state is missing", () => {
+  assert.deepEqual(
+    mostRecentNavigationResume([
+      null,
+      { location: "/profile", backgroundedAt: 900 },
+    ]),
+    { location: "/profile", backgroundedAt: 900 },
+  );
+  assert.deepEqual(
+    mostRecentNavigationResume([
+      { location: "/?tab=plan", backgroundedAt: 800 },
+      { location: "/?tab=history", backgroundedAt: 1_000 },
+    ]),
+    { location: "/?tab=history", backgroundedAt: 1_000 },
   );
 });
 

@@ -9,6 +9,7 @@ const fitText=(context:CanvasRenderingContext2D,text:string,maxWidth:number,star
 const roundedRect=(context:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number)=>{context.beginPath();context.roundRect(x,y,w,h,r)};
 const drawCover=(context:CanvasRenderingContext2D,image:HTMLImageElement,width:number,height:number,xFocus:number,yFocus:number)=>{const scale=Math.max(width/image.width,height/image.height);const w=image.width*scale,h=image.height*scale;context.drawImage(image,(width-w)*(xFocus/100),(height-h)*(yFocus/100),w,h)};
 const displayDate=(date?:string,weekday=false)=>date?new Intl.DateTimeFormat("en-AU",weekday?{weekday:"long"}:{day:"numeric",month:"short",year:"numeric"}).format(new Date(`${date}T12:00:00`)):"";
+const sessionEyebrow=(data:ShareCardData)=>{const weekday=displayDate(data.date,true);return weekday&&weekday.toLowerCase()!==data.title.trim().toLowerCase()?weekday:data.sport==="strength"?"Strength session":data.label};
 
 async function drawMark(context:CanvasRenderingContext2D,colour:string,x:number,y:number,size:number){
   const svg=await fetch("/setra-mark-v4.svg").then(response=>response.text());
@@ -64,7 +65,7 @@ async function drawCompact(context:CanvasRenderingContext2D,data:ShareCardData,o
   }
   if(data.kind==="award"){context.fillStyle=accent;setCanvasFont(context,23,900);context.fillText("AWARD EARNED",274,100);context.fillStyle=ink;drawFitted(context,data.result,274,220,1180,92,48);drawFitted(context,data.title,274,315,1180,44,28,800);return}
   const primary=data.sport==="strength"?data.metrics.slice(0,2):[{label:data.title,value:data.result}],secondary=data.sport==="strength"?data.metrics.slice(2,4):data.metrics.slice(0,2);
-  context.fillStyle=accent;setCanvasFont(context,21,900);context.letterSpacing="3px";context.fillText((displayDate(data.date,true)||data.label).toUpperCase(),274,88);context.letterSpacing="0px";context.fillStyle=ink;drawFitted(context,data.title,274,145,640,47,29);
+  context.fillStyle=accent;setCanvasFont(context,21,900);context.letterSpacing="3px";context.fillText(sessionEyebrow(data).toUpperCase(),274,88);context.letterSpacing="0px";context.fillStyle=ink;drawFitted(context,data.title,274,145,640,47,29);
   const metricStart=274,primaryWidth=data.sport==="strength"?245:520;primary.forEach((metric,index)=>drawMetric(context,metric,metricStart+index*(primaryWidth+24),282,primaryWidth,84,22,ink));
   const secondaryX=990,secondaryWidth=230;secondary.forEach((metric,index)=>drawMetric(context,metric,secondaryX+index*(secondaryWidth+18),260,secondaryWidth,38,18,ink));
 }
@@ -81,7 +82,7 @@ async function drawFull(context:CanvasRenderingContext2D,data:ShareCardData,opti
   }else if(data.kind==="award"){
     context.fillStyle=accent;setCanvasFont(context,story?30:26,900);context.fillText("AWARD EARNED",pad,contentTop-60);context.fillStyle=ink;drawWrapped(context,data.result,pad,contentTop+70,width-pad*2,story?110:92,story?118:100,2);drawFitted(context,data.title,pad,contentTop+(story?350:300),width-pad*2,48,28,800);
   }else if(data.sport==="strength"){
-    context.fillStyle=accent;setCanvasFont(context,story?27:23,900);context.letterSpacing="4px";context.fillText((displayDate(data.date,true)||"Strength session").toUpperCase(),pad,contentTop-70);context.letterSpacing="0px";context.fillStyle=ink;
+    context.fillStyle=accent;setCanvasFont(context,story?27:23,900);context.letterSpacing="4px";context.fillText(sessionEyebrow(data).toUpperCase(),pad,contentTop-70);context.letterSpacing="0px";context.fillStyle=ink;
     drawWrapped(context,data.title,pad,contentTop,width-pad*2,story?76:66,story?86:74,2);
     const heroes=data.metrics.slice(0,2),heroY=contentTop+(story?390:315),heroWidth=(width-pad*2-48)/2;heroes.forEach((metric,index)=>{drawMetric(context,metric,pad+index*(heroWidth+48),heroY,heroWidth,story?145:122,28,ink);if(index===0){context.strokeStyle=accent;context.lineWidth=5;context.beginPath();context.moveTo(width/2,heroY-(story?130:110));context.lineTo(width/2,heroY+38);context.stroke()}});
     const secondary=data.metrics.slice(2,4),secondaryY=story?1300:820;context.strokeStyle=accent;context.lineWidth=4;context.beginPath();context.moveTo(pad,secondaryY-85);context.lineTo(width-pad,secondaryY-85);context.stroke();const secondaryWidth=(width-pad*2-40)/Math.max(1,secondary.length);secondary.forEach((metric,index)=>drawMetric(context,metric,pad+index*(secondaryWidth+40),secondaryY,secondaryWidth,story?52:44,20,ink));

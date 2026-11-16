@@ -149,6 +149,7 @@ import {
 } from "@/lib/setra/planned-workout-progress";
 import {
   isRecentNavigationResume,
+  mostRecentNavigationResume,
   type NavigationResumeState,
 } from "@/lib/navigation/resume-state";
 import {
@@ -1841,12 +1842,26 @@ export default function Home() {
       storedTab = sessionStorage.getItem(
         `setra-current-tab:${user?.id || "guest"}`,
       );
-      const resume = JSON.parse(
-        sessionStorage.getItem(
-          `setra-navigation-resume:${user?.id || "guest"}`,
-        ) || "null",
+      const resumeKey = `setra-navigation-resume:${user?.id || "guest"}`;
+      const sessionResume = JSON.parse(
+        sessionStorage.getItem(resumeKey) || "null",
       ) as NavigationResumeState | null;
+      const localResume = JSON.parse(
+        localStorage.getItem(resumeKey) || "null",
+      ) as NavigationResumeState | null;
+      const resume = mostRecentNavigationResume([sessionResume, localResume]);
       recentResume = isRecentNavigationResume(resume);
+      if (!storedTab && recentResume && resume) {
+        const resumedTab = new URL(resume.location, window.location.origin)
+          .searchParams.get("tab");
+        if (
+          resumedTab === "today" ||
+          resumedTab === "plan" ||
+          resumedTab === "history" ||
+          resumedTab === "pbs"
+        )
+          storedTab = resumedTab;
+      }
     } catch {
       /* Restricted storage falls back to Today. */
     }

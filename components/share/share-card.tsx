@@ -11,7 +11,7 @@ export function ShareCard({data,options}:{data:ShareCardData;options:ShareRender
   return <div className={`share-card share-format-${options.format} share-background-${options.background} share-tone-${options.textTone} share-kind-${data.kind} share-sport-${data.sport}`} style={style}>
     {/* A local object URL cannot be passed through Next Image optimisation. */}
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    {options.background==="photo"&&options.photoUrl?<img className="share-background-photo" src={options.photoUrl} alt="Selected share background"/>:null}
+    {options.background==="photo"&&options.photoUrl?<img className="share-photo-image" src={options.photoUrl} alt="Selected share background"/>:null}
     {options.background==="photo"?<span className="share-photo-shade"/>:null}
     <div className="share-information-layer">
       <header><ShareBrand/><span>{data.label}</span></header>
@@ -23,7 +23,8 @@ export function ShareCard({data,options}:{data:ShareCardData;options:ShareRender
 export function WorkoutShareCard({data}:{data:ShareCardData}){
   if(data.sport==="strength"){
     const heroes=data.metrics.slice(0,2),secondary=data.metrics.slice(2,4);
-    return <div className="share-workout-content share-strength-session"><div className="share-session-heading"><small>{displayDate(data.date,true)||"Strength session"}</small><h2>{data.title}</h2></div><div className="share-session-heroes">{heroes.map(metric=><Metric hero metric={metric} key={metric.label}/>)}</div>{secondary.length?<div className="share-session-secondary">{secondary.map(metric=><Metric metric={metric} key={metric.label}/>)}</div>:null}{data.date?<time>{displayDate(data.date)}</time>:null}</div>;
+    const weekday=displayDate(data.date,true);const eyebrow=weekday&&weekday.toLowerCase()!==data.title.trim().toLowerCase()?weekday:"Strength session";
+    return <div className="share-workout-content share-strength-session"><div className="share-session-heading"><small>{eyebrow}</small><h2>{data.title}</h2></div><div className="share-session-heroes">{heroes.map(metric=><Metric hero metric={metric} key={metric.label}/>)}</div>{secondary.length?<div className="share-session-secondary">{secondary.map(metric=><Metric metric={metric} key={metric.label}/>)}</div>:null}{data.date?<time>{displayDate(data.date)}</time>:null}</div>;
   }
   return <div className="share-workout-content share-endurance-session"><div className="share-session-heading"><small>{data.title}</small><h2>{data.result}</h2></div><div className="share-session-secondary">{data.metrics.slice(0,3).map(metric=><Metric metric={metric} key={`${metric.label}-${metric.value}`}/>)}</div>{data.date?<time>{displayDate(data.date)}</time>:null}</div>;
 }
@@ -36,7 +37,8 @@ export function CompactShareSticker({data}:{data:ShareCardData}){
   if(data.kind==="pb")return <div className="share-compact-pb"><small>NEW PB</small><b>{data.title}</b><strong>{data.result}{data.secondary?` ${data.secondary}`:""}</strong>{data.improvement?<em>{data.improvement}</em>:null}</div>;
   if(data.kind==="award")return <div className="share-compact-pb"><small>AWARD EARNED</small><b>{data.result}</b><strong>{data.title}</strong></div>;
   const primary=data.sport==="strength"?data.metrics.slice(0,2):[{label:data.title,value:data.result}],secondary=data.sport==="strength"?data.metrics.slice(2,4):data.metrics.slice(0,2);
-  return <div className="share-compact-session"><div className="share-compact-title"><small>{displayDate(data.date,true)||data.label}</small><b>{data.title}</b></div><div className="share-compact-primary">{primary.map(metric=><Metric hero metric={metric} key={`${metric.label}-${metric.value}`}/>)}</div>{secondary.length?<div className="share-compact-secondary">{secondary.map(metric=><Metric metric={metric} key={`${metric.label}-${metric.value}`}/>)}</div>:null}</div>;
+  const weekday=displayDate(data.date,true);const eyebrow=weekday&&weekday.toLowerCase()!==data.title.trim().toLowerCase()?weekday:data.label;
+  return <div className="share-compact-session"><div className="share-compact-title"><small>{eyebrow}</small><b>{data.title}</b></div><div className="share-compact-primary">{primary.map(metric=><Metric hero metric={metric} key={`${metric.label}-${metric.value}`}/>)}</div>{secondary.length?<div className="share-compact-secondary">{secondary.map(metric=><Metric metric={metric} key={`${metric.label}-${metric.value}`}/>)}</div>:null}</div>;
 }
 
 export function SharePreview({data,options}:{data:ShareCardData;options:ShareRenderOptions}){return <div className={`share-preview share-preview-${options.format} ${options.background==="transparent"?"shows-transparency":""}`}><ShareCard data={data} options={options}/></div>}
