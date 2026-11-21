@@ -1,28 +1,72 @@
 import { createClient } from "@/lib/supabase/client";
-import type { SubscriptionState } from "./access";
-import { FREE_SUBSCRIPTION } from "./access";
+import {
+  DEFAULT_ACCESS,
+  normalizePlan,
+  normalizeRoles,
+  type AccessState,
+  type SubscriptionState,
+} from "./access";
 
-export class PremiumService{
-  private supabase=createClient();
-  constructor(private userId:string){}
+const missingRelation = (code?: string) => code === "42P01" || code === "PGRST205";
+const missingColumn = (code?: string) => code === "42703" || code === "PGRST204";
 
-  async loadSubscription():Promise<SubscriptionState>{
-    const {data,error}=await this.supabase.from("profiles").select("subscription_tier").eq("id",this.userId).single();
-    if(error){
-      if(error.code==="42703"||error.code==="PGRST204")return FREE_SUBSCRIPTION;
+export class PremiumService {
+  private supabase = createClient();
+  constructor(private userId: string) {}
+
+  async loadAccess(): Promise<AccessState> {
+    let plan = DEFAULT_ACCESS.plan;
+    const profile = await this.supabase
+      .from("profiles")
+      .select("individual_plan,subscription_tier")
+      .eq("id", this.userId)
+      .single();
+
+    if (profile.error && missingColumn(profile.error.code)) {
+      const legacy = await this.supabase
+        .from("profiles")
+        .select("subscription_tier")
+        .eq("id", this.userId)
+        .single();
+      if (legacy.error && !missingColumn(legacy.error.code)) throw legacy.error;
+      plan = normalizePlan(legacy.data?.subscription_tier);
+    } else if (profile.error) throw profile.error;
+    else plan = normalizePlan(profile.data?.individual_plan ?? profile.data?.subscription_tier);
+
+    const roleResult = await this.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", this.userId);
+    if (roleResult.error && !missingRelation(roleResult.error.code)) throw roleResult.error;
+    const roles = roleResult.error
+      ? DEFAULT_ACCESS.roles
+      : normalizeRoles(roleResult.data?.map((item) => item.role));
+    return { plan, roles: [...roles] };
+  }
+
+  async loadSubscription(): Promise<SubscriptionState> {
+    const access = await this.loadAccess();
+    return { tier: access.plan, status: "active" };
+  }
+
+  async hasJoinedWaitlist() {
+    const { data, error } = await this.supabase
+      .from("premium_waitlist")
+      .select("id")
+      .eq("user_id", this.userId)
+      .maybeSingle();
+    if (error) {
+      if (missingRelation(error.code)) return false;
       throw error;
     }
-    return {tier:data.subscription_tier==="premium"?"premium":"free",status:"active"};
+    return Boolean(data);
   }
 
-  async hasJoinedWaitlist(){
-    const {data,error}=await this.supabase.from("premium_waitlist").select("id").eq("user_id",this.userId).maybeSingle();
-    if(error){if(error.code==="42P01"||error.code==="PGRST205")return false;throw error}return Boolean(data);
-  }
-
-  async joinWaitlist(email:string,source="premium-page"){
-    const normalized=email.trim().toLowerCase();
-    const {error}=await this.supabase.from("premium_waitlist").insert({user_id:this.userId,email:normalized,source});
-    if(error&&error.code!=="23505")throw error;
+  async joinWaitlist(email: string, source = "premium-page") {
+    const normalized = email.trim().toLowerCase();
+    const { error } = await this.supabase
+      .from("premium_waitlist")
+      .insert({ user_id: this.userId, email: normalized, source });
+    if (error && error.code !== "23505") throw error;
   }
 }

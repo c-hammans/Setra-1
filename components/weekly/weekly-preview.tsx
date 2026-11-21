@@ -16,6 +16,8 @@ export type WeeklyPreviewItem={
   activityType?:TrainingActivityType;
   status:"planned"|"in_progress"|"completed"|"partial"|"skipped";
   startTime?:string;
+  assignedByCoach?:string;
+  dayPosition?:number;
 };
 
 type Props={items:WeeklyPreviewItem[];weekStartsOn:WeekdayIndex;today:string;anchorDate?:string;onClose:()=>void;onSelect:(item:WeeklyPreviewItem)=>void;onPlan:()=>void};
@@ -27,7 +29,7 @@ export function WeeklyPreview({items,weekStartsOn,today,anchorDate=today,onClose
   const dates=weekDateKeys(anchorDate,weekStartsOn);const viewingCurrentWeek=dates.includes(today);
   const ordered=useMemo(()=>{
     const dayOrder=new Map(weekDateKeys(anchorDate,weekStartsOn).map((date,index)=>[date,index]));
-    return [...items].sort((a,b)=>(dayOrder.get(a.date)??7)-(dayOrder.get(b.date)??7)||(a.startTime||"99:99").localeCompare(b.startTime||"99:99")||a.title.localeCompare(b.title));
+    return [...items].sort((a,b)=>(dayOrder.get(a.date)??7)-(dayOrder.get(b.date)??7)||(a.dayPosition??Number.MAX_SAFE_INTEGER)-(b.dayPosition??Number.MAX_SAFE_INTEGER)||(a.startTime||"99:99").localeCompare(b.startTime||"99:99")||a.title.localeCompare(b.title));
   },[anchorDate,items,weekStartsOn]);
   const completed=ordered.filter(item=>item.status==="completed").length;
   const partial=ordered.filter(item=>item.status==="partial").length;
@@ -52,7 +54,7 @@ export function WeeklyPreview({items,weekStartsOn,today,anchorDate=today,onClose
           <h3>{dayHeading(group.date)}{group.date===today&&<em>TODAY</em>}</h3>
           <div>{group.items.map(item=><button key={item.id} className={`weekly-session is-${item.status} ${item.status==="planned"&&item.date<today?"is-overdue":""}`} onClick={()=>onSelect(item)}>
             <i aria-hidden="true">{item.status==="completed"?"✓":item.status==="partial"?"◐":item.status==="skipped"?"–":item.status==="in_progress"?"●":""}</i>
-            <span><b>{item.title}</b><small>{item.status==="skipped"?"Skipped":item.status==="in_progress"?`In progress · ${item.descriptor||"Session"}`:item.status==="partial"?`Partial · ${item.descriptor||"Session"}`:item.status==="planned"&&item.date<today?`Overdue · ${item.descriptor||"Session"}`:item.descriptor||item.activityType&&activityLabel(item.activityType)||"Session"}</small></span><em>›</em>
+            <span><b>{item.title}</b><small>{item.status==="skipped"?"Skipped":item.status==="in_progress"?`In progress · ${item.descriptor||"Session"}`:item.status==="partial"?`Partial · ${item.descriptor||"Session"}`:item.status==="planned"&&item.date<today?`Overdue · ${item.descriptor||"Session"}`:item.descriptor||item.activityType&&activityLabel(item.activityType)||"Session"}</small>{item.assignedByCoach&&<small>Assigned by {item.assignedByCoach}</small>}</span><em>›</em>
           </button>)}</div>
         </section>):<div className="weekly-preview-empty"><b>Nothing planned yet</b><p>Your week is open. Add a session when you&apos;re ready.</p><button onClick={onPlan}>Plan session</button></div>}
       </div>

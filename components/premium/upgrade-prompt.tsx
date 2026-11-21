@@ -1,2 +1,3 @@
 import Link from "next/link";
-export function UpgradePrompt({title="Built for what comes next",body="Join the early-access list for Setra Premium updates."}:{title?:string;body?:string}){return <aside className="upgrade-prompt"><span>SETRA PREMIUM</span><h3>{title}</h3><p>{body}</p><Link href="/premium#early-access">Explore Premium</Link></aside>}
+import {PLAN_CATALOGUE,type IndividualPlan} from "@/lib/premium/access";
+export function UpgradePrompt({title="Built for what comes next",body,plan="premium",eyebrow,href="/premium#plans",linkLabel="Explore plans"}:{title?:string;body?:string;plan?:IndividualPlan;eyebrow?:string;href?:string|null;linkLabel?:string}){const definition=PLAN_CATALOGUE[plan];return <aside className="upgrade-prompt"><span>{eyebrow||`SETRA ${definition.displayName.toUpperCase()}`}</span><h3>{title}</h3><p>{body||`Join the early-access list for ${definition.displayName} updates.`}</p>{href&&<Link href={href}>{linkLabel}</Link>}</aside>}

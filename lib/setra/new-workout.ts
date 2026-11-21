@@ -9,5 +9,5 @@ export function createWorkoutId(prefix="workout"){
 }
 export const createRecordId=createWorkoutId;
 
-export function newTemplateWorkout(template:Template,date:string,startedAt:string,exercises:WorkoutExercise[],id=createWorkoutId()):Workout{return{id,templateId:template.id,name:template.name,date,startedAt,duration:0,note:"",supersetNames:template.supersetNames,warmup:(template.warmup||[]).map(item=>({...item,done:false})),exercises}}
+export function newTemplateWorkout(template:Template,date:string,startedAt:string,exercises:WorkoutExercise[],id=createWorkoutId()):Workout{return{id,templateId:template.id,name:template.name,date,startedAt,duration:0,note:"",supersetNames:template.supersetNames,warmup:(template.warmup||[]).map(item=>({...item,done:false})),exercises,coachAssignmentId:template.coachAssignmentId,assignedByCoach:template.assignedByCoach,coachInstruction:template.coachInstruction}}
 export function newBlankWorkout(date:string,startedAt:string,id=createWorkoutId()):Workout{return{id,name:"Add as I go",date,startedAt,duration:0,note:"",warmup:[],exercises:[]}}

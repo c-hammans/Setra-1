@@ -167,11 +167,18 @@ import {
   userWriteErrorMessage,
 } from "@/lib/data/write-errors";
 import { ProgressOverview } from "@/components/history/progress-overview";
+import { AdvancedAnalytics } from "@/components/history/advanced-analytics";
+import { usePremiumAccess } from "@/lib/premium/use-premium-access";
+import { createClient } from "@/lib/supabase/client";
+import { CoachFeedbackCard } from "@/components/coaching/coach-feedback-card";
+import { CoachingService } from "@/lib/coaching/coaching-service";
+import type { CoachFeedbackNotification } from "@/lib/coaching/types";
 import "./endurance.css";
 import "./share.css";
 import "./weekly-preview.css";
 import "./awards-home.css";
 import "./audit-fixes.css";
+import "./advanced-analytics.css";
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = {
   exerciseId: string;
@@ -1555,6 +1562,7 @@ const retryCloud = async <T,>(
 };
 export default function Home() {
   const { configured, user } = useAuth();
+  const {access,loading:accessLoading}=usePremiumAccess();
   const [today, setToday] = useState(() => localDateKey());
   const diaryService = useMemo(
     () => (user ? new DiaryService(user.id) : null),
@@ -1566,6 +1574,10 @@ export default function Home() {
   );
   const feedbackService = useMemo(
     () => (user ? new FeedbackService(user.id) : null),
+    [user],
+  );
+  const coachingService = useMemo(
+    () => (user ? new CoachingService() : null),
     [user],
   );
   const [data, setData] = useState<AppData>(() =>
@@ -1607,6 +1619,7 @@ export default function Home() {
   >("all");
   const [activityFilter, setActivityFilter] = useState("all");
   const [loaded, setLoaded] = useState(false);
+  const [visibilityRefresh, setVisibilityRefresh] = useState(0);
   const [tab, setTab] = useState<Tab>("today");
   const [active, setActive] = useState<Workout | null>(null);
   const [savedDraft, setSavedDraft] = useState<Workout | null>(null);
@@ -1624,6 +1637,8 @@ export default function Home() {
   const [liveAddQuery, setLiveAddQuery] = useState("");
   const [liveSwapQuery, setLiveSwapQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [coachFeedbackNotice, setCoachFeedbackNotice] =
+    useState<CoachFeedbackNotification | null>(null);
   const [deleteWorkoutId, setDeleteWorkoutId] = useState<string | null>(null);
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
@@ -1894,13 +1909,18 @@ export default function Home() {
         const next = localDateKey();
         return next === current ? current : next;
       });
+    const refreshVisibleData = () => {
+      refreshDate();
+      if (document.visibilityState === "visible")
+        setVisibilityRefresh((current) => current + 1);
+    };
     const timer = window.setInterval(refreshDate, 60_000);
     window.addEventListener("focus", refreshDate);
-    document.addEventListener("visibilitychange", refreshDate);
+    document.addEventListener("visibilitychange", refreshVisibleData);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refreshDate);
-      document.removeEventListener("visibilitychange", refreshDate);
+      document.removeEventListener("visibilitychange", refreshVisibleData);
     };
   }, []);
   useEffect(() => {
@@ -2610,7 +2630,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [loaded, diaryService, user]);
+  }, [loaded, diaryService, user, visibilityRefresh]);
   useEffect(() => {
     if (!loaded || !trainingService) return;
     let cancelled = false;
@@ -2647,7 +2667,51 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [loaded, trainingService, user?.id]);
+  }, [loaded, trainingService, user?.id, visibilityRefresh]);
+  useEffect(() => {
+    if (!loaded || !coachingService) return;
+    let cancelled = false;
+    const refreshNotice = async () => {
+      try {
+        const notices = await coachingService.feedbackNotifications();
+        if (!cancelled)
+          setCoachFeedbackNotice(
+            notices.find((notice) => !notice.readAt) || null,
+          );
+      } catch {
+        // Feedback notifications should never prevent the training diary loading.
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshNotice();
+    };
+    void refreshNotice();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [loaded, coachingService]);
+  useEffect(() => {
+    if (!loaded || !user?.id) return;
+    const client = createClient();
+    const channel = client
+      .channel(`coach-programming:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "coach_training_assignments",
+          filter: `client_user_id=eq.${user.id}`,
+        },
+        () => setVisibilityRefresh((current) => current + 1),
+      )
+      .subscribe();
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [loaded, user?.id]);
   useEffect(() => {
     if (!syncRecoveryOpen || !diaryService || !trainingService) return;
     let cancelled = false;
@@ -3763,6 +3827,8 @@ export default function Home() {
           title: template.name,
           descriptor: template.focus || "Strength",
           modality: "strength",
+          assignedByCoach: template.assignedByCoach,
+          dayPosition: template.coachDayPosition,
           status: completed
             ? strengthCompletion(completed).status === "partial"
               ? "partial"
@@ -3798,6 +3864,7 @@ export default function Home() {
               ? "partial"
               : "completed",
           startTime: workout.startedAt || undefined,
+          assignedByCoach: workout.assignedByCoach,
         });
       });
     enduranceSessions
@@ -3824,6 +3891,8 @@ export default function Home() {
               ? "skipped"
               : "planned",
           startTime: session.plannedStartTime,
+          assignedByCoach: session.assignedByCoach,
+          dayPosition: session.coachDayPosition,
         });
       });
     enduranceSessions
@@ -5123,6 +5192,28 @@ export default function Home() {
       setFeedbackBusy(false);
     }
   }
+  async function handleCoachFeedbackNotice(openWorkout: boolean) {
+    const notice = coachFeedbackNotice;
+    if (!notice || !coachingService) return;
+    setCoachFeedbackNotice(null);
+    try {
+      await coachingService.markFeedbackNotificationRead(
+        notice.notificationId,
+      );
+      if (!openWorkout) return;
+      if (notice.modality === "strength" && diaryService) {
+        const latest = await diaryService.load();
+        setData(latest);
+        setDetailId(notice.completedClientId);
+      } else if (notice.modality === "endurance" && trainingService) {
+        const latest = await trainingService.loadEndurance();
+        setEnduranceSessions(latest);
+        setEnduranceDetailId(notice.completedClientId);
+      }
+    } catch {
+      // The notice can safely be revisited from the completed workout history.
+    }
+  }
   return (
     <main
       className="app-shell"
@@ -5145,6 +5236,29 @@ export default function Home() {
           {profileInitials(user?.user_metadata?.display_name, user?.email)}
         </Link>{" "}
       </header>{" "}
+      {coachFeedbackNotice && !prominentLayerOpen && (
+        <aside className="coach-feedback-notice" role="status">
+          <button
+            className="coach-feedback-notice-content"
+            onClick={() => void handleCoachFeedbackNotice(true)}
+          >
+            <span>COACH FEEDBACK</span>
+            <b>{coachFeedbackNotice.coachName} left feedback</b>
+            <small>
+              {coachFeedbackNotice.sessionTitle} · {formatDate(
+                coachFeedbackNotice.sessionDate,
+              )}
+            </small>
+          </button>
+          <button
+            className="coach-feedback-notice-close"
+            aria-label="Dismiss coach feedback notification"
+            onClick={() => void handleCoachFeedbackNotice(false)}
+          >
+            ×
+          </button>
+        </aside>
+      )}
       <section className={`content content-${tab}`}>
         {" "}
         {tab === "today" && (
@@ -5549,6 +5663,7 @@ export default function Home() {
                       </small>
                       <h2>{session.title}</h2>
                       <p>{enduranceSummary(session)}</p>
+                      {session.assignedByCoach&&<span className="coach-assigned-label">Assigned by {session.assignedByCoach}</span>}
                     </div>
                     <span aria-hidden="true">›</span>
                   </header>
@@ -5595,6 +5710,7 @@ export default function Home() {
                       </button>{" "}
                       <h2>{template.name}</h2>
                       <p>{template.focus}</p>
+                      {template.assignedByCoach&&<span className="coach-assigned-label">Assigned by {template.assignedByCoach}</span>}
                       {skipped && (
                         <span className="planned-skipped-label">
                           SKIPPED THIS WEEK
@@ -5751,6 +5867,7 @@ export default function Home() {
                       <span>
                         <b>{session.title}</b>
                         <small>{enduranceSummary(session)}</small>
+                        {session.assignedByCoach&&<small>Assigned by {session.assignedByCoach}</small>}
                       </span>
                       <em>View ›</em>
                     </button>
@@ -6051,6 +6168,7 @@ export default function Home() {
                           {formatDate(session.date)} ·{" "}
                           {enduranceSummary(session)}
                         </small>
+                        {session.assignedByCoach&&<small>Assigned by {session.assignedByCoach}</small>}
                       </span>
                       <em>›</em>
                     </button>
@@ -6068,7 +6186,7 @@ export default function Home() {
             )}{" "}
             {showStrength && (
               <div className="template-grid">
-                {data.templates.map((template) => (
+                {data.templates.filter(template=>!template.coachAssignmentId).map((template) => (
                   <article className="template-card" key={template.id}>
                     {" "}
                     <div className="template-copy">
@@ -6255,7 +6373,7 @@ export default function Home() {
               </section>
             )}{" "}
             {effectiveHistoryMode === "progress" ? (
-              <ProgressOverview
+              <><ProgressOverview
                 weeks={progressWeeks}
                 showStrength={progressShowStrength}
                 showEndurance={progressShowEndurance}
@@ -6264,6 +6382,19 @@ export default function Home() {
                 preferredUnit={preferredUnit}
                 onExercise={setExerciseHistoryId}
               />
+              <AdvancedAnalytics
+                access={access}
+                accessLoading={accessLoading}
+                workouts={data.workouts}
+                enduranceSessions={enduranceSessions}
+                exercises={data.exercises}
+                showStrength={progressShowStrength}
+                showEndurance={progressShowEndurance}
+                preferredUnit={preferredUnit}
+                today={today}
+                weekStartsOn={weekStartsOn}
+                onExercise={setExerciseHistoryId}
+              /></>
             ) : effectiveHistoryMode === "sessions" ? (
               <>
                 {showEndurance &&
@@ -6664,7 +6795,7 @@ export default function Home() {
               </span>
               <em>{workoutInProgress ? "Unavailable" : "Start →"}</em>
             </button>
-            {data.templates.map((template) => (
+            {data.templates.filter(template=>!template.coachAssignmentId).map((template) => (
               <button
                 className="picker-row"
                 disabled={workoutInProgress}
@@ -6705,7 +6836,7 @@ export default function Home() {
             </div>
             <div className="planned-swap-list">
               {data.templates
-                .filter((template) => template.id !== swapPlanned.templateId)
+                .filter((template) => template.id !== swapPlanned.templateId&&!template.coachAssignmentId)
                 .map((template) => (
                   <button
                     className="picker-row"
@@ -6723,7 +6854,7 @@ export default function Home() {
                   </button>
                 ))}
             </div>
-            {data.templates.length < 2 && (
+            {data.templates.filter(template=>!template.coachAssignmentId).length < 2 && (
               <p className="planned-swap-empty">
                 Create another strength template before swapping this session.
               </p>
@@ -6929,6 +7060,7 @@ export default function Home() {
               <span className="live-workout-date">
                 {formatDate(active.date)}
               </span>
+              {active.assignedByCoach&&<span className="live-coach-assignment">Assigned by {active.assignedByCoach}</span>}
             </div>
             <button
               className="save-draft-button"
@@ -7994,6 +8126,9 @@ export default function Home() {
               </button>
             ))}
             {detail.note && <p className="detail-note">“{detail.note}”</p>}
+            {detail.coachFeedback && (
+              <CoachFeedbackCard feedback={detail.coachFeedback} />
+            )}
             <button
               className="share-completed-button detail-share-button"
               onClick={() => {

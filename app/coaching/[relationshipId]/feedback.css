@@ -1,0 +1,9 @@
+.coach-feedback-editor{display:grid;gap:7px;margin:4px 11px 11px;padding:11px;border-radius:11px;background:var(--surface-card)}
+.coach-feedback-editor>span{color:var(--accent-ink);font-size:8px;font-weight:900;letter-spacing:.12em}
+.coach-feedback-editor textarea{width:100%;min-height:84px;padding:10px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--surface-neutral);color:var(--text-primary);font:inherit;font-size:16px;line-height:1.4;resize:vertical}
+.coach-feedback-editor>div{display:flex;gap:6px}
+.coach-feedback-editor button{min-height:36px;padding:0 12px;border:0;border-radius:9px;background:var(--accent);color:var(--accent-contrast);font-size:9px;font-weight:900}
+.coach-feedback-editor button:disabled{opacity:.45}
+.coach-feedback-editor .delete-feedback{background:var(--surface-neutral);color:var(--danger)}
+.coach-feedback-editor>small,.coach-feedback-editor>em{color:var(--text-secondary);font-size:8px;font-style:normal}
+.coach-feedback-editor>em{color:var(--accent-ink);font-weight:800}
