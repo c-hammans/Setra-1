@@ -22,6 +22,7 @@ import type {
 } from "@/lib/setra/types";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DiaryService } from "@/lib/data/diary-service";
+import { AthleteCheckinService } from "@/lib/data/athlete-checkin-service";
 import { TrainingSessionService } from "@/lib/data/training-session-service";
 import {
   FeedbackService,
@@ -117,6 +118,7 @@ import {
 } from "@/lib/setra/live-workout-management";
 import { useDialogFocusTrap } from "@/components/ui/use-dialog-focus-trap";
 import { PreviousSetButton } from "@/components/workout/previous-set-button";
+import { AthleteCheckinCard } from "@/components/workout/athlete-checkin";
 import { HomeStreak } from "@/components/awards/home-streak";
 import { FriendShareDialog } from "@/components/social/friend-share-dialog";
 import {
@@ -179,6 +181,7 @@ import "./weekly-preview.css";
 import "./awards-home.css";
 import "./audit-fixes.css";
 import "./advanced-analytics.css";
+import "./athlete-checkin.css";
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = {
   exerciseId: string;
@@ -1388,6 +1391,14 @@ const formatDate = (value: string) =>
     day: "numeric",
     month: "short",
   }).format(new Date(`${value}T12:00:00`));
+const coachProgramLabel = (value: {
+  coachProgramName?: string;
+  coachProgramWeek?: number;
+  coachProgramDurationWeeks?: number;
+}) =>
+  value.coachProgramName
+    ? `${value.coachProgramName}${value.coachProgramWeek && value.coachProgramDurationWeeks ? ` · Week ${value.coachProgramWeek} of ${value.coachProgramDurationWeeks}` : ""}`
+    : "";
 const calendarDateLabel = (
   date: string,
   counts: {
@@ -1570,6 +1581,10 @@ export default function Home() {
   );
   const trainingService = useMemo(
     () => (user ? new TrainingSessionService(user.id) : null),
+    [user],
+  );
+  const athleteCheckinService = useMemo(
+    () => (user ? new AthleteCheckinService() : null),
     [user],
   );
   const feedbackService = useMemo(
@@ -2895,7 +2910,12 @@ export default function Home() {
       );
       return;
     }
-    const session = value;
+    const session = {
+      ...value,
+      athleteCheckin:
+        value.athleteCheckin ||
+        enduranceSessions.find((item) => item.id === value.id)?.athleteCheckin,
+    };
     const key = `endurance-session:${session.id}`;
     const queued = queuePendingDiaryChange(
       { key, kind: "save_endurance_session", payload: { session } },
@@ -3828,6 +3848,9 @@ export default function Home() {
           descriptor: template.focus || "Strength",
           modality: "strength",
           assignedByCoach: template.assignedByCoach,
+          coachProgramName: template.coachProgramName,
+          coachProgramWeek: template.coachProgramWeek,
+          coachProgramDurationWeeks: template.coachProgramDurationWeeks,
           dayPosition: template.coachDayPosition,
           status: completed
             ? strengthCompletion(completed).status === "partial"
@@ -3865,6 +3888,9 @@ export default function Home() {
               : "completed",
           startTime: workout.startedAt || undefined,
           assignedByCoach: workout.assignedByCoach,
+          coachProgramName: workout.coachProgramName,
+          coachProgramWeek: workout.coachProgramWeek,
+          coachProgramDurationWeeks: workout.coachProgramDurationWeeks,
         });
       });
     enduranceSessions
@@ -3892,6 +3918,9 @@ export default function Home() {
               : "planned",
           startTime: session.plannedStartTime,
           assignedByCoach: session.assignedByCoach,
+          coachProgramName: session.coachProgramName,
+          coachProgramWeek: session.coachProgramWeek,
+          coachProgramDurationWeeks: session.coachProgramDurationWeeks,
           dayPosition: session.coachDayPosition,
         });
       });
@@ -4376,6 +4405,59 @@ export default function Home() {
     setDetailId(null);
     setFinishDialogOpen(false);
     setCompletionSaving(false);
+  }
+  async function saveStrengthCheckin(
+    workoutId: string,
+    checkin: NonNullable<Workout["athleteCheckin"]>,
+  ) {
+    if (!athleteCheckinService)
+      throw new Error("Sign in to save this check-in.");
+    const saved = await athleteCheckinService.save(
+      "strength",
+      workoutId,
+      checkin,
+    );
+    const next =
+      saved.rpe != null || saved.feel || saved.comment ? saved : undefined;
+    setData((current) => ({
+      ...current,
+      workouts: current.workouts.map((workout) =>
+        workout.id === workoutId
+          ? { ...workout, athleteCheckin: next }
+          : workout,
+      ),
+    }));
+    setCompletionReceipt((current) =>
+      current?.id === workoutId
+        ? { ...current, athleteCheckin: next }
+        : current,
+    );
+  }
+  async function saveEnduranceCheckin(
+    sessionId: string,
+    checkin: NonNullable<EnduranceSession["athleteCheckin"]>,
+  ) {
+    if (!athleteCheckinService)
+      throw new Error("Sign in to save this check-in.");
+    const saved = await athleteCheckinService.save(
+      "endurance",
+      sessionId,
+      checkin,
+    );
+    const next =
+      saved.rpe != null || saved.feel || saved.comment ? saved : undefined;
+    setEnduranceSessions((current) =>
+      current.map((session) =>
+        session.id === sessionId
+          ? { ...session, rpe: saved.rpe, athleteCheckin: next }
+          : session,
+      ),
+    );
+    setCompletedEnduranceReceipt((current) =>
+      current?.id === sessionId
+        ? { ...current, rpe: saved.rpe, athleteCheckin: next }
+        : current,
+    );
   }
   function openFinishDialog() {
     if (!active) return;
@@ -5664,6 +5746,7 @@ export default function Home() {
                       <h2>{session.title}</h2>
                       <p>{enduranceSummary(session)}</p>
                       {session.assignedByCoach&&<span className="coach-assigned-label">Assigned by {session.assignedByCoach}</span>}
+                      {session.coachProgramName&&<span className="coach-assigned-label">{coachProgramLabel(session)}</span>}
                     </div>
                     <span aria-hidden="true">›</span>
                   </header>
@@ -5711,6 +5794,7 @@ export default function Home() {
                       <h2>{template.name}</h2>
                       <p>{template.focus}</p>
                       {template.assignedByCoach&&<span className="coach-assigned-label">Assigned by {template.assignedByCoach}</span>}
+                      {template.coachProgramName&&<span className="coach-assigned-label">{coachProgramLabel(template)}</span>}
                       {skipped && (
                         <span className="planned-skipped-label">
                           SKIPPED THIS WEEK
@@ -5868,6 +5952,7 @@ export default function Home() {
                         <b>{session.title}</b>
                         <small>{enduranceSummary(session)}</small>
                         {session.assignedByCoach&&<small>Assigned by {session.assignedByCoach}</small>}
+                        {session.coachProgramName&&<small>{coachProgramLabel(session)}</small>}
                       </span>
                       <em>View ›</em>
                     </button>
@@ -6169,6 +6254,7 @@ export default function Home() {
                           {enduranceSummary(session)}
                         </small>
                         {session.assignedByCoach&&<small>Assigned by {session.assignedByCoach}</small>}
+                        {session.coachProgramName&&<small>{coachProgramLabel(session)}</small>}
                       </span>
                       <em>›</em>
                     </button>
@@ -7061,6 +7147,7 @@ export default function Home() {
                 {formatDate(active.date)}
               </span>
               {active.assignedByCoach&&<span className="live-coach-assignment">Assigned by {active.assignedByCoach}</span>}
+              {active.coachProgramName&&<span className="live-coach-assignment">{coachProgramLabel(active)}</span>}
             </div>
             <button
               className="save-draft-button"
@@ -7664,6 +7751,14 @@ export default function Home() {
                     </small>
                   )}
                 </div>
+                <AthleteCheckinCard
+                  compact
+                  initial={completionReceipt.athleteCheckin}
+                  disabled={completionReceiptSync !== "synced"}
+                  onSave={(checkin) =>
+                    saveStrengthCheckin(completionReceipt.id, checkin)
+                  }
+                />
                 <div className="completion-receipt-actions">
                   <button
                     onClick={() => {
@@ -7718,6 +7813,18 @@ export default function Home() {
                   : "Saved on this device · cloud sync pending"}
               </small>
             </div>
+            <AthleteCheckinCard
+              compact
+              initial={
+                completedEnduranceReceipt.athleteCheckin || {
+                  rpe: completedEnduranceReceipt.rpe,
+                }
+              }
+              disabled={enduranceReceiptSync !== "synced"}
+              onSave={(checkin) =>
+                saveEnduranceCheckin(completedEnduranceReceipt.id, checkin)
+              }
+            />
             <div className="completion-receipt-actions">
               <button onClick={() => setCompletedEnduranceReceipt(null)}>
                 Done
@@ -7985,6 +8092,9 @@ export default function Home() {
                 }
               : undefined
           }
+          onSaveCheckin={(checkin) =>
+            saveEnduranceCheckin(enduranceDetail.id, checkin)
+          }
           onDelete={() => setDeleteEnduranceId(enduranceDetail.id)}
         />
       )}{" "}
@@ -8126,6 +8236,10 @@ export default function Home() {
               </button>
             ))}
             {detail.note && <p className="detail-note">“{detail.note}”</p>}
+            <AthleteCheckinCard
+              initial={detail.athleteCheckin}
+              onSave={(checkin) => saveStrengthCheckin(detail.id, checkin)}
+            />
             {detail.coachFeedback && (
               <CoachFeedbackCard feedback={detail.coachFeedback} />
             )}

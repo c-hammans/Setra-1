@@ -4,14 +4,17 @@ import Link from "next/link";
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {useAuth} from "@/components/auth/auth-provider";
 import {CoachingService} from "@/lib/coaching/coaching-service";
-import type {CoachClientSummary,CoachingProfile,CoachingRelationship} from "@/lib/coaching/types";
+import type {CoachDashboard,CoachWeeklyReviewNote,CoachingProfile,CoachingRelationship} from "@/lib/coaching/types";
+import {coachAttentionLabel} from "@/lib/coaching/attention-rules";
 import {DiaryService} from "@/lib/data/diary-service";
 import {usePremiumAccess} from "@/lib/premium/use-premium-access";
 import {createSetraTheme,useResolvedAppearance} from "@/lib/setra/appearance";
-import {localDateKey} from "@/lib/setra/week";
+import {addCalendarDays,localDateKey,parseLocalDate} from "@/lib/setra/week";
 import "./coaching.css";
 
 const initials=(value:string)=>value.trim().split(/\s+/).map(part=>part[0]).join("").slice(0,2).toUpperCase()||"S";
+const reviewWeekLabel=(weekStart:string)=>`${new Intl.DateTimeFormat("en-AU",{day:"numeric",month:"short"}).format(parseLocalDate(weekStart))} to ${new Intl.DateTimeFormat("en-AU",{day:"numeric",month:"short",year:"numeric"}).format(parseLocalDate(addCalendarDays(weekStart,6)))}`;
+const shortDate=(value?:string|null)=>value?new Intl.DateTimeFormat("en-AU",{weekday:"short",day:"numeric",month:"short"}).format(parseLocalDate(value)):"";
 
 function Person({relationship,actions}:{relationship:CoachingRelationship;actions:React.ReactNode}){
   return <article className="coaching-person"><i>{initials(relationship.displayName)}</i><span><b>{relationship.displayName}</b><small>@{relationship.username}</small></span><div>{actions}</div></article>;
@@ -22,7 +25,9 @@ export default function CoachingPage(){
   const {access}=usePremiumAccess();
   const service=useMemo(()=>user?new CoachingService():null,[user]);
   const [relationships,setRelationships]=useState<CoachingRelationship[]>([]);
-  const [clientSummaries,setClientSummaries]=useState<CoachClientSummary[]>([]);
+  const [dashboard,setDashboard]=useState<CoachDashboard>({clients:[],attention:[]});
+  const [dashboardFilter,setDashboardFilter]=useState<"all"|"attention">("all");
+  const [weeklyNotes,setWeeklyNotes]=useState<CoachWeeklyReviewNote[]>([]);
   const [coachEnabled,setCoachEnabled]=useState(false);
   const [query,setQuery]=useState("");
   const [results,setResults]=useState<CoachingProfile[]>([]);
@@ -38,9 +43,10 @@ export default function CoachingPage(){
     if(!service||!user)return;
     setLoading(true);
     try{
-      const [items,profile,summaries]=await Promise.all([service.list(),new DiaryService(user.id).loadProfile(),service.clientSummaries(localDateKey())]);
+      const [items,profile,dashboardData,notes]=await Promise.all([service.list(),new DiaryService(user.id).loadProfile(),service.dashboard(localDateKey()),service.clientWeeklyReviewNotes()]);
       setRelationships(items);
-      setClientSummaries(summaries);
+      setDashboard(dashboardData);
+      setWeeklyNotes(notes);
       setAccent(profile.appColour);
       setAppearance(profile.appearanceMode);
       setTextScale(profile.textScale);
@@ -67,6 +73,7 @@ export default function CoachingPage(){
   const activeCoaches=relationships.filter(item=>item.viewerRole==="client"&&item.status==="active");
   const incoming=relationships.filter(item=>item.viewerRole==="client"&&item.status==="pending");
   const past=relationships.filter(item=>item.status==="declined"||item.status==="ended").slice(0,6);
+  const attentionByClient=new Map<string,number>();dashboard.attention.forEach(item=>attentionByClient.set(item.relationshipId,(attentionByClient.get(item.relationshipId)||0)+1));
   const theme=createSetraTheme(accent,resolvedAppearance,textScale);
 
   return <main className="coaching-screen" style={theme} data-theme={resolvedAppearance}>
@@ -79,8 +86,11 @@ export default function CoachingPage(){
 
         <section className="coaching-panel"><header><span>MY COACHES</span><h2>{activeCoaches.length?`${activeCoaches.length} active ${activeCoaches.length===1?"coach":"coaches"}`:"No active coach"}</h2><p>Your individual Setra plan and Friends remain independent.</p></header>{activeCoaches.length?<div className="coaching-list">{activeCoaches.map(item=><Person key={item.relationshipId} relationship={item} actions={<><button disabled={busy} onClick={()=>action(()=>service!.setMvpPermissions(item.relationshipId,!(item.viewPlannedSessions&&item.viewCompletedSessions&&item.assignTraining)),item.viewPlannedSessions?"Coach training access removed.":"Coach training access enabled.")}>{item.viewPlannedSessions?"Remove access":"Allow training access"}</button><button className="danger" disabled={busy} onClick={()=>confirmEnd(item)}>End</button></>}/>)}</div>:<p className="coaching-empty">Accepted coaching relationships will appear here.</p>}</section>
 
+        {weeklyNotes.length>0&&<section className="coaching-panel coaching-weekly-notes"><header><span>WEEKLY REVIEWS</span><h2>Notes from your coach</h2><p>These reviews remain with your training record, including after a coaching relationship ends.</p></header><div>{weeklyNotes.map(note=><article key={note.id}><div><b>{reviewWeekLabel(note.weekStart)}</b><small>{note.coachName} · Updated {new Intl.DateTimeFormat("en-AU",{dateStyle:"medium"}).format(new Date(note.updatedAt))}</small></div><p>{note.text}</p></article>)}</div></section>}
+
         {!coachEnabled?<section className="coaching-panel coaching-start"><header><span>COACH WITH SETRA</span><h2>Enable coach tools</h2><p>This adds the coach role without changing your Free, Premium or Adaptive plan.</p></header><button className="coaching-primary" disabled={busy} onClick={enableCoaching}>Enable coaching</button></section>:<>
-          <section className="coaching-panel"><header><span>CLIENTS</span><h2>{activeClients.length?`${activeClients.length} active ${activeClients.length===1?"client":"clients"}`:"No active clients"}</h2><p>Open a client to review their authorised week and assign training.</p></header>{activeClients.length?<div className="coach-client-list">{activeClients.map(item=>{const summary=clientSummaries.find(client=>client.relationshipId===item.relationshipId);return <article key={item.relationshipId}><Link href={`/coaching/${item.relationshipId}`}><i>{initials(item.displayName)}</i><span><b>{item.displayName}</b><small>@{item.username}</small>{summary?.permissionsReady?<em>{summary.completedSessions} of {summary.plannedSessions} sessions complete{summary.nextSessionTitle?` · Next: ${summary.nextSessionTitle}`:""}</em>:<em>Awaiting client training access</em>}</span><strong>›</strong></Link><button className="danger" disabled={busy} onClick={()=>confirmEnd(item)}>End</button></article>})}</div>:<p className="coaching-empty">Accepted client relationships will appear here.</p>}</section>
+          <Link className="coach-program-library-link" href="/coaching/programs"><i>▦</i><span><small>PROGRAM LIBRARY</small><b>Multi-week training blocks</b><em>Create, edit and assign reusable programs.</em></span><strong>›</strong></Link>
+          <section className="coaching-panel coach-dashboard"><header><span>COACH DASHBOARD</span><h2>{activeClients.length?`${activeClients.length} active ${activeClients.length===1?"client":"clients"}`:"No active clients"}</h2><p>Current-week progress, recent training and items that need a quick review.</p></header><nav className="coach-dashboard-filters" aria-label="Dashboard filter"><button className={dashboardFilter==="all"?"active":""} onClick={()=>setDashboardFilter("all")}>All clients <small>{dashboard.clients.length}</small></button><button className={dashboardFilter==="attention"?"active":""} onClick={()=>setDashboardFilter("attention")}>Needs attention <small>{dashboard.attention.length}</small></button></nav>{dashboardFilter==="all"?(dashboard.clients.length?<div className="coach-dashboard-list">{dashboard.clients.map(client=>{const relationship=activeClients.find(item=>item.relationshipId===client.relationshipId);const attentionCount=attentionByClient.get(client.relationshipId)||0;return <article key={client.relationshipId}><Link href={`/coaching/${client.relationshipId}`}><i>{initials(client.displayName)}</i><span className="coach-dashboard-person"><b>{client.displayName}</b><small>@{client.username}</small></span><span className="coach-dashboard-progress"><b>{client.completedSessions} / {client.plannedSessions}</b><small>completed this week</small></span>{attentionCount>0&&<em>{attentionCount}</em>}<strong>›</strong></Link>{client.permissionsReady?<div className="coach-dashboard-context"><span><small>NEXT</small><b>{client.nextSessionTitle||"No upcoming session"}</b>{client.nextSessionDate&&<em>{shortDate(client.nextSessionDate)}</em>}</span><span><small>RECENT</small><b>{client.latestCompletedTitle||"No completed session"}</b>{client.latestCompletedDate&&<em>{shortDate(client.latestCompletedDate)}</em>}</span>{(client.latestSessionFeel||client.latestRpe!=null||client.latestAthleteComment)&&<span className="coach-dashboard-feedback"><small>LATEST ATHLETE FEEDBACK</small><b>{client.latestSessionFeel==="harder"?"Harder than expected":client.latestSessionFeel==="easier"?"Easier than expected":client.latestSessionFeel==="expected"?"As expected":"Session feedback"}{client.latestRpe!=null?` · RPE ${client.latestRpe}`:""}</b>{client.latestAthleteComment&&<em>{client.latestAthleteComment}</em>}</span>}</div>:<p className="coach-dashboard-permission">Awaiting client training access</p>}{relationship&&<button className="coach-dashboard-end" disabled={busy} onClick={()=>confirmEnd(relationship)}>End relationship</button>}</article>})}</div>:<p className="coaching-empty">Accepted client relationships will appear here.</p>):(dashboard.attention.length?<div className="coach-attention-list">{dashboard.attention.map((item,index)=>{const target=item.occurrenceId&&item.sessionDate?`/coaching/${item.relationshipId}?week=${item.sessionDate}&session=${item.occurrenceId}`:`/coaching/${item.relationshipId}`;return <article key={`${item.relationshipId}-${item.occurrenceId||"client"}-${index}`}><div><i>{initials(item.displayName)}</i><span><b>{item.displayName}</b><small>{item.sessionTitle}{item.sessionDate?` · ${shortDate(item.sessionDate)}`:""}</small></span></div><div className="coach-attention-reasons">{item.reasons.map(reason=><em key={reason}>{coachAttentionLabel(reason,item.sessionRpe)}</em>)}</div>{item.athleteComment&&<p>“{item.athleteComment}”</p>}<footer><Link href={`/coaching/${item.relationshipId}`}>Client week</Link><Link className="primary" href={target}>{item.reasons.includes("awaiting_coach_review")?"Review and respond":"Open session"}</Link></footer></article>})}</div>:<p className="coaching-empty">Nothing needs attention right now.</p>)}</section>
 
           <section className="coaching-panel"><header><span>PENDING INVITES</span><h2>{outgoing.length?`${outgoing.length} awaiting response`:"Nothing pending"}</h2></header>{outgoing.length?<div className="coaching-list">{outgoing.map(item=><Person key={item.relationshipId} relationship={item} actions={<button disabled={busy} onClick={()=>action(()=>service!.cancel(item.relationshipId),"Invitation cancelled.")}>Cancel</button>}/>)}</div>:<p className="coaching-empty">Invitations you send will remain here until answered or cancelled.</p>}</section>
 
