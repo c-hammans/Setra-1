@@ -6,7 +6,7 @@ export type CoachFeedback = {id:string;coachName:string;text:string;createdAt:st
 export type SessionFeel = "easier"|"expected"|"harder";
 export type AthleteSessionCheckin = {rpe?:number;feel?:SessionFeel;comment?:string;updatedAt?:string};
 export type CoachAssignmentInfo = {coachAssignmentId?:string;assignedByCoach?:string;coachInstruction?:string;coachDayPosition?:number;coachFeedback?:CoachFeedback;coachProgramName?:string;coachProgramWeek?:number;coachProgramDurationWeeks?:number};
-export type Template = { id: string; name: string; focus: string; warmup?: WarmupItem[]; exercises: TemplateExercise[]; color?: string; icon?: string; supersetNames?: Record<string,string> }&CoachAssignmentInfo;
+export type Template = { id: string; name: string; focus: string; warmup?: WarmupItem[]; exercises: TemplateExercise[]; color?: string; icon?: string; supersetNames?: Record<string,string>; updatedAt?:string; archivedAt?:string }&CoachAssignmentInfo;
 export type SetLog = { reps: string; weight: string; rpe: string; done: boolean; note?: string };
 // `text` is retained for diaries saved before BAND became its user-facing name.
 export type LoadMode = "kg"|"band"|"bw"|"text";
@@ -89,4 +89,6 @@ export type EnduranceTemplate = {
   category?:TrainingCategory;
   notes:string;
   blocks:TrainingSessionBlock[];
+  updatedAt?:string;
+  archivedAt?:string;
 };

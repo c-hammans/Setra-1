@@ -3,6 +3,7 @@
   "short_name": "setra",
   "description": "Plan strength sessions, log every set and track your progress.",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#F2EFEA",
   "theme_color": "#0F172A",

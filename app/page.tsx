@@ -174,7 +174,7 @@ import { usePremiumAccess } from "@/lib/premium/use-premium-access";
 import { createClient } from "@/lib/supabase/client";
 import { CoachFeedbackCard } from "@/components/coaching/coach-feedback-card";
 import { CoachingService } from "@/lib/coaching/coaching-service";
-import type { CoachFeedbackNotification } from "@/lib/coaching/types";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import "./endurance.css";
 import "./share.css";
 import "./weekly-preview.css";
@@ -1652,8 +1652,7 @@ export default function Home() {
   const [liveAddQuery, setLiveAddQuery] = useState("");
   const [liveSwapQuery, setLiveSwapQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [coachFeedbackNotice, setCoachFeedbackNotice] =
-    useState<CoachFeedbackNotification | null>(null);
+  const [coachedProgressAvailable, setCoachedProgressAvailable] = useState(false);
   const [deleteWorkoutId, setDeleteWorkoutId] = useState<string | null>(null);
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
@@ -1661,6 +1660,8 @@ export default function Home() {
     null,
   );
   const [editor, setEditor] = useState<Template | null>(null);
+  const coachLibraryEditHandledRef = useRef(false);
+  const coachedSessionHandledRef = useRef(false);
   const [picker, setPicker] = useState(false);
   const [swapPlanned, setSwapPlanned] = useState<{
     date: string;
@@ -2684,23 +2685,76 @@ export default function Home() {
     };
   }, [loaded, trainingService, user?.id, visibilityRefresh]);
   useEffect(() => {
+    if (!loaded || !enduranceReady || coachLibraryEditHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const strengthId = params.get("editStrength");
+    const enduranceId = params.get("editEndurance");
+    const newTemplate = params.get("newTemplate");
+    if (!strengthId && !enduranceId && !newTemplate) return;
+    if (strengthId) {
+      const template = data.templates.find((item) => item.id === strengthId && !item.archivedAt);
+      if (!template) return;
+      setTab("plan");
+      setEditor(structuredClone(template));
+    } else if (enduranceId) {
+      const template = enduranceTemplates.find((item) => item.id === enduranceId && !item.archivedAt);
+      if (!template) return;
+      setTab("plan");
+      setEnduranceEditor({ mode: "template", initial: structuredClone(template) });
+    } else if (newTemplate === "endurance") {
+      setTab("plan");
+      setEnduranceEditor({ mode: "template" });
+    } else {
+      setTab("plan");
+      setEditor({ id: createRecordId("template"), name: "", focus: "", color: appColour, icon: "◆", exercises: [] });
+    }
+    coachLibraryEditHandledRef.current = true;
+  }, [appColour, data.templates, enduranceReady, enduranceTemplates, loaded]);
+  useEffect(() => {
+    if (!loaded || !enduranceReady || coachedSessionHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const coachedDate = params.get("coachedDate");
+    const coachedSession = params.get("coachedSession");
+    const coachedModality = params.get("coachedModality");
+    if (coachedDate && /^\d{4}-\d{2}-\d{2}$/.test(coachedDate)) {
+      setSelectedDate(coachedDate);
+      setTab("today");
+      coachedSessionHandledRef.current = true;
+    } else if (coachedSession && coachedModality === "strength") {
+      if (!data.workouts.some((workout) => workout.id === coachedSession)) return;
+      setTab("history");
+      setDetailId(coachedSession);
+      coachedSessionHandledRef.current = true;
+    } else if (coachedSession && coachedModality === "endurance") {
+      if (!enduranceSessions.some((session) => session.id === coachedSession)) return;
+      setTab("history");
+      setEnduranceDetailId(coachedSession);
+      coachedSessionHandledRef.current = true;
+    }
+  }, [data.workouts, enduranceReady, enduranceSessions, loaded]);
+  useEffect(() => {
     if (!loaded || !coachingService) return;
     let cancelled = false;
-    const refreshNotice = async () => {
+    const refreshCoaching = async () => {
       try {
-        const notices = await coachingService.feedbackNotifications();
-        if (!cancelled)
-          setCoachFeedbackNotice(
-            notices.find((notice) => !notice.readAt) || null,
+        const relationships = await coachingService.list();
+        if (!cancelled) {
+          setCoachedProgressAvailable(
+            relationships.some(
+              (relationship) =>
+                relationship.viewerRole === "client" &&
+                relationship.status === "active",
+            ),
           );
+        }
       } catch {
-        // Feedback notifications should never prevent the training diary loading.
+        // Coaching availability should never prevent the training diary loading.
       }
     };
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void refreshNotice();
+      if (document.visibilityState === "visible") void refreshCoaching();
     };
-    void refreshNotice();
+    void refreshCoaching();
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
@@ -5274,28 +5328,6 @@ export default function Home() {
       setFeedbackBusy(false);
     }
   }
-  async function handleCoachFeedbackNotice(openWorkout: boolean) {
-    const notice = coachFeedbackNotice;
-    if (!notice || !coachingService) return;
-    setCoachFeedbackNotice(null);
-    try {
-      await coachingService.markFeedbackNotificationRead(
-        notice.notificationId,
-      );
-      if (!openWorkout) return;
-      if (notice.modality === "strength" && diaryService) {
-        const latest = await diaryService.load();
-        setData(latest);
-        setDetailId(notice.completedClientId);
-      } else if (notice.modality === "endurance" && trainingService) {
-        const latest = await trainingService.loadEndurance();
-        setEnduranceSessions(latest);
-        setEnduranceDetailId(notice.completedClientId);
-      }
-    } catch {
-      // The notice can safely be revisited from the completed workout history.
-    }
-  }
   return (
     <main
       className="app-shell"
@@ -5314,33 +5346,10 @@ export default function Home() {
           <span className="brand-mark">S</span>
           <span>setra</span>
         </button>{" "}
-        <Link className="avatar" href="/profile" aria-label="Open profile">
+        <span className="topbar-actions"><NotificationBell/><Link className="avatar" href="/profile" aria-label="Open profile">
           {profileInitials(user?.user_metadata?.display_name, user?.email)}
-        </Link>{" "}
+        </Link></span>{" "}
       </header>{" "}
-      {coachFeedbackNotice && !prominentLayerOpen && (
-        <aside className="coach-feedback-notice" role="status">
-          <button
-            className="coach-feedback-notice-content"
-            onClick={() => void handleCoachFeedbackNotice(true)}
-          >
-            <span>COACH FEEDBACK</span>
-            <b>{coachFeedbackNotice.coachName} left feedback</b>
-            <small>
-              {coachFeedbackNotice.sessionTitle} · {formatDate(
-                coachFeedbackNotice.sessionDate,
-              )}
-            </small>
-          </button>
-          <button
-            className="coach-feedback-notice-close"
-            aria-label="Dismiss coach feedback notification"
-            onClick={() => void handleCoachFeedbackNotice(false)}
-          >
-            ×
-          </button>
-        </aside>
-      )}
       <section className={`content content-${tab}`}>
         {" "}
         {tab === "today" && (
@@ -5609,6 +5618,11 @@ export default function Home() {
               </svg>
               Weekly Preview
             </button>{" "}
+            {coachedProgressAvailable && (
+              <Link className="coached-progress-trigger" href="/coaching/progress">
+                Coaching progress <span>›</span>
+              </Link>
+            )}{" "}
             <HomeStreak
               accent={appColour}
               suppressNotice={workoutInProgress || prominentLayerOpen}
@@ -6152,8 +6166,8 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="template-grid endurance-template-grid">
-                  {enduranceTemplates.length ? (
-                    enduranceTemplates.map((template) => (
+                  {enduranceTemplates.some((template) => !template.archivedAt) ? (
+                    enduranceTemplates.filter((template) => !template.archivedAt).map((template) => (
                       <article
                         className="template-card endurance-template-card"
                         key={template.id}
@@ -6272,7 +6286,7 @@ export default function Home() {
             )}{" "}
             {showStrength && (
               <div className="template-grid">
-                {data.templates.filter(template=>!template.coachAssignmentId).map((template) => (
+                {data.templates.filter(template=>!template.coachAssignmentId&&!template.archivedAt).map((template) => (
                   <article className="template-card" key={template.id}>
                     {" "}
                     <div className="template-copy">
@@ -6881,7 +6895,7 @@ export default function Home() {
               </span>
               <em>{workoutInProgress ? "Unavailable" : "Start →"}</em>
             </button>
-            {data.templates.filter(template=>!template.coachAssignmentId).map((template) => (
+            {data.templates.filter(template=>!template.coachAssignmentId&&!template.archivedAt).map((template) => (
               <button
                 className="picker-row"
                 disabled={workoutInProgress}
@@ -6922,7 +6936,7 @@ export default function Home() {
             </div>
             <div className="planned-swap-list">
               {data.templates
-                .filter((template) => template.id !== swapPlanned.templateId&&!template.coachAssignmentId)
+                .filter((template) => template.id !== swapPlanned.templateId&&!template.coachAssignmentId&&!template.archivedAt)
                 .map((template) => (
                   <button
                     className="picker-row"
@@ -6940,7 +6954,7 @@ export default function Home() {
                   </button>
                 ))}
             </div>
-            {data.templates.filter(template=>!template.coachAssignmentId).length < 2 && (
+            {data.templates.filter(template=>!template.coachAssignmentId&&!template.archivedAt).length < 2 && (
               <p className="planned-swap-empty">
                 Create another strength template before swapping this session.
               </p>

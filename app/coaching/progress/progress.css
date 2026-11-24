@@ -1,0 +1,417 @@
+.athlete-progress-screen {
+  min-height: 100dvh;
+  padding-bottom: calc(30px + env(safe-area-inset-bottom));
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+.athlete-progress-header {
+  height: calc(70px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 16px 0;
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+}
+.athlete-progress-header > a {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: 27px;
+  text-decoration: none;
+}
+.athlete-progress-header > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.athlete-progress-header small {
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: var(--accent-ink);
+}
+.athlete-progress-header b {
+  font-size: 14px;
+}
+.athlete-progress-content {
+  display: grid;
+  width: min(100%, 760px);
+  margin: auto;
+  padding: 12px 15px 40px;
+  gap: 11px;
+}
+.athlete-progress-message {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  font-size: 9px;
+  font-weight: 800;
+}
+.athlete-progress-hero,
+.athlete-progress-ended {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border-radius: var(--radius-card);
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-card);
+}
+.athlete-progress-hero span,
+.athlete-progress-ended span,
+.athlete-program-progress span,
+.athlete-week > header span,
+.athlete-latest-review > span,
+.athlete-program-history > header span {
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+.athlete-progress-hero h1,
+.athlete-progress-ended h1 {
+  margin: 5px 0 3px;
+  font-size: 25px;
+  letter-spacing: -0.04em;
+}
+.athlete-progress-hero p,
+.athlete-progress-ended p {
+  margin: 0;
+  font-size: 9px;
+  opacity: 0.8;
+}
+.athlete-progress-hero > div:last-child {
+  display: flex;
+  min-width: 170px;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.athlete-progress-hero > div:last-child b {
+  font-size: 19px;
+}
+.athlete-progress-hero > div:last-child small {
+  font-size: 8px;
+  opacity: 0.75;
+}
+.athlete-progress-hero > div:last-child em {
+  margin-top: 10px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 800;
+}
+.athlete-progress-goal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.athlete-progress-goal span {
+  display: grid;
+  gap: 3px;
+}
+.athlete-progress-goal small {
+  color: var(--accent-strong);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+.athlete-progress-goal b {
+  font-size: 14px;
+}
+.athlete-progress-goal em {
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-style: normal;
+}
+.athlete-progress-goal strong {
+  color: var(--accent-strong);
+  font-size: 10px;
+}
+.athlete-progress-ended {
+  display: block;
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+.athlete-progress-ended span {
+  color: var(--accent-ink);
+}
+.athlete-progress-ended p {
+  max-width: 520px;
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.athlete-program-progress,
+.athlete-week,
+.athlete-latest-review,
+.athlete-program-history {
+  padding: 15px;
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+}
+.athlete-program-progress > header,
+.athlete-week > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.athlete-program-progress h2,
+.athlete-week h2,
+.athlete-latest-review h2,
+.athlete-program-history h2 {
+  margin: 4px 0 2px;
+  font-size: 16px;
+}
+.athlete-program-progress header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+.athlete-program-progress header > b {
+  font-size: 10px;
+}
+.athlete-program-bar {
+  height: 7px;
+  margin: 13px 0;
+  border-radius: 5px;
+  background: var(--surface-neutral);
+  overflow: hidden;
+}
+.athlete-program-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.athlete-program-progress > footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.athlete-program-progress > footer span {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--surface-neutral);
+  letter-spacing: 0;
+}
+.athlete-program-progress > footer b {
+  font-size: 13px;
+}
+.athlete-program-progress > footer small {
+  color: var(--text-secondary);
+  font-size: 7px;
+}
+.athlete-week > header nav {
+  display: flex;
+  gap: 4px;
+}
+.athlete-week > header button {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-neutral);
+  color: var(--text-primary);
+  font-weight: 900;
+}
+.athlete-week-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 12px 0;
+}
+.athlete-week-counts span {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--surface-neutral);
+}
+.athlete-week-counts b {
+  font-size: 13px;
+}
+.athlete-week-counts small {
+  color: var(--text-secondary);
+  font-size: 7px;
+}
+.athlete-week-list {
+  display: grid;
+  gap: 6px;
+}
+.athlete-week-list > article {
+  overflow: hidden;
+  border-radius: 11px;
+  background: var(--surface-subtle);
+}
+.athlete-week-list > article > a {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 7px;
+  padding: 10px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.athlete-week-list article > a > i {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-style: normal;
+  font-weight: 900;
+}
+.athlete-week-list article > a > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.athlete-week-list article > a b {
+  font-size: 10px;
+}
+.athlete-week-list article > a small {
+  color: var(--text-secondary);
+  font-size: 7px;
+}
+.athlete-week-list article > a em {
+  margin-top: 2px;
+  color: var(--accent-ink);
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 800;
+}
+.athlete-week-list article > a strong {
+  font-size: 16px;
+}
+.athlete-week-list .is-completed,
+.athlete-week-list .is-partial {
+  opacity: 0.82;
+}
+.athlete-progress-checkin,
+.athlete-progress-feedback {
+  padding: 9px 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.athlete-progress-checkin > b,
+.athlete-progress-feedback > b {
+  color: var(--accent-ink);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+.athlete-progress-checkin p,
+.athlete-progress-feedback p {
+  margin: 3px 0;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.athlete-progress-checkin small,
+.athlete-progress-feedback small {
+  color: var(--text-secondary);
+  font-size: 7px;
+}
+.athlete-progress-feedback {
+  background: var(--accent-soft);
+}
+.athlete-latest-review > span,
+.athlete-program-history > header span {
+  color: var(--accent-ink);
+}
+.athlete-latest-review p {
+  margin: 7px 0 0;
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.55;
+}
+.athlete-program-history > div {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+.athlete-program-history article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px;
+  border-radius: 9px;
+  background: var(--surface-neutral);
+}
+.athlete-program-history article > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.athlete-program-history article b {
+  font-size: 9px;
+}
+.athlete-program-history article small,
+.athlete-program-history article em {
+  color: var(--text-secondary);
+  font-size: 7px;
+  font-style: normal;
+}
+.athlete-program-history article em {
+  text-align: right;
+}
+.athlete-progress-empty {
+  margin: 0;
+  padding: 22px;
+  border-radius: 13px;
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  font-size: 9px;
+  text-align: center;
+}
+.athlete-progress-empty p {
+  margin: 5px 0 0;
+}
+@media (max-width: 600px) {
+  .athlete-progress-hero {
+    display: grid;
+  }
+  .athlete-progress-hero > div:last-child {
+    min-width: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .athlete-program-progress > header,
+  .athlete-week > header {
+    display: grid;
+  }
+  .athlete-week > header nav {
+    justify-self: stretch;
+  }
+  .athlete-week > header nav button {
+    flex: 1;
+  }
+  .athlete-program-history article {
+    display: grid;
+  }
+  .athlete-program-history article em {
+    text-align: left;
+  }
+}
+.athlete-review-comments {
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+.athlete-review-comments .coach-comments-thread {
+  border-top: 0;
+}

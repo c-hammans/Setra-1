@@ -1,0 +1,290 @@
+.athlete-goals-screen {
+  min-height: 100dvh;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+}
+.athlete-goals-header {
+  position: sticky;
+  z-index: 20;
+  top: var(--safe-header-top, 0);
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px max(18px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--surface-page) 94%, transparent);
+  backdrop-filter: blur(18px);
+}
+.athlete-goals-header > a {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  background: var(--surface-card);
+  font-size: 30px;
+}
+.athlete-goals-header div {
+  display: grid;
+}
+.athlete-goals-header small,
+.athlete-goals-intro > span,
+.athlete-goal-list > header span,
+.athlete-goal-dialog header span {
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: var(--accent-strong);
+}
+.athlete-goals-header > button,
+.athlete-goal-dialog footer button:last-child {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 15px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 900;
+}
+.athlete-goals-content {
+  width: min(760px, calc(100% - 32px));
+  margin: auto;
+  display: grid;
+  gap: 18px;
+}
+.athlete-goals-intro {
+  padding: 24px 4px 8px;
+}
+.athlete-goals-intro h1 {
+  font-size: clamp(1.8rem, 6vw, 2.7rem);
+  margin: 8px 0;
+}
+.athlete-goals-intro p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.athlete-goals-message,
+.athlete-goals-empty {
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+.athlete-goal-list {
+  display: grid;
+  gap: 10px;
+}
+.athlete-goal-list > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+.athlete-goal-row {
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+}
+.athlete-goal-row > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.athlete-goal-row h2 {
+  margin: 5px 0 0;
+  font-size: 1.18rem;
+}
+.athlete-goal-row em {
+  font-style: normal;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  font-weight: 900;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 5px 7px;
+  margin-right: 5px;
+}
+.athlete-goal-row > header button {
+  align-self: start;
+  border: 0;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  padding: 9px 11px;
+  border-radius: 11px;
+  font-weight: 800;
+}
+.athlete-goal-row p {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+}
+.athlete-goal-row p b {
+  color: var(--text-primary);
+  min-width: 58px;
+}
+.athlete-goal-row aside {
+  margin-top: 12px;
+  padding: 11px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+.athlete-goal-progress-meter {
+  height: 5px;
+  overflow: hidden;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+}
+.athlete-goal-progress-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.athlete-goal-row blockquote {
+  margin: 12px 0 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.athlete-goal-row > small {
+  display: block;
+  margin-top: 12px;
+  color: var(--text-muted);
+}
+.athlete-goal-row > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.athlete-goal-row > footer button {
+  border: 0;
+  border-radius: 11px;
+  padding: 9px 12px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font-weight: 800;
+}
+.athlete-goal-row.status-completed,
+.athlete-goal-row.status-archived {
+  opacity: 0.72;
+}
+.athlete-goal-overlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) 18px
+    max(18px, env(safe-area-inset-bottom));
+  background: rgba(10, 18, 32, 0.48);
+}
+.athlete-goal-dialog {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100dvh - 36px));
+  overflow: auto;
+  border-radius: 26px;
+  background: var(--surface-card);
+  padding: 20px;
+  box-shadow: 0 30px 80px rgba(10, 18, 32, 0.25);
+}
+.athlete-goal-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+}
+.athlete-goal-dialog h2 {
+  margin: 5px 0;
+}
+.athlete-goal-dialog > header button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-subtle);
+  font-size: 25px;
+}
+.athlete-goal-fields {
+  display: grid;
+  gap: 13px;
+  margin-top: 16px;
+}
+.athlete-goal-fields label {
+  display: grid;
+  gap: 7px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+.athlete-goal-fields label small {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.athlete-goal-fields input,
+.athlete-goal-fields select,
+.athlete-goal-fields textarea {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 13px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+.athlete-goal-fields textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.athlete-goal-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.athlete-goal-fields .athlete-goal-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.athlete-goal-check input {
+  width: 20px;
+  min-height: 20px;
+}
+.athlete-goal-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+.athlete-goal-dialog > footer button {
+  border: 0;
+  border-radius: 13px;
+  padding: 12px 16px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font-weight: 900;
+}
+@media (max-width: 420px) {
+  .athlete-goal-pair {
+    grid-template-columns: 1fr;
+  }
+  .athlete-goals-header {
+    grid-template-columns: 42px 1fr auto;
+  }
+  .athlete-goals-header > button {
+    padding: 10px;
+  }
+  .athlete-goal-row > header {
+    align-items: start;
+  }
+}

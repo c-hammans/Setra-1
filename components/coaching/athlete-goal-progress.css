@@ -1,0 +1,162 @@
+.coaching-goal-progress-section {
+  display: grid;
+  gap: 10px;
+}
+.coaching-goal-progress-section > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.coaching-goal-progress-section > header span {
+  color: var(--accent-strong);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+.coaching-goal-progress-section > header h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+.coaching-goal-progress-section > header a {
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 900;
+  text-decoration: none;
+}
+.coaching-goal-progress-section > div {
+  display: grid;
+  gap: 8px;
+}
+.coaching-goal-progress-section > p {
+  margin: 0;
+  padding: 15px;
+  border-radius: 14px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.coaching-goal-progress {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border-radius: 17px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+}
+.coaching-goal-progress.is-primary {
+  background: linear-gradient(
+    145deg,
+    var(--accent-soft),
+    var(--surface-card) 72%
+  );
+}
+.coaching-goal-progress > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.coaching-goal-progress > header > div {
+  display: grid;
+  gap: 3px;
+}
+.coaching-goal-progress > header em {
+  justify-self: start;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+.coaching-goal-progress > header small {
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+.coaching-goal-progress > header b {
+  font-size: 15px;
+}
+.coaching-goal-progress > header i {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  color: var(--accent-strong);
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 900;
+}
+.coaching-goal-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.coaching-goal-values span {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border-radius: 11px;
+  background: var(--surface-subtle);
+}
+.coaching-goal-values small {
+  color: var(--text-muted);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.coaching-goal-values b {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.coaching-goal-meter {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border-subtle);
+}
+.coaching-goal-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.coaching-goal-progress > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+.coaching-goal-progress > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.coaching-goal-progress > footer span {
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+.coaching-goal-progress.is-compact {
+  padding: 11px;
+  box-shadow: none;
+}
+.coaching-goal-progress.is-compact .coaching-goal-values {
+  grid-template-columns: 1fr 1fr;
+}
+.coaching-goal-progress.is-compact > p {
+  display: none;
+}
+@media (max-width: 380px) {
+  .coaching-goal-values {
+    grid-template-columns: 1fr;
+  }
+  .coaching-goal-progress > header {
+    flex-direction: column;
+  }
+  .coaching-goal-progress > header i {
+    align-self: start;
+  }
+}

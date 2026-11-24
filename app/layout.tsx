@@ -5,6 +5,7 @@ import { AuthGate } from "@/components/auth/auth-gate";
 import {AwardsUsageTracker} from "@/components/awards/usage-tracker";
 import {OnboardingGate} from "@/components/onboarding/onboarding-gate";
 import {NavigationResume} from "@/components/navigation/navigation-resume";
+import {PushServiceWorker} from "@/components/notifications/push-service-worker";
 
 export const metadata: Metadata = {
   title: "setra – The work adds up.",
@@ -40,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider><AuthGate><OnboardingGate><NavigationResume/><AwardsUsageTracker/>{children}</OnboardingGate></AuthGate></AuthProvider>
+        <AuthProvider><AuthGate><OnboardingGate><NavigationResume/><PushServiceWorker/><AwardsUsageTracker/>{children}</OnboardingGate></AuthGate></AuthProvider>
       </body>
     </html>
   );
