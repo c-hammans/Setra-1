@@ -21,6 +21,7 @@
 .profile-export-warning{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,#f6c445 18%,var(--surface-card));color:var(--text-primary);font-size:calc(9px * var(--text-scale-number,1));line-height:1.4}.profile-export-note{display:block;margin:8px 2px 0;color:var(--text-secondary);font-size:calc(8px * var(--text-scale-number,1));line-height:1.4}
 .profile-field>small{color:var(--text-secondary);font-size:calc(9px * var(--text-scale-number,1));font-weight:500;letter-spacing:0;line-height:1.4}
 .profile-friends-link{background:var(--surface-card);color:var(--text-primary)}.profile-friends-link i{background:var(--surface-tint);color:var(--accent-ink)}
+.profile-notifications-link{background:var(--surface-card);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--accent-border),var(--shadow-card)}.profile-notifications-link i{background:var(--surface-tint);color:var(--accent-ink)}.profile-notifications-link svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
 /* Keep profile navigation reachable while its content scrolls, below the iPhone safe zone. */
 .profile-header{position:fixed;z-index:101;top:0;left:0;right:0;width:100%}

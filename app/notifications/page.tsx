@@ -9,7 +9,7 @@ import { DiaryService } from "@/lib/data/diary-service";
 import { notificationCategoryIcon, notificationCategoryLabel, notificationTarget, notificationTime } from "@/lib/notifications/notification-centre";
 import { NotificationService } from "@/lib/notifications/notification-service";
 import { defaultNotificationPreferences, type NotificationCategory, type NotificationPreferences, type PushNotificationCategory, type SetraNotification } from "@/lib/notifications/types";
-import { disablePushOnThisDevice, enablePushOnThisDevice, pushDeviceState, type PushDeviceState } from "@/lib/notifications/push-client";
+import { disablePushOnThisDevice, enablePushOnThisDevice, pushDeviceMessage, pushDeviceState, type PushDeviceState } from "@/lib/notifications/push-client";
 import { createSetraTheme, useResolvedAppearance } from "@/lib/setra/appearance";
 import "./notifications.css";
 
@@ -26,7 +26,7 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deviceState, setDeviceState] = useState<PushDeviceState>("unsupported");
+  const [deviceState, setDeviceState] = useState<PushDeviceState>("checking");
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [accent, setAccent] = useState("#409ECE");
@@ -113,7 +113,7 @@ export default function NotificationsPage() {
           {category === "awards" ? <em>Not used</em> : <label htmlFor={`notification-push-${category}`} aria-label={`${notificationCategoryLabel[category]} push notifications`}><input id={`notification-push-${category}`} type="checkbox" checked={preferences.push[category as PushNotificationCategory]} onChange={event => setPreferences(current => ({ ...current, push: { ...current.push, [category]: event.target.checked } }))}/><i /></label>}
         </div>)}
         <div className="notification-reminder"><label htmlFor="session-reminder"><span><b>Planned session reminder</b><small>Only sessions with a planned start time can send a reminder.</small></span><select id="session-reminder" value={preferences.sessionReminderOffset ?? "off"} onChange={event => setPreferences(current => ({ ...current, push: { ...current.push, training: event.target.value === "off" ? current.push.training : true }, sessionReminderOffset: event.target.value === "off" ? null : Number(event.target.value) as 0 | 30 | 60 }))}><option value="off">Off</option><option value="0">At session time</option><option value="30">30 min before</option><option value="60">1 hour before</option></select></label></div>
-        <div className="push-device"><span><b>This device</b><small>{deviceState === "subscribed" ? "Push is enabled" : deviceState === "denied" ? "Permission is blocked in device settings" : deviceState === "unsupported" ? "Push is not available in this browser" : "Push is not enabled"}</small></span>{deviceState === "subscribed" ? <button disabled={deviceBusy} onClick={() => void disableDevice()}>Turn off</button> : <button disabled={deviceBusy || deviceState === "denied" || deviceState === "unsupported"} onClick={() => void enableDevice()}>{deviceBusy ? "Enabling..." : "Enable push"}</button>}</div>
+        <div className="push-device"><span><b>Push on this device</b><small>{pushDeviceMessage(deviceState)}</small></span>{deviceState === "subscribed" ? <button disabled={deviceBusy} onClick={() => void disableDevice()}>Turn off</button> : <button disabled={deviceBusy || !["prompt","unsubscribed"].includes(deviceState)} onClick={() => void enableDevice()}>{deviceBusy ? "Enabling..." : ["prompt","unsubscribed"].includes(deviceState) ? "Enable push" : "Unavailable"}</button>}</div>
         <button disabled={saving} onClick={() => void savePreferences()}>{saving ? "Saving..." : "Save notification settings"}</button>
       </section>
     </div>

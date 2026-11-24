@@ -170,6 +170,7 @@ import {
 } from "@/lib/data/write-errors";
 import { ProgressOverview } from "@/components/history/progress-overview";
 import { AdvancedAnalytics } from "@/components/history/advanced-analytics";
+import {AdaptiveWeeklyReview,AdaptiveWeeklyReviewBootstrap,AdaptiveWeeklyReviewPrompt} from "@/components/adaptive/adaptive-weekly-review";
 import { usePremiumAccess } from "@/lib/premium/use-premium-access";
 import { createClient } from "@/lib/supabase/client";
 import { CoachFeedbackCard } from "@/components/coaching/coach-feedback-card";
@@ -181,6 +182,7 @@ import "./weekly-preview.css";
 import "./awards-home.css";
 import "./audit-fixes.css";
 import "./advanced-analytics.css";
+import "./adaptive-weekly-review.css";
 import "./athlete-checkin.css";
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = {
@@ -5335,6 +5337,7 @@ export default function Home() {
       data-theme={resolvedAppearance}
       style={createSetraTheme(appColour, resolvedAppearance, textScale)}
     >
+      <AdaptiveWeeklyReviewBootstrap access={access} loading={accessLoading}/>
       {" "}
       <header className="topbar">
         {" "}
@@ -5618,6 +5621,7 @@ export default function Home() {
               </svg>
               Weekly Preview
             </button>{" "}
+            <AdaptiveWeeklyReviewPrompt access={access} loading={accessLoading}/>{" "}
             {coachedProgressAvailable && (
               <Link className="coached-progress-trigger" href="/coaching/progress">
                 Coaching progress <span>›</span>
@@ -6494,7 +6498,8 @@ export default function Home() {
                 today={today}
                 weekStartsOn={weekStartsOn}
                 onExercise={setExerciseHistoryId}
-              /></>
+              />
+              <AdaptiveWeeklyReview access={access} accessLoading={accessLoading}/></>
             ) : effectiveHistoryMode === "sessions" ? (
               <>
                 {showEndurance &&

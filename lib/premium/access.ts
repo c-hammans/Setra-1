@@ -75,7 +75,7 @@ export const FEATURE_CATALOGUE = {
   advanced_integrations: { title: "Advanced integrations", description: "Connect selected health, wearable and training services.", availability: "coming_soon" },
   image_ai_workout_import: { title: "Image and file workout import", description: "Structure workouts from images and richer file formats.", availability: "coming_soon" },
   richer_training_analysis: { title: "Richer training analysis", description: "Turn the training record into clearer, actionable context.", availability: "coming_soon" },
-  ai_weekly_review: { title: "AI weekly review", description: "Review the week with context from planned and completed training.", availability: "coming_soon" },
+  ai_weekly_review: { title: "AI weekly review", description: "Review the week with context from planned and completed training.", availability: "available_now" },
   ai_training_insights: { title: "Training insights", description: "Explain useful patterns in training history and progression.", availability: "coming_soon" },
   ai_recommendations: { title: "Training recommendations", description: "Offer relevant next steps grounded in the user's record.", availability: "coming_soon" },
   adaptive_programming: { title: "Adaptive programming", description: "Adjust programming as training and circumstances change.", availability: "coming_soon" },

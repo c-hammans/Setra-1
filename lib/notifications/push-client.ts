@@ -1,4 +1,14 @@
-export type PushDeviceState = "unsupported" | "denied" | "prompt" | "subscribed" | "unsubscribed";
+export type PushDeviceState = "checking" | "requires_install" | "insecure" | "unsupported" | "denied" | "prompt" | "subscribed" | "unsubscribed";
+
+const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+export const pushPrerequisiteState = (environment: { secure: boolean; ios: boolean; standalone: boolean; supported: boolean }): PushDeviceState | null => {
+  if (!environment.secure) return "insecure";
+  if (environment.ios && !environment.standalone) return "requires_install";
+  if (!environment.supported) return "unsupported";
+  return null;
+};
 
 const applicationServerKey = () => {
   const value = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -14,12 +24,23 @@ export const registerSetraServiceWorker = async () => {
 };
 
 export const pushDeviceState = async (): Promise<PushDeviceState> => {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "unsupported";
+  const prerequisite = pushPrerequisiteState({ secure: window.isSecureContext, ios: isIos(), standalone: isStandalone(), supported: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window });
+  if (prerequisite) return prerequisite;
   if (Notification.permission === "denied") return "denied";
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.getSubscription();
   if (subscription) return "subscribed";
   return Notification.permission === "default" ? "prompt" : "unsubscribed";
+};
+
+export const pushDeviceMessage = (state: PushDeviceState) => {
+  if (state === "checking") return "Checking this device...";
+  if (state === "requires_install") return "On iPhone or iPad, open Setra in Safari, choose Add to Home Screen, then open the installed Setra app to enable push.";
+  if (state === "insecure") return "Push requires Setra to be opened over a secure HTTPS connection.";
+  if (state === "unsupported") return "This browser does not support Web Push. Try an up-to-date version of Safari, Chrome, Edge or Firefox.";
+  if (state === "denied") return isIos() ? "Push permission was previously denied. Re-enable Setra in iPhone Settings > Notifications, then return here." : "Push permission was previously denied. Re-enable Setra in your browser notification settings, then return here.";
+  if (state === "subscribed") return "Push is enabled on this device.";
+  return "Push is available but not enabled on this device.";
 };
 
 export const enablePushOnThisDevice = async () => {

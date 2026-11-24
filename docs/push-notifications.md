@@ -8,6 +8,7 @@ Run these in order through the Supabase SQL editor if they have not already been
 
 1. `20261124000300_add_unified_notification_centre.sql`
 2. `20261124000400_add_push_notifications.sql`
+3. `20261124000500_schedule_push_dispatch_on_supabase.sql`
 
 The push migration preserves existing notification preferences, defaults every push category to off, enables RLS, and keeps subscription secrets inaccessible to browser queries.
 
@@ -35,11 +36,20 @@ SUPABASE_SECRET_KEY=<existing Supabase server secret>
 
 `VAPID_SUBJECT` must be a real `mailto:` address or HTTPS URL. Do not use a localhost address.
 
-## 4. Scheduled delivery
+## 4. Configure scheduled delivery on Supabase
 
-`vercel.json` calls `/api/push/dispatch` every minute. Vercel automatically sends `CRON_SECRET` in the request authorisation header.
+The scheduler runs in Supabase rather than Vercel, so Setra can remain on Vercel Hobby. The migration enables Supabase Cron, `pg_net` and Vault, then schedules one secure dispatch request every minute.
 
-Per-minute Vercel cron execution requires Pro or Enterprise. Hobby supports daily cron execution only, which is not suitable for precise planned-session reminders. If the project remains on Hobby, use another trusted scheduler to call the same endpoint every minute with `Authorization: Bearer <CRON_SECRET>`.
+After setting `CRON_SECRET` in Vercel, run this once in the Supabase SQL Editor using the same secret value:
+
+```sql
+select public.configure_push_dispatch(
+  'https://setra-1.vercel.app/api/push/dispatch',
+  'PASTE_THE_SAME_LONG_CRON_SECRET_HERE'
+);
+```
+
+The URL and bearer secret are encrypted in Supabase Vault. They are not exposed to authenticated or anonymous app users. Redeploy Setra after adding the Vercel environment variables, then use Supabase Dashboard → Integrations → Cron to confirm `setra-push-dispatch-every-minute` is running successfully.
 
 ## 5. iPhone setup
 
