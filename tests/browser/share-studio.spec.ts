@@ -9,13 +9,13 @@ const drawPhoto=(page:Page,colour:string)=>page.evaluate((fill)=>{
 
 async function saveAndInspect(page:Page){
   const downloadPromise=page.waitForEvent("download");
-  await page.getByRole("button",{name:"Save",exact:true}).click();
+  await page.getByRole("button",{name:"Download PNG",exact:true}).click();
   const file=await downloadPromise;
   const src="data:image/png;base64,"+(await readFile((await file.path())!)).toString("base64");
   return page.evaluate(async source=>{
     const image=new Image();image.src=source;await image.decode();
-    const canvas=document.createElement("canvas");const context=canvas.getContext("2d")!;
-    context.drawImage(image,0,0);return {width:image.width,height:image.height,pixel:Array.from(context.getImageData(0,0,1,1).data)};
+    const canvas=document.createElement("canvas");canvas.width=image.width;canvas.height=image.height;const context=canvas.getContext("2d")!;
+    context.drawImage(image,0,0);return {width:image.width,height:image.height,pixel:Array.from(context.getImageData(0,0,1,1).data),centreAlpha:context.getImageData(Math.floor(image.width/2),10+Math.floor(image.height/2),1,1).data[3]};
   },src);
 }
 
@@ -38,7 +38,7 @@ for(const width of [320,390,768,1280])test(`share tiles stay inside their modal 
       await visibleBounds();
       if(width===320){
         const result=await saveAndInspect(page);
-        expect(result).toEqual(format==="Full"?{width:1080,height:1080,pixel:[0,0,0,0]}:{width:1536,height:480,pixel:[0,0,0,0]});
+        expect(result).toMatchObject(format==="Full"?{width:1080,height:1080,pixel:[0,0,0,0]}:{width:1536,height:480,pixel:[0,0,0,0]});
       }
     }
   }
@@ -53,7 +53,9 @@ for(const width of [320,390,768,1280])test(`share tiles stay inside their modal 
     await expect(dialog.getByRole("img",{name:"Selected share background"})).toBeVisible();
     await visibleBounds();
   }
-  expect((await saveAndInspect(page)).pixel[3]).toBe(255);
+  const photoExport=await saveAndInspect(page);
+  expect(photoExport.pixel[3]).toBe(0);
+  expect(photoExport.centreAlpha).toBe(255);
   if(width===320)for(const mode of ["Solid","Gradient"]){
     await dialog.getByRole("button",{name:mode,exact:true}).click();
     expect((await saveAndInspect(page)).pixel[3]).toBe(255);
@@ -83,4 +85,15 @@ test("expired native share gesture can use the prepared image without rendering 
   await page.getByRole("button",{name:"Open share sheet"}).click();
   await expect(page.locator("body")).toHaveAttribute("data-share-attempts","2");
   await expect(page.locator("body")).toHaveAttribute("data-render-attempts","1");
+});
+
+test("Download PNG does not open native sharing on a share-capable browser",async({page})=>{
+  await page.addInitScript(()=>{
+    Object.defineProperty(navigator,"canShare",{value:()=>true});
+    Object.defineProperty(navigator,"share",{value:()=>{document.body.dataset.unexpectedShare="true"}});
+  });
+  await page.goto("/test-plan-adjustment?shareStudio");
+  await page.getByRole("button",{name:"Open share card"}).click();
+  await saveAndInspect(page);
+  await expect(page.locator("body")).not.toHaveAttribute("data-unexpected-share","true");
 });

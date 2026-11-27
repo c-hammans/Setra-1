@@ -163,6 +163,7 @@ import {
   newTemplateWorkout,
 } from "@/lib/setra/new-workout";
 import {
+  otherPlannedStrengthCompletion,
   overlayPendingEndurance,
   overlayPendingStrength,
 } from "@/lib/data/pending-reconciliation";
@@ -2307,6 +2308,8 @@ export default function Home() {
             );
             setCloudState("error");
             setCloudMessage(userWriteErrorMessage(normalized));
+            if(change.kind==="save_workout"&&change.payload.status==="completed"&&normalized.kind==="conflict")
+              setVisibilityRefresh(current=>current+1);
             // A failed entity must not block unrelated queued work.
           }
         }
@@ -2495,10 +2498,8 @@ export default function Home() {
           }
         }
         pendingChanges = loadPendingDiaryChanges(user?.id);
-        cloud = overlayPendingStrength(
-          cloud,
-          pendingChanges,
-        );
+        const cloudCompletions = cloud.workouts;
+        cloud = overlayPendingStrength(cloud,pendingChanges);
         const reconciledSchedule = cloud.scheduled.filter(
           (item) =>
             !cloud.workouts.some(
@@ -2562,12 +2563,13 @@ export default function Home() {
             ),
         );
         const eligibleCloudDraft =
-          draft && !pendingCompletionIds.has(draft.id) ? draft : null;
+          draft && !pendingCompletionIds.has(draft.id) && !otherPlannedStrengthCompletion(cloudCompletions,draft) ? draft : null;
         const cloudUpdated =
           eligibleCloudDraft?.updatedAt || "1970-01-01T00:00:00.000Z";
         const newestDraft =
           localDraft &&
           !pendingCompletionIds.has(localDraft.workout.id) &&
+          !otherPlannedStrengthCompletion(cloudCompletions,localDraft.workout) &&
           localDraft.updatedAt > cloudUpdated
             ? localDraft.workout
             : eligibleCloudDraft;
@@ -2577,6 +2579,8 @@ export default function Home() {
           setSavedDraft(newestDraft);
           saveLocalDraft(newestDraft, user?.id);
           analytics.track("draft_recovered", { outcome: "recovered" });
+        } else {
+          setSavedDraft(current=>current&&otherPlannedStrengthCompletion(cloudCompletions,current)?null:current);
         }
         const cachedColour = loadLocalAppColour(user?.id);
         if (cachedColour) {
@@ -3159,20 +3163,19 @@ export default function Home() {
               : change.payload.clientId;
   const serverRecord = (change: PendingDiaryChange) => {
     if (!recoverySnapshot) return null;
-    if (change.kind === "save_workout" || change.kind === "delete_workout")
-      return (
-        recoverySnapshot.strength.workouts.find(
-          (item) =>
-            item.id ===
-            (change.kind === "save_workout"
-              ? change.payload.workout.id
-              : change.payload.clientId),
-        ) || (
-          change.kind==="save_workout"&&change.payload.status==="completed"&&change.payload.workout.templateId
-            ? recoverySnapshot.strength.workouts.find(item=>item.templateId===change.payload.workout.templateId&&item.date===change.payload.workout.date)
-            : null
-        ) || null
-      );
+    if (change.kind === "save_workout" || change.kind === "delete_workout") {
+      const workouts=recoverySnapshot.strength.workouts;
+      if(change.kind==="save_workout"){
+        const {workout,status}=change.payload;
+        const exact=workouts.find(item=>item.id===workout.id);
+        if(status==="completed"&&!exact?.completedAt){
+          const winner=otherPlannedStrengthCompletion(workouts.filter(item=>item.completedAt),workout);
+          if(winner)return winner;
+        }
+        return exact??null;
+      }
+      return workouts.find(item=>item.id===change.payload.clientId)??null;
+    }
     if (
       change.kind === "save_strength_template" ||
       change.kind === "delete_strength_template"
