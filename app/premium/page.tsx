@@ -6,16 +6,11 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { NavIcon } from "@/components/navigation/nav-icon";
 import { PremiumBadge } from "@/components/premium";
 import { loadLocalAppearance, loadLocalAppColour, loadLocalTextScale } from "@/lib/data/local-diary";
-import { FEATURE_CATALOGUE, PLAN_CATALOGUE, PLAN_ORDER, type PlanAvailability } from "@/lib/premium/access";
+import { FEATURE_CATALOGUE, PLAN_CATALOGUE, PLAN_ORDER } from "@/lib/premium/access";
+import {BillingPanel} from "@/components/billing/billing-panel";
 import { usePremiumAccess } from "@/lib/premium/use-premium-access";
 import { createSetraTheme, useResolvedAppearance, type AppearanceMode, type TextScale } from "@/lib/setra/appearance";
 import "./premium.css";
-
-const statusLabel: Record<PlanAvailability, string> = {
-  available: "Available now",
-  early_access: "Early access",
-  coming_soon: "Coming soon",
-};
 
 export default function PremiumPage() {
   const { user } = useAuth();
@@ -67,7 +62,7 @@ export default function PremiumPage() {
     <section className="premium-hero">
       <span>SETRA PLANS</span>
       <h1>More depth.<br /><em>Same focus.</em></h1>
-      <p>Core Setra stays free. Premium adds deeper ways to understand and move your training data. Adaptive will add intelligent guidance, with every plan change remaining in your control.</p>
+      <p>Core Setra stays free. Premium adds advanced analytics. Adaptive adds Weekly Review, with plan changes kept in your control.</p>
       <a href="#plans">Compare plans <b>↓</b></a>
       <div className="premium-status"><i />Your current plan: {PLAN_CATALOGUE[access.plan].displayName}</div>
     </section>
@@ -76,7 +71,7 @@ export default function PremiumPage() {
       <div className="premium-section-heading">
         <span>PLANS</span>
         <h2>Built in clear layers.</h2>
-        <p>Plan access and account roles are independent. A future coach role will not replace a user&apos;s Free, Premium or Adaptive plan.</p>
+        <p>Individual plans and coaching are separate. Existing beta access is preserved.</p>
       </div>
       <div className="premium-plan-grid">
         {PLAN_ORDER.map((planId) => {
@@ -85,7 +80,7 @@ export default function PremiumPage() {
           return <article className={`premium-plan-card ${current ? "current" : ""}`} key={plan.id}>
             <header>
               <div><span>{plan.displayName.toUpperCase()}</span>{current && <small>CURRENT PLAN</small>}</div>
-              <b data-status={plan.availability}>{statusLabel[plan.availability]}</b>
+              <b data-status={planId==="free"?"available":"early_access"}>{planId==="free"?"Available now":"Test billing only"}</b>
             </header>
             <h3>{plan.description}</h3>
             {plan.inherits && <p className="premium-inheritance">Everything in {PLAN_CATALOGUE[plan.inherits].displayName}, plus:</p>}
@@ -103,8 +98,9 @@ export default function PremiumPage() {
           </article>;
         })}
       </div>
-      <p className="premium-plan-note">No checkout is available yet. Existing Premium access is preserved, and roadmap items remain clearly marked until they are ready.</p>
+      <p className="premium-plan-note">Live payments are not enabled. Roadmap items are marked Coming soon.</p>
     </section>
+    <BillingPanel kind="individual"/>
 
     <section className="premium-value">
       <PremiumBadge />
@@ -116,7 +112,7 @@ export default function PremiumPage() {
       <span>EARLY ACCESS</span>
       {joined ? <div className="waitlist-success"><i>✓</i><h2>You&apos;re on the list.</h2><p>We&apos;ll use your account email to keep you informed as Premium and Adaptive develop.</p></div> : <>
         <h2>Help shape what comes next.</h2>
-        <p>Register your interest in deeper analytics, richer imports and intelligent training guidance. There is no payment or subscription checkout yet.</p>
+        <p>Register your interest in future improvements. Joining the list doesn’t start a subscription.</p>
         <form onSubmit={submitWaitlist}>
           <label>EMAIL<input type="email" required value={email} readOnly={Boolean(user?.email)} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
           <button disabled={busy}>{busy ? "Joining…" : "Join early access"} <b>→</b></button>

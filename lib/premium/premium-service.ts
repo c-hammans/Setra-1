@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import {readEffectiveAccess} from "./effective-access";
 import {
   DEFAULT_ACCESS,
   normalizePlan,
@@ -15,6 +16,8 @@ export class PremiumService {
   constructor(private userId: string) {}
 
   async loadAccess(): Promise<AccessState> {
+    const effective=await readEffectiveAccess(this.supabase);
+    if(effective)return effective;
     let plan = DEFAULT_ACCESS.plan;
     const profile = await this.supabase
       .from("profiles")

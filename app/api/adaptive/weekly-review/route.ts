@@ -4,6 +4,7 @@ import {getWeeklyReviewProvider} from "@/lib/adaptive/weekly-review-provider";
 import {parseWeeklyReviewContent,WEEKLY_REVIEW_PROMPT_VERSION} from "@/lib/adaptive/weekly-review-schema";
 import type {StoredWeeklyReview} from "@/lib/adaptive/weekly-review-types";
 import {hasFeature,normalizePlan,normalizeRoles} from "@/lib/premium/access";
+import {readEffectiveAccess} from "@/lib/premium/effective-access";
 import {addCalendarDays,weekStartKey,type WeekdayIndex} from "@/lib/setra/week";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {createClient as createServerClient} from "@/lib/supabase/server";
@@ -18,7 +19,7 @@ async function requestState(){
   const auth=await createServerClient();const {data:{user}}=await auth.auth.getUser();if(!user)return null;
   const admin=createAdminClient();const [profileResult,roleResult]=await Promise.all([admin.from("profiles").select("individual_plan,subscription_tier,timezone,week_starts_on").eq("id",user.id).single(),admin.from("user_roles").select("role").eq("user_id",user.id)]);
   if(profileResult.error)throw profileResult.error;if(roleResult.error&&roleResult.error.code!=="42P01")throw roleResult.error;
-  const access={plan:normalizePlan(profileResult.data.individual_plan??profileResult.data.subscription_tier),roles:normalizeRoles((roleResult.data||[]).map((item:Row)=>item.role))};
+  const access=await readEffectiveAccess(auth)??{plan:normalizePlan(profileResult.data.individual_plan??profileResult.data.subscription_tier),roles:normalizeRoles((roleResult.data||[]).map((item:Row)=>item.role))};
   const timezone=validTimezone(profileResult.data.timezone),weekStartsOn=(Number(profileResult.data.week_starts_on)||0) as WeekdayIndex,today=dateInTimezone(timezone),targetWeekStart=addCalendarDays(weekStartKey(today,weekStartsOn),-7);
   return {user,auth,admin,access,timezone,weekStartsOn,targetWeekStart};
 }
