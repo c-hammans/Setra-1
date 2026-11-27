@@ -15,6 +15,12 @@ export function usePremiumAccess() {
   const service = useMemo(() => (user ? new PremiumService(user.id) : null), [user]);
   const [access, setAccess] = useState<AccessState>(DEFAULT_ACCESS);
   const [loading, setLoading] = useState(Boolean(user));
+  const [revision,setRevision]=useState(0);
+  useEffect(()=>{
+    const refresh=()=>setRevision(value=>value+1);
+    window.addEventListener("setra-billing-updated",refresh);
+    return ()=>window.removeEventListener("setra-billing-updated",refresh);
+  },[]);
 
   useEffect(() => {
     if (!service) {
@@ -38,7 +44,7 @@ export function usePremiumAccess() {
     return () => {
       active = false;
     };
-  }, [service]);
+  }, [service,revision]);
 
   return {
     access,

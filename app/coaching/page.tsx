@@ -14,6 +14,8 @@ import type {
 import { coachAttentionLabel } from "@/lib/coaching/attention-rules";
 import { DiaryService } from "@/lib/data/diary-service";
 import { usePremiumAccess } from "@/lib/premium/use-premium-access";
+import {BillingPanel} from "@/components/billing/billing-panel";
+import type {BillingPublicState} from "@/lib/billing/catalogue";
 import {
   createSetraTheme,
   useResolvedAppearance,
@@ -79,6 +81,7 @@ export default function CoachingPage() {
   );
   const [weeklyNotes, setWeeklyNotes] = useState<CoachWeeklyReviewNote[]>([]);
   const [coachEnabled, setCoachEnabled] = useState(false);
+  const [billingState,setBillingState]=useState<BillingPublicState|null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CoachingProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,7 +139,9 @@ export default function CoachingPage() {
       await refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error
+        (error as {code?:string})?.code==="P0601"
+          ? "No coaching seat is available. Manage your subscription or review your clients and pending invites."
+          : error instanceof Error
           ? error.message
           : "That coaching action could not be completed.",
       );
@@ -204,6 +209,8 @@ export default function CoachingPage() {
     ),
   );
   const theme = createSetraTheme(accent, resolvedAppearance, textScale);
+  const seatLimit=billingState?.seats.limit;
+  const noSeats=seatLimit!=null&&activeClients.length+outgoing.length>=seatLimit;
 
   return (
     <main
@@ -230,6 +237,7 @@ export default function CoachingPage() {
             control of training access.
           </p>
         </section>
+        <BillingPanel kind="coaching" seatVersion={activeClients.length*10000+outgoing.length} onState={setBillingState}/>
         {message && (
           <p className="coaching-message" role="status">
             {message}
@@ -429,13 +437,13 @@ export default function CoachingPage() {
                     or Adaptive plan.
                   </p>
                 </header>
-                <button
+                {billingState?.required&&billingState.seats.limit===0?<a href="#test-billing">See coaching subscription options ›</a>:<button
                   className="coaching-primary"
                   disabled={busy}
                   onClick={enableCoaching}
                 >
                   Enable coaching
-                </button>
+                </button>}
               </section>
             ) : (
               <>
@@ -482,7 +490,7 @@ export default function CoachingPage() {
                   </span>
                   <strong>›</strong>
                 </Link>
-                <section className="coaching-panel coach-dashboard">
+                <section className="coaching-panel coach-dashboard" id="coach-active-clients">
                   <header>
                     <span>COACH DASHBOARD</span>
                     <h2>
@@ -758,6 +766,7 @@ export default function CoachingPage() {
                           <button
                             disabled={
                               busy ||
+                              noSeats ||
                               item.relationshipStatus === "pending" ||
                               item.relationshipStatus === "active"
                             }
