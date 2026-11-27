@@ -10,7 +10,7 @@ for(const width of [320,1280])test(`test-only billing selects annual offer at ${
     actions.push(route.request().postDataJSON());
     return route.fulfill({json:{ok:true}});
   });
-  await page.goto("/test-plan-adjustment?billingPanel=individual&billing=return");
+  await page.goto("/test-billing?billingPanel=individual&billing=return");
   await expect(page.getByText("STRIPE TEST MODE", {exact:false})).toBeVisible();
   await expect(page.getByText("returning from Checkout doesn’t unlock features",{exact:false})).toBeVisible();
   await expect(page.getByText("AUD 8.99",{exact:false})).toBeVisible();
@@ -27,7 +27,7 @@ test("over-capacity coaching surfaces resolution without changing funds or indiv
     subscriptions:{coaching:{hasCustomer:true,funded:true,status:"active",product:"coach_starter",cadence:"month"}},
     seats:{limit:5,active:8,pending:0},clients:[{id:"client",name:"Existing client",funded:true}]};
   await page.route("**/api/billing",route=>route.fulfill({json:state}));
-  await page.goto("/test-plan-adjustment?billingPanel=coach");
+  await page.goto("/test-billing?billingPanel=coach");
   await expect(page.getByText("8 / 5 active seats")).toBeVisible();
   await expect(page.getByText("Client relationships and training have been kept.",{exact:false})).toBeVisible();
   await expect(page.getByRole("button",{name:"Manage subscription and invoices"})).toBeVisible();
@@ -35,7 +35,7 @@ test("over-capacity coaching surfaces resolution without changing funds or indiv
 
 test("missing Stripe configuration leaves existing beta access and hides checkout",async({page})=>{
   await page.route("**/api/billing",route=>route.fulfill({json:{...data,configured:false,manualPlan:"premium",plan:"premium"}}));
-  await page.goto("/test-plan-adjustment?billingPanel=individual");
+  await page.goto("/test-billing?billingPanel=individual");
   await expect(page.getByText("Test billing isn’t configured",{exact:false})).toBeVisible();
   await expect(page.getByText("Separate beta or manual access:",{exact:false})).toBeVisible();
   await expect(page.getByRole("button",{name:/Test checkout:/})).toHaveCount(0);
