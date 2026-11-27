@@ -8,8 +8,12 @@ const drawPhoto=(page:Page,colour:string)=>page.evaluate((fill)=>{
 },colour);
 
 async function saveAndInspect(page:Page){
+  const prepare=page.getByRole("button",{name:"Download PNG",exact:true});
+  if(await prepare.isVisible())await prepare.click();
+  const download=page.getByRole("link",{name:"Download file"});
+  await expect(download).toHaveAttribute("href",/^blob:/);
   const downloadPromise=page.waitForEvent("download");
-  await page.getByRole("button",{name:"Download PNG",exact:true}).click();
+  await download.click();
   const file=await downloadPromise;
   const src="data:image/png;base64,"+(await readFile((await file.path())!)).toString("base64");
   return page.evaluate(async source=>{
