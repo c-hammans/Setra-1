@@ -5,22 +5,19 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { NavIcon } from "@/components/navigation/nav-icon";
 import { PremiumBadge } from "@/components/premium";
+import {PlusFeatureHub} from "@/components/premium/plus-feature-hub";
 import { loadLocalAppearance, loadLocalAppColour, loadLocalTextScale } from "@/lib/data/local-diary";
-import { FEATURE_CATALOGUE, PLAN_CATALOGUE, PLAN_ORDER, type PlanAvailability } from "@/lib/premium/access";
+import {DiaryService} from "@/lib/data/diary-service";
+import { FEATURE_CATALOGUE, PLAN_CATALOGUE, PLAN_ORDER } from "@/lib/premium/access";
 import {BillingPanel} from "@/components/billing/billing-panel";
 import { usePremiumAccess } from "@/lib/premium/use-premium-access";
 import { createSetraTheme, useResolvedAppearance, type AppearanceMode, type TextScale } from "@/lib/setra/appearance";
 import "./premium.css";
 
-const statusLabel: Record<PlanAvailability, string> = {
-  available: "Available now",
-  early_access: "Early access",
-  coming_soon: "Coming soon",
-};
-
 export default function PremiumPage() {
   const { user } = useAuth();
-  const { access, service } = usePremiumAccess();
+  const { access, service, loading } = usePremiumAccess();
+  const [showStrength,setShowStrength]=useState(true);
   const [appColour, setAppColour] = useState("#409ECE");
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("system");
   const [textScale, setTextScale] = useState<TextScale>(1);
@@ -39,6 +36,12 @@ export default function PremiumPage() {
     if (scale) setTextScale(scale);
   }, [user?.id]);
   useEffect(() => { if (user?.email) setEmail(user.email); }, [user?.email]);
+  useEffect(()=>{
+    if(!user?.id)return;
+    let live=true;
+    void new DiaryService(user.id).loadProfile().then(profile=>{if(live)setShowStrength(profile.trainingPreference!=="endurance")}).catch(()=>{});
+    return ()=>{live=false};
+  },[user?.id]);
   useEffect(() => {
     if (!service) return;
     service.hasJoinedWaitlist().then(setJoined).catch(() => setJoined(false));
@@ -62,16 +65,8 @@ export default function PremiumPage() {
   return <main className="premium-shell" data-theme={resolvedAppearance} style={createSetraTheme(appColour, resolvedAppearance, textScale)}>
     <header className="premium-topbar">
       <Link className="premium-brand" href="/"><span className="premium-brand-mark" /><b>setra</b></Link>
-      <PremiumBadge />
     </header>
-
-    <section className="premium-hero">
-      <span>SETRA PLANS</span>
-      <h1>More depth.<br /><em>Same focus.</em></h1>
-      <p>Core Setra stays free. Premium adds advanced analytics. Adaptive adds Weekly Review, with plan changes kept in your control.</p>
-      <a href="#plans">Compare plans <b>↓</b></a>
-      <div className="premium-status"><i />Your current plan: {PLAN_CATALOGUE[access.plan].displayName}</div>
-    </section>
+    <PlusFeatureHub access={access} loading={loading}/>
 
     <section className="premium-plans" id="plans">
       <div className="premium-section-heading">
@@ -86,7 +81,7 @@ export default function PremiumPage() {
           return <article className={`premium-plan-card ${current ? "current" : ""}`} key={plan.id}>
             <header>
               <div><span>{plan.displayName.toUpperCase()}</span>{current && <small>CURRENT PLAN</small>}</div>
-              <b data-status={plan.availability}>{statusLabel[plan.availability]}</b>
+              <b data-status={planId==="free"?"available":"early_access"}>{planId==="free"?"Available now":"Test billing only"}</b>
             </header>
             <h3>{plan.description}</h3>
             {plan.inherits && <p className="premium-inheritance">Everything in {PLAN_CATALOGUE[plan.inherits].displayName}, plus:</p>}
@@ -104,9 +99,9 @@ export default function PremiumPage() {
           </article>;
         })}
       </div>
-      <p className="premium-plan-note">Existing beta access is preserved. Roadmap items are marked Coming soon.</p>
+      <p className="premium-plan-note">Live payments are not enabled. Roadmap items are marked Coming soon.</p>
     </section>
-    <BillingPanel kind="individual"/>
+    <div className="plus-billing-wrap"><BillingPanel kind="individual"/></div>
 
     <section className="premium-value">
       <PremiumBadge />
@@ -128,12 +123,12 @@ export default function PremiumPage() {
       </>}
     </section>
 
-    <nav className="premium-bottom-nav" aria-label="Main navigation">
+    <nav className="premium-bottom-nav" aria-label="Main navigation" style={{gridTemplateColumns:`repeat(${showStrength?5:4},minmax(0,1fr))`}}>
       <Link href="/"><NavIcon name="today" /><small>Today</small></Link>
       <Link href="/?tab=plan"><NavIcon name="plan" /><small>Plan</small></Link>
       <Link href="/?tab=history"><NavIcon name="history" /><small>History</small></Link>
-      <Link href="/?tab=pbs"><NavIcon name="pbs" /><small>PBs</small></Link>
-      <Link className="selected" href="/premium"><NavIcon name="premium" /><small>Premium</small></Link>
+      {showStrength&&<Link href="/?tab=pbs"><NavIcon name="pbs" /><small>PBs</small></Link>}
+      <Link className="selected" href="/premium" aria-current="page"><NavIcon name="premium" /><small>Plus</small></Link>
     </nav>
   </main>;
 }

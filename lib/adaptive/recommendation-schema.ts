@@ -1,0 +1,10 @@
+import {RECOMMENDATION_TYPES,type RecommendationCandidate,type RecommendationDraft} from "./recommendation-types.ts";
+
+export const RECOMMENDATION_PROMPT_VERSION="proactive-recommendations-v1";
+export const recommendationJsonSchema={type:"object",additionalProperties:false,properties:{recommendations:{type:"array",minItems:1,maxItems:3,items:{type:"object",additionalProperties:false,properties:{candidateKey:{type:"string"},type:{type:"string",enum:RECOMMENDATION_TYPES},title:{type:"string"},recommendation:{type:"string"},confidence:{type:"string",enum:["high","medium"]}},required:["candidateKey","type","title","recommendation","confidence"]}}},required:["recommendations"]} as const;
+const clean=(value:string)=>value.trim().replaceAll("\u2014","\u2013");
+export function parseRecommendationDrafts(value:unknown,candidates:RecommendationCandidate[]):RecommendationDraft[]{
+  if(!value||typeof value!=="object"||!Array.isArray((value as Record<string,unknown>).recommendations))throw new Error("Adaptive recommendations returned invalid output.");
+  const allowed=new Map(candidates.map(item=>[item.key,item]));const rows=(value as {recommendations:unknown[]}).recommendations;if(rows.length<1||rows.length>3)throw new Error("Adaptive recommendations returned an invalid number of items.");
+  const seen=new Set<string>();return rows.map(row=>{if(!row||typeof row!=="object")throw new Error("Adaptive recommendations returned an invalid item.");const item=row as Record<string,unknown>,candidate=allowed.get(String(item.candidateKey));if(!candidate||seen.has(candidate.key)||item.type!==candidate.type||item.confidence!==candidate.confidence||typeof item.title!=="string"||typeof item.recommendation!=="string"||!item.title.trim()||!item.recommendation.trim()||item.title.length>100||item.recommendation.length>500)throw new Error("Adaptive recommendations were not grounded in the supplied candidates.");seen.add(candidate.key);return {candidateKey:candidate.key,type:candidate.type,title:clean(item.title),recommendation:clean(item.recommendation),confidence:candidate.confidence}});
+}

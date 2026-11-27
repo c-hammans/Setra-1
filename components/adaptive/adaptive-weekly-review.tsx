@@ -5,12 +5,13 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import {UpgradePrompt} from "@/components/premium";
 import {hasFeature,type AccessState} from "@/lib/premium/access";
 import type {StoredWeeklyReview} from "@/lib/adaptive/weekly-review-types";
+import {ProposePlanChange} from "./plan-adjustments";
 
 type ReviewFeed={targetWeekStart:string;targetWeekEnd:string;sourceHash:string;sourceChanged:boolean;needsGeneration:boolean;reviews:StoredWeeklyReview[]};
 const dateRange=(start:string,end:string)=>`${new Intl.DateTimeFormat("en-AU",{day:"numeric",month:"short"}).format(new Date(`${start}T12:00:00`))}–${new Intl.DateTimeFormat("en-AU",{day:"numeric",month:"short",year:"numeric"}).format(new Date(`${end}T12:00:00`))}`;
 
 async function loadFeed(){const response=await fetch("/api/adaptive/weekly-review",{cache:"no-store"});if(!response.ok)throw new Error((await response.json().catch(()=>null))?.error||"Weekly reviews could not be loaded.");return response.json() as Promise<ReviewFeed>}
-async function generateReview(weekStart?:string,regenerate=false){const response=await fetch("/api/adaptive/weekly-review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({weekStart,regenerate})});const payload=await response.json().catch(()=>null);if(!response.ok)throw new Error(payload?.error||payload?.review?.errorMessage||"The weekly review could not be generated.");return payload.review as StoredWeeklyReview}
+async function generateReview(weekStart?:string,regenerate=false){const response=await fetch("/api/adaptive/weekly-review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({weekStart,regenerate})});const payload=await response.json().catch(()=>null);if(!response.ok)throw new Error(payload?.error||payload?.review?.errorMessage||"The weekly review could not be generated.");window.dispatchEvent(new Event("setra-adaptive-weekly-review-generated"));return payload.review as StoredWeeklyReview}
 
 export function AdaptiveWeeklyReviewBootstrap({access,loading}:{access:AccessState;loading:boolean}){
   const attempted=useRef(false);
@@ -22,7 +23,7 @@ export function AdaptiveWeeklyReviewPrompt({access,loading}:{access:AccessState;
   const [review,setReview]=useState<StoredWeeklyReview|null>(null);
   useEffect(()=>{if(loading||!hasFeature(access,"ai_weekly_review"))return;loadFeed().then(feed=>setReview(feed.reviews.find(item=>item.status==="ready")||null)).catch(()=>undefined);const listener=(event:Event)=>setReview((event as CustomEvent<StoredWeeklyReview>).detail);window.addEventListener("setra-adaptive-review-ready",listener);return()=>window.removeEventListener("setra-adaptive-review-ready",listener)},[access,loading]);
   if(loading||!hasFeature(access,"ai_weekly_review")||!review)return null;
-  return <Link className="adaptive-home-prompt" href="/?tab=pbs#adaptive-weekly-review"><span>ADAPTIVE WEEKLY REVIEW</span><b>{dateRange(review.weekStart,review.weekEnd)}</b><em>Read review ›</em></Link>;
+  return <Link className="adaptive-home-prompt" href="/?tab=history&view=progress#adaptive-weekly-review"><span>ADAPTIVE WEEKLY REVIEW</span><b>{dateRange(review.weekStart,review.weekEnd)}</b><em>Read review ›</em></Link>;
 }
 
 export function AdaptiveWeeklyReview({access,accessLoading=false}:{access:AccessState;accessLoading?:boolean}){
@@ -42,6 +43,8 @@ export function AdaptiveWeeklyReview({access,accessLoading=false}:{access:Access
       <div className="adaptive-review-glance"><span>WEEK AT A GLANCE</span>{content.weekAtAGlance.map((item,index)=><p key={index}>{item}</p>)}</div>
       <div className="adaptive-review-sections"><ReviewSection title="What went well" items={content.whatWentWell}/><ReviewSection title="Worth noting" items={content.worthNoting}/><ReviewSection title="Looking ahead" items={content.lookingAhead}/></div>
       <footer className="adaptive-confidence"><div><span>DATA CONFIDENCE · {content.dataConfidence.level.toUpperCase()}</span><p>{content.dataConfidence.summary}</p></div>{content.dataConfidence.gaps.length>0&&<details><summary>Data gaps</summary><ul>{content.dataConfidence.gaps.map((item,index)=><li key={index}>{item}</li>)}</ul></details>}</footer>
+      <button className="adaptive-ask-link" type="button" onClick={()=>window.dispatchEvent(new CustomEvent("setra-ask-question",{detail:{question:`What else should I understand about my training for ${dateRange(review!.weekStart,review!.weekEnd)}?`}}))}>Ask Setra about this week ›</button>
+      {review?.weekStart===feed?.targetWeekStart&&review&&<ProposePlanChange access={access} source={{kind:"review",id:review.id}}/>}
       {feed?.sourceChanged&&review?.weekStart===feed.targetWeekStart&&<div className="adaptive-review-updated"><div><b>Your training record changed.</b><small>Generate an updated review using the latest completed data.</small></div><button disabled={busy} onClick={generate}>{busy?"Updating…":"Update review"}</button></div>}
     </>}
     {error&&<p className="adaptive-review-error" role="alert">{error}</p>}

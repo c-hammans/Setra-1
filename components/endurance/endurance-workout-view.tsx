@@ -4,6 +4,7 @@ import {activityLabel} from "@/components/endurance/endurance-session-sheet";
 import {ActivityIcon} from "@/components/endurance/activity-icon";
 import {CoachFeedbackCard} from "@/components/coaching/coach-feedback-card";
 import {AthleteCheckinCard} from "@/components/workout/athlete-checkin";
+import {ImportedActivityDetails} from "@/components/integrations/activity-result";
 import {calculateStructuredTotals,childrenOf,formatStepTime,formatTrainingStep,stepDistanceUsesMetres} from "@/lib/setra/endurance-steps";
 import type {EnduranceSession,TrainingSessionBlock} from "@/lib/setra/types";
 
@@ -25,6 +26,7 @@ export function EnduranceWorkoutView({session,onClose,onEdit,onEditTemplate,onCo
     <div className="workout-view-totals">{plannedDistanceMetres!=null&&<p><span>{distanceCoverage==="partial"?"KNOWN DISTANCE":"PLANNED DISTANCE"}</span><b>{formatDistance(plannedDistanceMetres,session)}</b>{distanceCoverage==="partial"&&<small>plus open or time-based work</small>}</p>}{plannedDuration!=null&&<p><span>{durationCoverage==="partial"?"KNOWN TIME":"PLANNED TIME"}</span><b>{formatStepTime(Math.round(plannedDuration*60))}</b>{durationCoverage==="partial"&&<small>plus open or distance-based work</small>}</p>}{session.targetRpe!=null&&<p><span>TARGET RPE</span><b>{session.targetRpe}/10</b></p>}</div>
     <section className="workout-view-structure"><header><span>WORKOUT</span>{session.blocks.length>0&&<small>{session.blocks.length} structured {session.blocks.length===1?"item":"items"}</small>}</header><EnduranceStructureView session={session}/></section>
     {session.notes&&<section className="workout-view-notes"><span>NOTES</span><p>{session.notes}</p></section>}
+    {session.status==="completed"&&session.source==="activity_file"&&<ImportedActivityDetails sessionId={session.id}/>}
     {session.status==="completed"&&onSaveCheckin&&<AthleteCheckinCard initial={session.athleteCheckin||{rpe:session.rpe}} onSave={onSaveCheckin}/>}
     {session.status==="completed"&&session.coachFeedback&&<CoachFeedbackCard feedback={session.coachFeedback}/>}
     {session.status==="planned"&&<div className="future-device-slot"><span>DEVICE SYNC</span><small>Watch syncing is not available yet.</small></div>}

@@ -171,7 +171,12 @@ import {
 import { ProgressOverview } from "@/components/history/progress-overview";
 import { AdvancedAnalytics } from "@/components/history/advanced-analytics";
 import {AdaptiveWeeklyReview,AdaptiveWeeklyReviewBootstrap,AdaptiveWeeklyReviewPrompt} from "@/components/adaptive/adaptive-weekly-review";
+import {AskSetra} from "@/components/adaptive/ask-setra";
+import {ProactiveRecommendations,ProactiveRecommendationsBootstrap} from "@/components/adaptive/proactive-recommendations";
+import {PlanAdjustments} from "@/components/adaptive/plan-adjustments";
+import {withStrengthPrescription} from "@/lib/adaptive/plan-adjustments";
 import { usePremiumAccess } from "@/lib/premium/use-premium-access";
+import {progressLink} from "@/lib/premium/plus";
 import { createClient } from "@/lib/supabase/client";
 import { CoachFeedbackCard } from "@/components/coaching/coach-feedback-card";
 import { CoachingService } from "@/lib/coaching/coaching-service";
@@ -183,7 +188,11 @@ import "./awards-home.css";
 import "./audit-fixes.css";
 import "./advanced-analytics.css";
 import "./adaptive-weekly-review.css";
+import "./ask-setra.css";
+import "./proactive-recommendations.css";
+import "./plan-adjustments.css";
 import "./athlete-checkin.css";
+import "./integrations/integrations.css";
 type Tab = "today" | "plan" | "history" | "pbs" | "library";
 type PBResult = {
   exerciseId: string;
@@ -1906,7 +1915,10 @@ export default function Home() {
     } catch {
       /* Restricted storage falls back to Today. */
     }
-    if (
+    if (progressLink(window.location.search,window.location.hash).requested) {
+      setTab("history");
+      setHistoryMode("progress");
+    } else if (
       requestedTab === "plan" ||
       requestedTab === "history" ||
       requestedTab === "pbs"
@@ -1943,6 +1955,11 @@ export default function Home() {
   }, []);
   useEffect(() => {
     const restore = () => {
+      if(progressLink(window.location.search,window.location.hash).requested){
+        setTab("history");
+        setHistoryMode("progress");
+        return;
+      }
       const requested = new URLSearchParams(window.location.search).get("tab");
       setTab(
         requested === "plan" || requested === "history" || requested === "pbs"
@@ -1953,6 +1970,14 @@ export default function Home() {
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
   }, []);
+  useEffect(()=>{
+    if(!loaded||tab!=="history"||historyMode!=="progress"||accessLoading)return;
+    const link=progressLink(window.location.search,window.location.hash);
+    if(!link.requested||!link.anchor)return;
+    const target=link.anchor;
+    const frame=window.requestAnimationFrame(()=>document.getElementById(target)?.scrollIntoView({block:"start"}));
+    return ()=>window.cancelAnimationFrame(frame);
+  },[loaded,tab,historyMode,accessLoading]);
   useEffect(() => {
     if (loaded)
       try {
@@ -3466,9 +3491,10 @@ export default function Home() {
   }
   const scheduledTemplates = data.scheduled
     .filter((item) => item.date === selectedDate)
-    .map((item) =>
-      data.templates.find((template) => template.id === item.templateId),
-    )
+    .map((item) => {
+      const template=data.templates.find(template=>template.id===item.templateId);
+      return template?plannedStrengthPrescription(template,item.date):undefined;
+    })
     .filter((template): template is Template => Boolean(template))
     .filter(
       (template) =>
@@ -4223,8 +4249,15 @@ export default function Home() {
     setActive(restoredDraft);
     setSavedDraft(null);
   }
+  function plannedStrengthPrescription(template: Template, date: string) {
+    const item=data.scheduled.find(item=>item.templateId===template.id&&item.date===date&&!item.skipped);
+    const prescription=item?.adaptivePrescription;
+    return prescription&&template.updatedAt&&String(Date.parse(template.updatedAt))===prescription.templateVersion
+      ?withStrengthPrescription(template,prescription.values):template;
+  }
   function startWorkout(template: Template, workoutDate = today) {
     if (workoutInProgress) return;
+    template=plannedStrengthPrescription(template,workoutDate);
     completionLockRef.current = false;
     setCompletionSaving(false);
     setExpandedLiveExercises(new Set());
@@ -4488,6 +4521,7 @@ export default function Home() {
         ? { ...current, athleteCheckin: next }
         : current,
     );
+    window.dispatchEvent(new Event("setra-training-changed"));
   }
   async function saveEnduranceCheckin(
     sessionId: string,
@@ -4514,6 +4548,7 @@ export default function Home() {
         ? { ...current, rpe: saved.rpe, athleteCheckin: next }
         : current,
     );
+    window.dispatchEvent(new Event("setra-training-changed"));
   }
   function openFinishDialog() {
     if (!active) return;
@@ -5338,6 +5373,7 @@ export default function Home() {
       style={createSetraTheme(appColour, resolvedAppearance, textScale)}
     >
       <AdaptiveWeeklyReviewBootstrap access={access} loading={accessLoading}/>
+      <ProactiveRecommendationsBootstrap access={access} loading={accessLoading}/>
       {" "}
       <header className="topbar">
         {" "}
@@ -5703,6 +5739,7 @@ export default function Home() {
                     <em aria-hidden="true">›</em>
                   </button>
                 </div>
+                <Link className="activity-import-shortcut" href="/integrations#activity-import">Import completed activity ›</Link>
               </section>
             )}{" "}
             {showStrength && savedDraft && (
@@ -6349,6 +6386,7 @@ export default function Home() {
         )}{" "}
         {tab === "history" && (
           <>
+            <Link className="activity-import-shortcut" href="/integrations#activity-import">Import completed activity ›</Link>
             {" "}
             <div className="eyebrow">TRAINING LOG</div>
             <div className="page-heading">
@@ -6486,7 +6524,7 @@ export default function Home() {
                 preferredUnit={preferredUnit}
                 onExercise={setExerciseHistoryId}
               />
-              <AdvancedAnalytics
+              <div id="advanced-analytics" className="plus-progress-target"><AdvancedAnalytics
                 access={access}
                 accessLoading={accessLoading}
                 workouts={data.workouts}
@@ -6498,8 +6536,13 @@ export default function Home() {
                 today={today}
                 weekStartsOn={weekStartsOn}
                 onExercise={setExerciseHistoryId}
-              />
-              <AdaptiveWeeklyReview access={access} accessLoading={accessLoading}/></>
+              /></div>
+              <AdaptiveWeeklyReview access={access} accessLoading={accessLoading}/>
+              <ProactiveRecommendations access={access} accessLoading={accessLoading}/>
+              <div id="adaptive-plan-adjustments" className="plus-progress-target"><PlanAdjustments access={access}
+                canChange={()=>Boolean(user?.id)&&!active&&!savedDraft&&!enduranceEditor&&!editor&&!loadPendingDiaryChanges(user?.id).length&&!loadLocalDraftSnapshot(user?.id)}
+                onChanged={()=>{setVisibilityRefresh(current=>current+1);window.dispatchEvent(new Event("setra-training-changed"))}}/></div>
+              <AskSetra access={access} accessLoading={accessLoading}/></>
             ) : effectiveHistoryMode === "sessions" ? (
               <>
                 {showEndurance &&
@@ -6842,7 +6885,7 @@ export default function Home() {
       <nav
         className="bottom-nav"
         aria-label="Main navigation"
-        style={{ gridTemplateColumns: `repeat(${showStrength ? 4 : 3},1fr)` }}
+        style={{ gridTemplateColumns: `repeat(${showStrength ? 5 : 4},minmax(0,1fr))` }}
       >
         {(
           [
@@ -6855,12 +6898,14 @@ export default function Home() {
           <button
             key={id}
             className={tab === id ? "selected" : ""}
+            aria-current={tab===id?"page":undefined}
             onClick={() => navigateTab(id)}
           >
             <NavIcon name={id as NavIconName} />
             <small>{label}</small>
           </button>
         ))}
+        <Link href="/premium"><NavIcon name="premium"/><small>Plus</small></Link>
       </nav>{" "}
       {picker && (
         <div className="overlay" onMouseDown={() => setPicker(false)}>

@@ -29,7 +29,7 @@ export function isRecentNavigationResume(
 export function resumableLocation(value: string) {
   return (
     value === "/" ||
-    /^\/(?:profile|premium|awards|friends|import|support|legal)(?:[?#].*)?$/.test(
+    /^\/(?:profile|premium|awards|friends|import|integrations|support|legal)(?:[?#].*)?$/.test(
       value,
     ) ||
     /^\/\?tab=(?:plan|history|pbs)(?:[&#].*)?$/.test(value)

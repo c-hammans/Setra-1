@@ -12,7 +12,7 @@ export type SetLog = { reps: string; weight: string; rpe: string; done: boolean;
 export type LoadMode = "kg"|"band"|"bw"|"text";
 export type WorkoutExercise = { exerciseId: string; sets: SetLog[]; note: string; group?: string; loadMode?: LoadMode; plannedLoad?:PlannedLoad; planNote?: string; repTarget?: string; skipped?: boolean };
 export type Workout = { id: string; templateId?: string; name: string; date: string; startedAt: string; endedAt?: string; duration: number; warmup?: WarmupItem[]; exercises: WorkoutExercise[]; note: string; supersetNames?: Record<string,string>; updatedAt?:string; completedAt?:string; athleteCheckin?:AthleteSessionCheckin }&CoachAssignmentInfo;
-export type ScheduledWorkout = { date: string; templateId: string; skipped?: boolean }&CoachAssignmentInfo;
+export type ScheduledWorkout = { date: string; templateId: string; skipped?: boolean; adaptivePrescription?: {templateVersion:string;values:Record<string,number>} }&CoachAssignmentInfo;
 export type AppData = { exercises: Exercise[]; templates: Template[]; workouts: Workout[]; scheduled: ScheduledWorkout[] };
 export type CloudSyncState = "local" | "loading" | "synced" | "error";
 

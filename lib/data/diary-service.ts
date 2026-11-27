@@ -58,6 +58,13 @@ export class DiaryService {
       return {id:row.client_id||row.id,name:row.name,focus:row.focus,color:row.colour,icon:row.icon,updatedAt:row.updated_at?String(row.updated_at):undefined,archivedAt:row.archived_at?String(row.archived_at):undefined,...coachInfo(row.coach_training_assignments),supersetNames:supersetNames as Record<string,string>,warmup:(row.template_warmup_items||[]).sort((a:AnyRow,b:AnyRow)=>a.position-b.position).map((item:AnyRow)=>({id:String(item.client_id||item.id),kind:item.item_type==="exercise"?"exercise":"instruction",exerciseId:item.exercise_id?String(item.exercise_id):undefined,title:String(item.title||""),instructions:String(item.instructions||"")})),exercises:(row.template_exercises||[]).sort((a:AnyRow,b:AnyRow)=>a.position-b.position).map((item:AnyRow)=>({exerciseId:item.exercise_id,sets:item.planned_sets,reps:item.rep_target,group:item.superset_id?(supersets.get(item.superset_id) as AnyRow)?.client_group_key:undefined,note:item.notes||"",plannedLoad:item.planned_load_mode?{mode:item.planned_load_mode,value:String(item.planned_load_value??item.planned_load_text??""),sourceUnit:item.planned_load_source_unit||undefined}:undefined}))};
     });
     const scheduled=scheduleRows.map((row:AnyRow):ScheduledWorkout=>{const template=Array.isArray(row.workout_templates)?row.workout_templates[0]:row.workout_templates;return{date:row.scheduled_date,templateId:template?.client_id||row.template_id,skipped:row.skipped,...coachInfo(template?.coach_training_assignments)}}).sort((a,b)=>a.date.localeCompare(b.date)||(a.coachDayPosition??Number.MAX_SAFE_INTEGER)-(b.coachDayPosition??Number.MAX_SAFE_INTEGER));
+    try{
+      const prescriptions=await loadSupabasePages<AnyRow>((from,to)=>this.supabase.from("training_plan_occurrences")
+        .select("source_client_id,planned_date,adaptive_strength_prescription").eq("user_id",this.userId).eq("modality","strength")
+        .eq("status","planned").not("adaptive_strength_prescription","is",null).order("id").range(from,to));
+      const keyed=new Map(prescriptions.map(row=>[`${row.source_client_id}:${row.planned_date}`,row.adaptive_strength_prescription]));
+      for(const item of scheduled)if(!item.coachAssignmentId)item.adaptivePrescription=keyed.get(`${item.templateId}:${item.date}`);
+    }catch(error){if(!isMissingCoachingSchema(error))throw error}
     const workouts=workoutRows.map((row:AnyRow)=>this.mapWorkout(row,checkins.get(String(row.client_id||row.id))));
     return {exercises,templates,scheduled,workouts};
   }

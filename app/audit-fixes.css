@@ -68,3 +68,4 @@
 .move-session-error,.app-shell[data-theme=dark] .move-session-error{background:var(--destructive-surface);color:var(--destructive)}
 .live-edit-actions .delete-live-exercise-action,.app-shell[data-theme=dark] .live-edit-actions .delete-live-exercise-action{border-color:color-mix(in srgb,var(--destructive) 35%,var(--border-subtle));background:var(--destructive-surface);color:var(--destructive)}
 .live-edit-actions .delete-live-exercise-action b{background:color-mix(in srgb,var(--destructive) 12%,var(--destructive-surface))!important;color:var(--destructive)!important}
+.plus-progress-target,#adaptive-weekly-review{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 16px)}
