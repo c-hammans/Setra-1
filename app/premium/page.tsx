@@ -6,11 +6,17 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { NavIcon } from "@/components/navigation/nav-icon";
 import { PremiumBadge } from "@/components/premium";
 import { loadLocalAppearance, loadLocalAppColour, loadLocalTextScale } from "@/lib/data/local-diary";
-import { FEATURE_CATALOGUE, PLAN_CATALOGUE, PLAN_ORDER } from "@/lib/premium/access";
+import { FEATURE_CATALOGUE, PLAN_CATALOGUE, PLAN_ORDER, type PlanAvailability } from "@/lib/premium/access";
 import {BillingPanel} from "@/components/billing/billing-panel";
 import { usePremiumAccess } from "@/lib/premium/use-premium-access";
 import { createSetraTheme, useResolvedAppearance, type AppearanceMode, type TextScale } from "@/lib/setra/appearance";
 import "./premium.css";
+
+const statusLabel: Record<PlanAvailability, string> = {
+  available: "Available now",
+  early_access: "Early access",
+  coming_soon: "Coming soon",
+};
 
 export default function PremiumPage() {
   const { user } = useAuth();
@@ -80,7 +86,7 @@ export default function PremiumPage() {
           return <article className={`premium-plan-card ${current ? "current" : ""}`} key={plan.id}>
             <header>
               <div><span>{plan.displayName.toUpperCase()}</span>{current && <small>CURRENT PLAN</small>}</div>
-              <b data-status={planId==="free"?"available":"early_access"}>{planId==="free"?"Available now":"Test billing only"}</b>
+              <b data-status={plan.availability}>{statusLabel[plan.availability]}</b>
             </header>
             <h3>{plan.description}</h3>
             {plan.inherits && <p className="premium-inheritance">Everything in {PLAN_CATALOGUE[plan.inherits].displayName}, plus:</p>}
@@ -98,7 +104,7 @@ export default function PremiumPage() {
           </article>;
         })}
       </div>
-      <p className="premium-plan-note">Live payments are not enabled. Roadmap items are marked Coming soon.</p>
+      <p className="premium-plan-note">Existing beta access is preserved. Roadmap items are marked Coming soon.</p>
     </section>
     <BillingPanel kind="individual"/>
 

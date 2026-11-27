@@ -35,8 +35,9 @@ test("over-capacity coaching surfaces resolution without changing funds or indiv
 
 test("missing Stripe configuration leaves existing beta access and hides checkout",async({page})=>{
   await page.route("**/api/billing",route=>route.fulfill({json:{...data,configured:false,manualPlan:"premium",plan:"premium"}}));
+  const response = page.waitForResponse(result => new URL(result.url()).pathname === "/api/billing" && result.ok());
   await page.goto("/test-billing?billingPanel=individual");
-  await expect(page.getByText("Test billing isn’t configured",{exact:false})).toBeVisible();
-  await expect(page.getByText("Separate beta or manual access:",{exact:false})).toBeVisible();
+  await response;
+  await expect(page.getByRole("heading",{name:"Individual subscriptions"})).toHaveCount(0);
   await expect(page.getByRole("button",{name:/Test checkout:/})).toHaveCount(0);
 });

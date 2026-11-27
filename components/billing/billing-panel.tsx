@@ -51,7 +51,8 @@ export function BillingPanel({kind,seatVersion=0,onState}:{kind:BillingKind;seat
     }catch(error){setError((error as Error).message)}
     finally{setBusy("");operation.current=false}
   }
-  const sub=state?.subscriptions[kind], managing=!!sub?.status&&!terminalStatus(sub.status);
+  if(!state?.configured)return null;
+  const sub=state.subscriptions[kind], managing=!!sub?.status&&!terminalStatus(sub.status);
   const seats=state?.seats, available=seats?.limit==null?null:Math.max(0,seats.limit-seats.active-seats.pending);
   const over=seats?.limit!=null&&seats.active>seats.limit;
   const options=billingOffers.filter(item=>item.kind===kind&&(kind==="coaching"||item.cadence===cadence));
@@ -61,8 +62,6 @@ export function BillingPanel({kind,seatVersion=0,onState}:{kind:BillingKind;seat
     <header><span>STRIPE TEST MODE · NO REAL CHARGES</span><h2 id={kind+"-billing-title"}>{kind==="individual"?"Individual subscriptions":"Coaching subscriptions"}</h2>
       <p>{kind==="individual"?"Individual billing is independent of coaching. Beta access is not billed.":"A coaching subscription is separate from your individual plan. Each active client uses one seat."}</p>
     </header>
-    {!state&&!error&&<p role="status">Loading billing…</p>}
-    {state&&!state.configured&&<p>Test billing isn’t configured on this site. Your existing access is unchanged.</p>}
     {returned==="return"&&<p role="status">Returned from Stripe. Setra updates access after confirming billing; returning from Checkout doesn’t unlock features by itself.</p>}
     {returned==="cancel"&&<p role="status">You left Checkout. Check your billing status to see any existing subscription.</p>}
     {sub?.status&&<div className="billing-current">
