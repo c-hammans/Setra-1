@@ -1,3 +1,5 @@
+import {safeInternalRedirect} from "../security/safe-redirect.ts";
+
 export const pushEligibleTypes = new Set([
   "workout_assigned", "program_assigned", "program_updated", "planned_session_changed", "coach_feedback", "weekly_review",
   "coach_comment", "coach_invite", "coach_relationship_accepted", "friend_request", "workout_shared", "template_shared", "planned_session_reminder",
@@ -21,5 +23,5 @@ const safePushCopy: Record<string, [string, string]> = {
 
 export const safePushPayload = (notificationType: string, notificationId: string, targetPath: string | null) => {
   const [title, body] = safePushCopy[notificationType] || ["Setra", "You have a new notification."];
-  return { title, body, notificationId, url: targetPath?.startsWith("/") ? targetPath : "/notifications" };
+  return { title, body, notificationId, url: safeInternalRedirect(targetPath,"/notifications") };
 };

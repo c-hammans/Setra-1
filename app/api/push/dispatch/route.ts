@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safePushPayload } from "@/lib/notifications/push-delivery";
+import { isSupportedPushEndpoint } from "@/lib/notifications/push-endpoint";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -26,7 +27,12 @@ export async function GET(request: Request) {
   let delivered = 0; let failed = 0;
   await Promise.all(((data || []) as Delivery[]).map(async delivery => {
     try {
-      await webpush.sendNotification({ endpoint: delivery.endpoint, keys: { p256dh: delivery.p256dh, auth: delivery.auth_secret } }, JSON.stringify(safePushPayload(delivery.notification_type, delivery.notification_id, delivery.target_path)), { TTL: 3600, urgency: "normal" });
+      if(!isSupportedPushEndpoint(delivery.endpoint)){
+        await admin.rpc("finish_push_delivery_job",{p_job_id:delivery.job_id,p_delivered:false,p_permanent_failure:true,p_error:"Unsupported push provider"});
+        failed+=1;
+        return;
+      }
+      await webpush.sendNotification({ endpoint: delivery.endpoint, keys: { p256dh: delivery.p256dh, auth: delivery.auth_secret } }, JSON.stringify(safePushPayload(delivery.notification_type, delivery.notification_id, delivery.target_path)), { TTL: 3600, urgency: "normal", timeout: 10000 });
       await admin.rpc("finish_push_delivery_job", { p_job_id: delivery.job_id, p_delivered: true, p_permanent_failure: false, p_error: null }); delivered += 1;
     } catch (caught) {
       const pushError = caught as { statusCode?: number; message?: string };

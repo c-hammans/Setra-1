@@ -12,7 +12,9 @@ const displayDate=(date?:string,weekday=false)=>date?new Intl.DateTimeFormat("en
 const sessionEyebrow=(data:ShareCardData)=>{const weekday=displayDate(data.date,true);return weekday&&weekday.toLowerCase()!==data.title.trim().toLowerCase()?weekday:data.sport==="strength"?"Strength session":data.label};
 
 async function drawMark(context:CanvasRenderingContext2D,colour:string,x:number,y:number,size:number){
-  const svg=await fetch("/setra-mark-v4.svg").then(response=>response.text());
+  const response=await fetch("/setra-mark-v4.svg",{signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw new Error("Setra logo unavailable");
+  const svg=await response.text();
   const tinted=svg.replace(/#000/g,colour);
   const url=URL.createObjectURL(new Blob([tinted],{type:"image/svg+xml"}));
   try{const image=await loadImage(url);context.drawImage(image,x,y,size,size)}finally{URL.revokeObjectURL(url)}

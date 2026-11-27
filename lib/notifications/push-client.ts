@@ -58,9 +58,10 @@ export const enablePushOnThisDevice = async () => {
 
 export const disablePushOnThisDevice = async () => {
   if (!("serviceWorker" in navigator)) return;
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return;
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return;
-  await fetch("/api/push/subscription", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }) }).catch(() => null);
+  await fetch("/api/push/subscription", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }),signal:AbortSignal.timeout(3500) }).catch(() => null);
   await subscription.unsubscribe().catch(() => false);
 };

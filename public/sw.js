@@ -15,10 +15,14 @@ self.addEventListener("push", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || "/notifications", self.location.origin).href;
+  let target = new URL("/notifications", self.location.origin);
+  try {
+    const candidate = new URL(event.notification.data?.url || "/notifications", self.location.origin);
+    if (candidate.origin === self.location.origin) target = candidate;
+  } catch { /* Keep the in-app fallback. */ }
   event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(windows => {
     const existing = windows.find(windowClient => new URL(windowClient.url).origin === self.location.origin);
-    if (existing) return existing.navigate(target).then(client => client.focus());
-    return clients.openWindow(target);
+    if (existing) return existing.navigate(target.href).then(client => client ? client.focus() : clients.openWindow(target.href));
+    return clients.openWindow(target.href);
   }));
 });

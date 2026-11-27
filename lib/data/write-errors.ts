@@ -35,6 +35,8 @@ export function normalizeWriteError(value:unknown):NormalizedWriteError{
 
 export function userWriteErrorMessage(error:unknown){
   const normalized=normalizeWriteError(error);
+  if(normalized.kind==="conflict"&&normalized.message.includes("this planned strength session already has a recorded completion"))
+    return "This planned workout is already completed in the cloud. Your device copy is still saved. Open Sync recovery to compare them.";
   if(normalized.kind==="conflict"||normalized.kind==="stale")return "This item changed on another device. Your version is still saved on this device. Open Sync recovery to compare the versions.";
   if(normalized.kind==="duplicate")return "This change is already recorded. Setra will refresh the item without creating a duplicate.";
   if(normalized.kind==="authentication")return "Your session needs attention. Sign in again; your change is still saved on this device.";
