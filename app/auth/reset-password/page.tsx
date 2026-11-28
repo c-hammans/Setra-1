@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [updated, setUpdated] = useState(false);
@@ -77,8 +78,11 @@ export default function ResetPasswordPage() {
         ) : (
           <>
             <form onSubmit={submit}>
-              <label>NEW PASSWORD<input type="password" minLength={8} required value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"/></label>
-              <label>CONFIRM NEW PASSWORD<input type="password" minLength={8} required value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="new-password"/></label>
+              <label>NEW PASSWORD<input type={showPasswords ? "text" : "password"} autoCapitalize="none" spellCheck={false} minLength={8} required value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"/></label>
+              <label>CONFIRM NEW PASSWORD<input type={showPasswords ? "text" : "password"} autoCapitalize="none" spellCheck={false} minLength={8} required value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="new-password"/></label>
+              <button type="button" className="auth-return" aria-pressed={showPasswords} onClick={() => setShowPasswords(visible => !visible)}>
+                {showPasswords ? "Hide passwords" : "Show passwords"}
+              </button>
               <button className="primary-button" disabled={busy}>{busy ? "Updating…" : "Update password"}</button>
             </form>
             <Link className="auth-return" href="/">Return to Setra</Link>
