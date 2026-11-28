@@ -9,6 +9,8 @@ declare
   assignment uuid;
   saved_feedback uuid;
   planned_key text;
+  strength_assignment uuid;
+  assigned_strength_template text;
   week_start date:=current_date-extract(dow from current_date)::integer;
   template jsonb:='{"id":"coach-audit-repeats","title":"Run repeats","activityType":"run","blocks":[{"id":"repeat","type":"repeat_group","title":"Work","repetitions":4},{"id":"interval","parentId":"repeat","type":"interval","title":"Fast","completionType":"distance","distanceMetres":400}]}';
 begin
@@ -24,6 +26,20 @@ begin
   if exists(select 1 from public.list_coach_client_programs(relationship,week_start)) then
     raise exception 'A newly accepted client unexpectedly has a program';
   end if;
+  insert into public.exercises(id,owner_id,name,muscle_group,equipment)
+    values('audit-coach-press',coach,'Audit shoulder press','Shoulders','Dumbbell');
+  perform public.save_strength_template_v2('{"id":"audit-coach-strength","name":"Strength audit","exercises":[{"exerciseId":"audit-coach-press","sets":1,"reps":"8"}]}', 'audit-strength-template',0);
+  strength_assignment := (public.coach_assign_week(relationship,week_start,
+    jsonb_build_array(jsonb_build_object('date',week_start,'modality','strength','templateId','audit-coach-strength'))))[1];
+  select copied.client_id into assigned_strength_template
+    from public.coach_training_assignments assigned
+    join public.training_sessions planned on planned.id=assigned.client_planned_session_id
+    join public.workout_templates copied on copied.id=assigned.client_strength_template_id
+    join public.template_exercises item on item.template_id=copied.id
+    join public.exercises exercise on exercise.id=item.exercise_id
+    where assigned.id=strength_assignment and planned.coach_assignment_id=strength_assignment
+      and copied.user_id=athlete and exercise.owner_id=athlete;
+  if assigned_strength_template is null then raise exception 'Strength week assignment did not preserve the linked client session and exercise'; end if;
   perform public.save_endurance_template_v2(template,'audit-coach-template',0);
   assignment:=public.coach_assign_template(relationship,'endurance','coach-audit-repeats',week_start,'Preserve easy recoveries');
   perform public.coach_move_assignment(assignment,week_start+1);
