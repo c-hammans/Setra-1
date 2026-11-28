@@ -1,3 +1,4 @@
+import { pushEnabled } from "@/lib/notifications/push-availability";
 import { NextResponse } from "next/server";
 import { isSupportedPushEndpoint } from "@/lib/notifications/push-endpoint";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +14,7 @@ const authenticatedClient = async () => {
 };
 
 export async function POST(request: Request) {
+  if (!pushEnabled()) return NextResponse.json({ error: "Push notifications are unavailable during this beta.", disabled: true }, { status: 503 });
   const { supabase, user } = await authenticatedClient();
   if (!user) return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
   const body = await request.json().catch(() => null) as SubscriptionBody | null;

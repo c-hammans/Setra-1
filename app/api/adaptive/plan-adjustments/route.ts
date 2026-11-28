@@ -1,3 +1,4 @@
+import { adaptiveGenerationDisabledResponse, adaptiveGenerationEnabled } from "@/lib/adaptive/generation-availability";
 import {createHash} from "node:crypto";
 import {NextResponse} from "next/server";
 import {getAdaptiveAiProvider} from "@/lib/adaptive/ai-provider";
@@ -68,6 +69,7 @@ async function sourceText(state:State,source:PlanSource){
 }
 
 export async function POST(request:Request){
+  if (!adaptiveGenerationEnabled()) return adaptiveGenerationDisabledResponse();
   let reserved:{state:State;id:string}|null=null;
   try{
     const state=await access();if(state.error)return state.error;

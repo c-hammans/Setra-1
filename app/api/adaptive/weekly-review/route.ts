@@ -1,3 +1,4 @@
+import { adaptiveGenerationDisabledResponse, adaptiveGenerationEnabled } from "@/lib/adaptive/generation-availability";
 import {NextRequest,NextResponse} from "next/server";
 import {loadWeeklyReviewContext} from "@/lib/adaptive/weekly-review-data";
 import {getWeeklyReviewProvider} from "@/lib/adaptive/weekly-review-provider";
@@ -38,12 +39,14 @@ export async function GET(){
     if(!hasFeature(state.access,"ai_weekly_review"))return NextResponse.json({locked:true,requiredPlan:"adaptive"},{status:403});
     const [reviewsResult,source]=await Promise.all([state.admin.from("adaptive_weekly_reviews").select("*").eq("user_id",state.user.id).order("week_start",{ascending:false}).limit(12),loadSource(state,state.targetWeekStart)]);
     if(reviewsResult.error)throw reviewsResult.error;const reviews=((reviewsResult.data||[]) as Row[]).map(stored);const target=reviews.find(item=>item.weekStart===state.targetWeekStart)||null;
-    const canGenerate=hasTraining(source);
-    return NextResponse.json({targetWeekStart:state.targetWeekStart,targetWeekEnd:addCalendarDays(state.targetWeekStart,6),sourceHash:source.sourceHash,sourceChanged:Boolean(target&&target.sourceHash!==source.sourceHash),needsGeneration:!target&&canGenerate,canGenerate,reviews});
+    const generationEnabled=adaptiveGenerationEnabled();
+    const canGenerate=generationEnabled&&hasTraining(source);
+    return NextResponse.json({targetWeekStart:state.targetWeekStart,targetWeekEnd:addCalendarDays(state.targetWeekStart,6),sourceHash:source.sourceHash,sourceChanged:Boolean(target&&target.sourceHash!==source.sourceHash),needsGeneration:!target&&canGenerate,canGenerate,generationEnabled,reviews});
   }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Weekly reviews could not be loaded."},{status:500})}
 }
 
 export async function POST(request:NextRequest){
+  if (!adaptiveGenerationEnabled()) return adaptiveGenerationDisabledResponse();
   let claimed=false;let state:Awaited<ReturnType<typeof requestState>>=null;let weekStart="";
   try{
     state=await requestState();if(!state)return NextResponse.json({error:"Please sign in to generate an Adaptive review."},{status:401});

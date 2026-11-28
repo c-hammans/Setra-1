@@ -1,3 +1,4 @@
+import { pushEnabled } from "@/lib/notifications/push-availability";
 import { NextResponse } from "next/server";
 import * as webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,6 +16,11 @@ type Delivery = {
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Not authorised." }, { status: 401 });
+  if (!pushEnabled()) {
+    const { error } = await createAdminClient().rpc("materialize_due_session_reminders");
+    if (error) return NextResponse.json({ error: "Session reminders could not be loaded." }, { status: 500 });
+    return NextResponse.json({ disabled: true });
+  }
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT;
