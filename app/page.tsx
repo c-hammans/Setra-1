@@ -29,6 +29,7 @@ import {
   type FeedbackCategory,
 } from "@/lib/feedback/feedback-service";
 import {
+  backupPendingDiaryChange,
   canImportLegacyDiary,
   claimLegacyDiary,
   clearCompletedWorkoutEditorDraft,
@@ -83,6 +84,7 @@ import { NavIcon, type NavIconName } from "@/components/navigation/nav-icon";
 import {
   expandedExerciseCatalogue,
   mergeExerciseCatalogues,
+  mergeSavedExerciseCatalogue,
 } from "@/lib/setra/exercise-catalogue";
 import { formatLoad, type StrengthUnit } from "@/lib/setra/units";
 import { LoadInput } from "@/components/strength/load-input";
@@ -161,6 +163,7 @@ import {
   newTemplateWorkout,
 } from "@/lib/setra/new-workout";
 import {
+  otherPlannedStrengthCompletion,
   overlayPendingEndurance,
   overlayPendingStrength,
 } from "@/lib/data/pending-reconciliation";
@@ -1197,31 +1200,6 @@ const liveExerciseFromTemplate = (item: TemplateExercise): WorkoutExercise => {
     ),
   };
 };
-const restoreMissingTemplateExercises = (
-  workout: Workout,
-  template?: Template,
-): Workout => {
-  if (!template || template.exercises.length <= workout.exercises.length)
-    return workout;
-  const remaining = new Map<string, number>();
-  workout.exercises.forEach((item) =>
-    remaining.set(item.exerciseId, (remaining.get(item.exerciseId) || 0) + 1),
-  );
-  const missing = template.exercises.filter((item) => {
-    const count = remaining.get(item.exerciseId) || 0;
-    if (count > 0) {
-      remaining.set(item.exerciseId, count - 1);
-      return false;
-    }
-    return true;
-  });
-  if (!missing.length) return workout;
-  return {
-    ...workout,
-    supersetNames: { ...template.supersetNames, ...workout.supersetNames },
-    exercises: [...workout.exercises, ...missing.map(liveExerciseFromTemplate)],
-  };
-};
 const sampleWorkouts: Workout[] = [
   {
     id: "sample-1",
@@ -1843,7 +1821,7 @@ export default function Home() {
               ? "#409ECE"
               : template.color,
         })),
-        exercises: mergeExerciseCatalogues(sampleExercises, stored.exercises),
+        exercises: mergeSavedExerciseCatalogue(sampleExercises, stored.exercises),
       });
     const localDraftWorkout = loadLocalDraftSnapshot(user?.id)?.workout || null;
     setSavedDraft(localDraftWorkout);
@@ -2330,6 +2308,8 @@ export default function Home() {
             );
             setCloudState("error");
             setCloudMessage(userWriteErrorMessage(normalized));
+            if(change.kind==="save_workout"&&change.payload.status==="completed"&&normalized.kind==="conflict")
+              setVisibilityRefresh(current=>current+1);
             // A failed entity must not block unrelated queued work.
           }
         }
@@ -2518,10 +2498,8 @@ export default function Home() {
           }
         }
         pendingChanges = loadPendingDiaryChanges(user?.id);
-        cloud = overlayPendingStrength(
-          cloud,
-          pendingChanges,
-        );
+        const cloudCompletions = cloud.workouts;
+        cloud = overlayPendingStrength(cloud,pendingChanges);
         const reconciledSchedule = cloud.scheduled.filter(
           (item) =>
             !cloud.workouts.some(
@@ -2566,7 +2544,7 @@ export default function Home() {
         if (hasCloudData)
           setData({
             ...cloud,
-            exercises: mergeExerciseCatalogues(
+            exercises: mergeSavedExerciseCatalogue(
               sampleExercises,
               cloud.exercises,
             ),
@@ -2585,25 +2563,24 @@ export default function Home() {
             ),
         );
         const eligibleCloudDraft =
-          draft && !pendingCompletionIds.has(draft.id) ? draft : null;
+          draft && !pendingCompletionIds.has(draft.id) && !otherPlannedStrengthCompletion(cloudCompletions,draft) ? draft : null;
         const cloudUpdated =
           eligibleCloudDraft?.updatedAt || "1970-01-01T00:00:00.000Z";
         const newestDraft =
           localDraft &&
           !pendingCompletionIds.has(localDraft.workout.id) &&
+          !otherPlannedStrengthCompletion(cloudCompletions,localDraft.workout) &&
           localDraft.updatedAt > cloudUpdated
             ? localDraft.workout
             : eligibleCloudDraft;
         if (newestDraft) {
-          const restoredDraft = restoreMissingTemplateExercises(
-            newestDraft,
-            cloud.templates.find(
-              (template) => template.id === newestDraft.templateId,
-            ),
-          );
-          setSavedDraft(restoredDraft);
-          saveLocalDraft(restoredDraft, user?.id);
+          // A live draft is its own snapshot. A missing exercise may have been
+          // removed intentionally, so never rebuild it from a newer template.
+          setSavedDraft(newestDraft);
+          saveLocalDraft(newestDraft, user?.id);
           analytics.track("draft_recovered", { outcome: "recovered" });
+        } else {
+          setSavedDraft(current=>current&&otherPlannedStrengthCompletion(cloudCompletions,current)?null:current);
         }
         const cachedColour = loadLocalAppColour(user?.id);
         if (cachedColour) {
@@ -3155,7 +3132,7 @@ export default function Home() {
       const cloud = await diaryService.load();
       setData({
         ...cloud,
-        exercises: mergeExerciseCatalogues(sampleExercises, cloud.exercises),
+        exercises: mergeSavedExerciseCatalogue(sampleExercises, cloud.exercises),
       });
       setShowImport(false);
       setCloudState("synced");
@@ -3186,16 +3163,19 @@ export default function Home() {
               : change.payload.clientId;
   const serverRecord = (change: PendingDiaryChange) => {
     if (!recoverySnapshot) return null;
-    if (change.kind === "save_workout" || change.kind === "delete_workout")
-      return (
-        recoverySnapshot.strength.workouts.find(
-          (item) =>
-            item.id ===
-            (change.kind === "save_workout"
-              ? change.payload.workout.id
-              : change.payload.clientId),
-        ) || null
-      );
+    if (change.kind === "save_workout" || change.kind === "delete_workout") {
+      const workouts=recoverySnapshot.strength.workouts;
+      if(change.kind==="save_workout"){
+        const {workout,status}=change.payload;
+        const exact=workouts.find(item=>item.id===workout.id);
+        if(status==="completed"&&!exact?.completedAt){
+          const winner=otherPlannedStrengthCompletion(workouts.filter(item=>item.completedAt),workout);
+          if(winner)return winner;
+        }
+        return exact??null;
+      }
+      return workouts.find(item=>item.id===change.payload.clientId)??null;
+    }
     if (
       change.kind === "save_strength_template" ||
       change.kind === "delete_strength_template"
@@ -3272,6 +3252,10 @@ export default function Home() {
     }
   }
   function discardSyncIssue(change: PendingDiaryChange) {
+    if (!backupPendingDiaryChange(change, user?.id).ok) {
+      setCloudMessage("A recovery backup could not be saved. Your device copy has not been removed.");
+      return;
+    }
     const removed = removePendingDiaryChange(
       change.key,
       change.operationId,
@@ -3362,6 +3346,7 @@ export default function Home() {
     if (change.kind === "save_workout") {
       const workout = {
         ...change.payload.workout,
+        templateId: undefined,
         id: recoveryCopyClientId(
           change.payload.workout.id,
           change.operationId,
@@ -4232,12 +4217,7 @@ export default function Home() {
   };
   function resumeSavedWorkout() {
     if (!savedDraft) return;
-    const restoredDraft = restoreMissingTemplateExercises(
-      savedDraft,
-      data.templates.find(
-        (template) => template.id === savedDraft.templateId,
-      ),
-    );
+    const restoredDraft = savedDraft;
     setSelectedDate(restoredDraft.date);
     setExpandedLiveExercises(new Set());
     setWarmupExpanded(
@@ -9019,7 +8999,10 @@ export default function Home() {
                       </div>
                     )}
                     <div className="recovery-actions">
-                      <button onClick={() => void retrySyncIssue(change)}>
+                      <button
+                        disabled={change.kind==="save_workout"&&Boolean(cloud&&"id" in cloud&&cloud.id!==change.payload.workout.id)}
+                        onClick={() => void retrySyncIssue(change)}
+                      >
                         Try device copy again
                       </button>
                       <button

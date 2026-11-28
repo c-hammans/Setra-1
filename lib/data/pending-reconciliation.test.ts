@@ -17,3 +17,15 @@ test("a pending delete cannot be resurrected by cloud refresh",()=>{
   const deleted:PendingDiaryChange={key:"workout:w",operationId:"d",revision:3,expectedVersion:0,updatedAt:new Date().toISOString(),kind:"delete_workout",payload:{clientId:"w"}};
   assert.equal(overlayPendingStrength({...base,workouts:[workout("Cloud")]},[deleted]).workouts.length,0);
 });
+
+test("a competing planned completion stays in recovery while History shows the cloud completion",()=>{
+  const stored={...workout("Cloud completion"),id:"cloud",templateId:"plan"};
+  const pending=change("second",2,"Device completion");
+  assert.equal(pending.kind,"save_workout");
+  if(pending.kind!=="save_workout")return;
+  pending.payload.workout.templateId="plan";
+  assert.deepEqual(overlayPendingStrength({...base,workouts:[stored]},[pending]).workouts,[stored]);
+  assert.equal(pending.payload.workout.name,"Device completion");
+  pending.payload.workout.templateId=undefined;
+  assert.equal(overlayPendingStrength({...base,workouts:[stored]},[pending]).workouts.length,2);
+});

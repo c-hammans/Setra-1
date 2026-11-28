@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {expandedExerciseCatalogue,mergeExerciseCatalogues} from "./exercise-catalogue.ts";
+import {expandedExerciseCatalogue,mergeExerciseCatalogues,mergeSavedExerciseCatalogue} from "./exercise-catalogue.ts";
 
 test("bodyweight squat variants have accurate equipment metadata",()=>{
   for(const id of ["air-squat","chair-squat","half-air-squat"]){
@@ -14,4 +14,10 @@ test("canonical merge preserves the first reviewed record and legitimate variant
     [{id:"legacy-air",name:"Air Squat",group:"Quads",equipment:"Barbell"},{id:"pause-air-squat",name:"Pause Air Squat",group:"Quads",equipment:"Bodyweight"}],
   );
   assert.deepEqual(merged.map(item=>item.id),["air-squat","pause-air-squat"]);
+});
+
+test("saved exercise IDs stay valid when the catalogue adds an exercise with the same name",()=>{
+  const canonical={id:"air-squat",name:"Air Squat",group:"Quads",equipment:"Bodyweight"};
+  const own={...canonical,id:"user-custom-id"};
+  assert.deepEqual(mergeSavedExerciseCatalogue([canonical],[own,{...canonical,equipment:"Barbell"}]),[canonical,own]);
 });

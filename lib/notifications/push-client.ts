@@ -1,4 +1,5 @@
-export type PushDeviceState = "checking" | "requires_install" | "insecure" | "unsupported" | "denied" | "prompt" | "subscribed" | "unsubscribed";
+import { pushEnabled } from "./push-availability.ts";
+export type PushDeviceState = "checking" | "disabled" | "requires_install" | "insecure" | "unsupported" | "denied" | "prompt" | "subscribed" | "unsubscribed";
 
 const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -24,6 +25,7 @@ export const registerSetraServiceWorker = async () => {
 };
 
 export const pushDeviceState = async (): Promise<PushDeviceState> => {
+  if (!pushEnabled()) return "disabled";
   const prerequisite = pushPrerequisiteState({ secure: window.isSecureContext, ios: isIos(), standalone: isStandalone(), supported: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window });
   if (prerequisite) return prerequisite;
   if (Notification.permission === "denied") return "denied";
@@ -34,6 +36,7 @@ export const pushDeviceState = async (): Promise<PushDeviceState> => {
 };
 
 export const pushDeviceMessage = (state: PushDeviceState) => {
+  if (state === "disabled") return "Push notifications are unavailable during this beta.";
   if (state === "checking") return "Checking this device...";
   if (state === "requires_install") return "On iPhone or iPad, open Setra in Safari, choose Add to Home Screen, then open the installed Setra app to enable push.";
   if (state === "insecure") return "Push requires Setra to be opened over a secure HTTPS connection.";
@@ -44,6 +47,7 @@ export const pushDeviceMessage = (state: PushDeviceState) => {
 };
 
 export const enablePushOnThisDevice = async () => {
+  if (!pushEnabled()) throw new Error(pushDeviceMessage("disabled"));
   if (!("Notification" in window)) throw new Error("Push notifications are not supported on this device.");
   const permission = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
   if (permission !== "granted") throw new Error(permission === "denied" ? "Push permission is blocked in your device settings." : "Push permission was not enabled.");
@@ -58,9 +62,10 @@ export const enablePushOnThisDevice = async () => {
 
 export const disablePushOnThisDevice = async () => {
   if (!("serviceWorker" in navigator)) return;
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return;
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return;
-  await fetch("/api/push/subscription", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }) }).catch(() => null);
+  await fetch("/api/push/subscription", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }),signal:AbortSignal.timeout(3500) }).catch(() => null);
   await subscription.unsubscribe().catch(() => false);
 };

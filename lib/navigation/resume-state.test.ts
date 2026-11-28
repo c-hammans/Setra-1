@@ -5,6 +5,7 @@ import {
   mostRecentNavigationResume,
   NAVIGATION_RESUME_WINDOW_MS,
   resumableLocation,
+  restoredLocation,
 } from "./resume-state.ts";
 
 test("navigation resumes only inside the five minute lifecycle window", () => {
@@ -75,4 +76,15 @@ test("only Setra application locations can be resumed", () => {
   assert.equal(resumableLocation("/friends"), true);
   assert.equal(resumableLocation("https://example.com"), false);
   assert.equal(resumableLocation("/?tab=unknown"), false);
+  assert.equal(resumableLocation("//example.com/notifications"), false);
+  assert.equal(resumableLocation("/auth/reset-password"), false);
+});
+
+test("short resumes restore coaching and notifications without overriding an explicit link", () => {
+  const now = 1_000_000;
+  const saved = {location:"/coaching/095d1e25-2500-4a72-9f69-544d62fc0352?view=review",backgroundedAt:now-5000};
+  assert.equal(restoredLocation("/",saved,now),saved.location);
+  assert.equal(restoredLocation("/notifications",saved,now),null);
+  assert.equal(restoredLocation("/",{...saved,location:"/notifications"},now),"/notifications");
+  assert.equal(restoredLocation("/",saved,now+NAVIGATION_RESUME_WINDOW_MS),null);
 });

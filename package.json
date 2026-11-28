@@ -12,7 +12,7 @@
     "lint": "eslint . --ignore-pattern .next",
     "test:import": "node --experimental-strip-types --test lib/import/*.test.ts",
     "test:awards": "node --experimental-strip-types --test lib/awards/*.test.ts",
-    "test:reliability": "node --experimental-strip-types --test lib/data/*.test.ts lib/validation/*.test.ts lib/setra/*.test.ts lib/analytics/*.test.ts lib/adaptive/*.test.ts lib/async/*.test.ts lib/navigation/*.test.ts lib/premium/*.test.ts lib/share/*.test.ts lib/coaching/*.test.ts lib/notifications/*.test.ts lib/integrations/*.test.ts lib/billing/*.test.ts",
+    "test:reliability": "node --experimental-strip-types --test lib/data/*.test.ts lib/validation/*.test.ts lib/setra/*.test.ts lib/analytics/*.test.ts lib/adaptive/*.test.ts lib/async/*.test.ts lib/navigation/*.test.ts lib/premium/*.test.ts lib/profile/*.test.ts lib/security/*.test.ts lib/share/*.test.ts lib/coaching/*.test.ts lib/notifications/*.test.ts lib/integrations/*.test.ts lib/billing/*.test.ts",
     "test:browser": "playwright test"
   },
   "dependencies": {

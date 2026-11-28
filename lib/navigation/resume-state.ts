@@ -29,9 +29,18 @@ export function isRecentNavigationResume(
 export function resumableLocation(value: string) {
   return (
     value === "/" ||
-    /^\/(?:profile|premium|awards|friends|import|integrations|support|legal)(?:[?#].*)?$/.test(
+    /^\/(?:profile|premium|awards|friends|import|integrations|support|legal|notifications|coaching(?:\/(?:analytics|goals|groups|library|programs|progress|[0-9a-f-]{36}))?)(?:[?#].*)?$/i.test(
       value,
     ) ||
     /^\/\?tab=(?:plan|history|pbs)(?:[&#].*)?$/.test(value)
   );
+}
+
+export function restoredLocation(
+  current: string,
+  saved: NavigationResumeState | null,
+  now = Date.now(),
+) {
+  if (current !== "/" || !saved || !isRecentNavigationResume(saved, now)) return null;
+  return saved.location !== "/" && resumableLocation(saved.location) ? saved.location : null;
 }

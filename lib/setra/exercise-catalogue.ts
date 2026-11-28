@@ -98,3 +98,11 @@ export const mergeExerciseCatalogues = (...catalogues: Exercise[][]): Exercise[]
     return true;
   });
 };
+
+// Stored template and workout rows refer to exercise IDs, not names. A saved
+// exercise must remain resolvable even if a later catalogue contains its name.
+export function mergeSavedExerciseCatalogue(builtIn: Exercise[], saved: Exercise[]) {
+  const byId = new Map(builtIn.map(item => [item.id, item]));
+  for (const item of saved) if (!byId.has(item.id)) byId.set(item.id, item);
+  return Array.from(byId.values());
+}

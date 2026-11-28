@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { disablePushOnThisDevice } from "@/lib/notifications/push-client";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 type AuthContextValue = {
   configured: boolean;
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return ()=>{window.clearTimeout(timeout);subscription.unsubscribe()};
   },[]);
 
-  const value=useMemo<AuthContextValue>(()=>({configured:isSupabaseConfigured,loading,user,signOut:async()=>{if(isSupabaseConfigured){await disablePushOnThisDevice().catch(()=>null);await createClient().auth.signOut()}}}),[loading,user]);
+  const value=useMemo<AuthContextValue>(()=>({configured:isSupabaseConfigured,loading,user,signOut:async()=>{if(isSupabaseConfigured){await withTimeout(disablePushOnThisDevice(),5000).catch(()=>null);await createClient().auth.signOut()}}}),[loading,user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

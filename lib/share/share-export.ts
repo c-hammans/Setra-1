@@ -2,6 +2,7 @@ import {contrastColour,mixHex} from "@/lib/setra/appearance";
 import type {ShareCardData,ShareMetric,ShareRenderOptions} from "@/lib/share/share-types";
 
 const sizes={square:[1080,1080],story:[1080,1920],sticker:[1536,480]} as const;
+const frameInsets={square:[31,29,42],story:[38,63,58],sticker:[12,12,70]} as const;
 const family="Arial, Helvetica, sans-serif";
 const loadImage=(src:string)=>new Promise<HTMLImageElement>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error("Image unavailable"));image.src=src});
 const setCanvasFont=(context:CanvasRenderingContext2D,size:number,weight=900)=>{context.font=`${weight} ${size}px ${family}`};
@@ -12,7 +13,9 @@ const displayDate=(date?:string,weekday=false)=>date?new Intl.DateTimeFormat("en
 const sessionEyebrow=(data:ShareCardData)=>{const weekday=displayDate(data.date,true);return weekday&&weekday.toLowerCase()!==data.title.trim().toLowerCase()?weekday:data.sport==="strength"?"Strength session":data.label};
 
 async function drawMark(context:CanvasRenderingContext2D,colour:string,x:number,y:number,size:number){
-  const svg=await fetch("/setra-mark-v4.svg").then(response=>response.text());
+  const response=await fetch("/setra-mark-v4.svg",{signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw new Error("Setra logo unavailable");
+  const svg=await response.text();
   const tinted=svg.replace(/#000/g,colour);
   const url=URL.createObjectURL(new Blob([tinted],{type:"image/svg+xml"}));
   try{const image=await loadImage(url);context.drawImage(image,x,y,size,size)}finally{URL.revokeObjectURL(url)}
@@ -37,10 +40,22 @@ function drawMetric(context:CanvasRenderingContext2D,metric:ShareMetric,x:number
 
 async function drawBackground(context:CanvasRenderingContext2D,width:number,height:number,options:ShareRenderOptions){
   context.clearRect(0,0,width,height);
-  if(options.background==="photo"&&options.photoUrl){const photo=await loadImage(options.photoUrl);drawCover(context,photo,width,height,options.photoX,options.photoY)}
+  if(options.background==="photo"&&options.photoUrl){
+    const photo=await loadImage(options.photoUrl);
+    const [x,y,radius]=frameInsets[options.format];
+    context.save();
+    roundedRect(context,x,y,width-2*x,height-2*y,radius);
+    context.clip();
+    drawCover(context,photo,width,height,options.photoX,options.photoY);
+    const shade=context.createLinearGradient(0,0,0,height);
+    shade.addColorStop(0,"rgba(15,23,42,.12)");
+    shade.addColorStop(1,"rgba(15,23,42,.68)");
+    context.fillStyle=shade;
+    context.fillRect(0,0,width,height);
+    context.restore();
+  }
   if(options.background==="solid"){context.fillStyle=options.accent;context.fillRect(0,0,width,height)}
   if(options.background==="gradient"){const gradient=context.createLinearGradient(0,0,width,height);gradient.addColorStop(0,mixHex(options.accent,"#FFFFFF",.78));gradient.addColorStop(1,mixHex(options.accent,"#0F172A",.62));context.fillStyle=gradient;context.fillRect(0,0,width,height)}
-  if(options.background==="photo"){const shade=context.createLinearGradient(0,0,0,height);shade.addColorStop(0,"rgba(15,23,42,.12)");shade.addColorStop(1,"rgba(15,23,42,.68)");context.fillStyle=shade;context.fillRect(0,0,width,height)}
 }
 
 async function drawBrand(context:CanvasRenderingContext2D,data:ShareCardData,options:ShareRenderOptions,ink:string,accent:string,x:number,y:number,width:number,compact=false){
@@ -48,12 +63,13 @@ async function drawBrand(context:CanvasRenderingContext2D,data:ShareCardData,opt
   context.textAlign="right";setCanvasFont(context,compact?22:23,850);context.letterSpacing=compact?"4px":"5px";context.fillText(data.label.toUpperCase(),x+width,y+(compact?48:45),width*.52);context.letterSpacing="0px";context.textAlign="left";
 }
 
-function drawFrame(context:CanvasRenderingContext2D,options:ShareRenderOptions,x:number,y:number,width:number,height:number,radius:number){
-  roundedRect(context,x,y,width,height,radius);context.strokeStyle=options.background==="transparent"?mixHex(options.accent,"#FFFFFF",.52):"rgba(255,255,255,.58)";context.lineWidth=3;context.stroke();
+function drawFrame(context:CanvasRenderingContext2D,options:ShareRenderOptions,width:number,height:number){
+  const [x,y,radius]=frameInsets[options.format];
+  roundedRect(context,x,y,width-2*x,height-2*y,radius);context.strokeStyle=options.background==="transparent"?mixHex(options.accent,"#FFFFFF",.52):"rgba(255,255,255,.58)";context.lineWidth=3;context.stroke();
 }
 
 async function drawCompact(context:CanvasRenderingContext2D,data:ShareCardData,options:ShareRenderOptions,width:number,height:number,ink:string,accent:string){
-  const pad=44;drawFrame(context,options,12,12,width-24,height-24,70);await drawBrand(context,data,options,ink,accent,pad,44,width-pad*2,true);
+  const pad=44;drawFrame(context,options,width,height);await drawBrand(context,data,options,ink,accent,pad,44,width-pad*2,true);
   context.strokeStyle=accent;context.lineWidth=5;context.beginPath();context.moveTo(238,58);context.lineTo(238,height-58);context.stroke();
   if(data.kind==="pb"){
     const badgeBackground=options.background==="transparent"?options.accent:options.textTone==="light"?"rgba(255,255,255,.16)":"rgba(15,23,42,.1)";
@@ -72,7 +88,7 @@ async function drawCompact(context:CanvasRenderingContext2D,data:ShareCardData,o
 
 async function drawFull(context:CanvasRenderingContext2D,data:ShareCardData,options:ShareRenderOptions,width:number,height:number,ink:string,accent:string){
   const story=options.format==="story",pad=story?76:62,top=story?126:58,contentTop=story?450:245;
-  drawFrame(context,options,pad/2,top/2,width-pad,height-top,story?58:42);await drawBrand(context,data,options,ink,accent,pad,top,width-pad*2);
+  drawFrame(context,options,width,height);await drawBrand(context,data,options,ink,accent,pad,top,width-pad*2);
   context.fillStyle=ink;
   if(data.kind==="pb"){
     context.fillStyle=accent;setCanvasFont(context,story?30:26,900);context.letterSpacing="5px";context.fillText("NEW PB",pad,contentTop-70);context.letterSpacing="0px";context.fillStyle=ink;

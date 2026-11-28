@@ -453,9 +453,9 @@ export default function CoachClientPage() {
       setAnchor(targetWeek);
     if (targetSession) setExpanded(targetSession);
   }, []);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showLoading = true) => {
     if (!service || !user || !relationshipId) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setMessage("");
     try {
       const diary = new DiaryService(user.id);
@@ -494,7 +494,7 @@ export default function CoachClientPage() {
           : "This client week is unavailable.",
       );
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [anchor, relationshipId, service, user]);
   useEffect(() => {
@@ -896,7 +896,7 @@ export default function CoachClientPage() {
                                         <CoachFeedbackEditor
                                           item={item}
                                           service={service!}
-                                          onChanged={refresh}
+                                          onChanged={() => refresh(false)}
                                         />
                                       )}
                                     {item.assignmentId &&

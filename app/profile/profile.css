@@ -26,6 +26,7 @@
 /* Keep profile navigation reachable while its content scrolls, below the iPhone safe zone. */
 .profile-header{position:fixed;z-index:101;top:0;left:0;right:0;width:100%}
 .profile-content{padding-top:calc(94px + env(safe-area-inset-top,0px))}
+.profile-edit-fields{min-inline-size:0;border:0;padding:0;margin:0}
 .profile-screen::before{pointer-events:none}
 
 /* Profile follows the shared semantic hierarchy rather than maintaining a

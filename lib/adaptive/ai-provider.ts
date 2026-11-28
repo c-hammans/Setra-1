@@ -1,4 +1,5 @@
 import "server-only";
+import { adaptiveGenerationEnabled } from "./generation-availability";
 
 export type AiUsage={provider:string;model:string;inputTokens:number|null;outputTokens:number|null;estimatedCostUsd:number|null};
 export type StructuredAiResult<T>={value:T;usage:AiUsage};
@@ -7,6 +8,7 @@ export interface AdaptiveAiProvider{generateStructured<T>(request:StructuredAiRe
 
 class OpenAiAdaptiveProvider implements AdaptiveAiProvider{
   async generateStructured<T>(request:StructuredAiRequest<T>):Promise<StructuredAiResult<T>>{
+    if (!adaptiveGenerationEnabled()) throw new Error("Adaptive generation is disabled.");
     const apiKey=process.env.OPENAI_API_KEY;const model=process.env[request.modelEnv]||request.defaultModel;
     if(!apiKey)throw new Error("Adaptive AI is not configured yet.");
     const response=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model,instructions:request.instructions,input:JSON.stringify(request.input),max_output_tokens:request.maxOutputTokens,text:{format:{type:"json_schema",name:request.schemaName,strict:true,schema:request.schema}}}),signal:AbortSignal.timeout(45000)});

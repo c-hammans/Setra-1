@@ -1,5 +1,7 @@
 # Setra push notification setup
 
+Push registration and delivery require `NEXT_PUBLIC_SETRA_PUSH_ENABLED=true` at build time. Leave it unset or false for the initial beta. An authenticated scheduler can still create in-app session reminders while push is off.
+
 Push delivery uses the existing `app_notifications` records. The database creates best-effort delivery jobs, and the scheduled server route delivers those jobs to every enabled device.
 
 ## 1. Apply the migrations

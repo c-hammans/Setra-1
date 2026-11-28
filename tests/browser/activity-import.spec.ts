@@ -7,6 +7,13 @@ const activity={format:"fit",sport:"run",start:"2026-01-15T03:00:00Z",finish:"20
 const requested={id:"plan",title:"Easy run",sport:"run",date,status:"planned"};
 const manual={id:"completed",title:"Previously logged run",sport:"run",date,status:"completed"};
 
+async function openReadyImport(page:import("@playwright/test").Page){
+  // The file input can exist before React has attached its change handler.
+  const loaded=page.waitForResponse(response=>response.request().method()==="GET"&&new URL(response.url()).pathname==="/api/integrations/activity"&&response.ok());
+  await page.goto("/test-plan-adjustment?activityImport=1");
+  await loaded;
+}
+
 for(const width of [320,1280])test(`activity review and explicit match at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:760});
   const body:Record<string,unknown>[]=[];
@@ -23,7 +30,7 @@ for(const width of [320,1280])test(`activity review and explicit match at ${widt
     body.push(data);
     return route.fulfill({json:{id:"saved",status:"imported"}});
   });
-  await page.goto("/test-plan-adjustment?activityImport=1");
+  await openReadyImport(page);
   await page.getByLabel("Activity file").setInputFiles({name:"activity.fit",mimeType:"application/octet-stream",buffer:Buffer.from("mock bytes")});
   await expect(page.getByRole("heading",{name:"Review activity"})).toBeVisible();
   await expect(page.getByText("FIT · Run")).toBeVisible();
@@ -51,7 +58,7 @@ test("manual duplicate prompts reconciliation or cancellation",async({page})=>{
     if(data.action==="matches")return route.fulfill({json:{plans:[],possibleDuplicates:[manual],manual:[manual]}});
     saves.push(data);return route.fulfill({json:{status:"reconciled"}});
   });
-  await page.goto("/test-plan-adjustment?activityImport=1");
+  await openReadyImport(page);
   const file={name:"activity.fit",mimeType:"application/octet-stream",buffer:Buffer.from("mock bytes")};
   await page.getByLabel("Activity file").setInputFiles(file);
   await expect(page.getByText("Possible duplicate")).toBeVisible();

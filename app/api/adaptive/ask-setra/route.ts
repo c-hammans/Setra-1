@@ -1,3 +1,4 @@
+import { adaptiveGenerationDisabledResponse, adaptiveGenerationEnabled } from "@/lib/adaptive/generation-availability";
 import {NextRequest,NextResponse} from "next/server";
 import {loadAskSetraContext} from "@/lib/adaptive/ask-setra-data";
 import {generateAskSetraAnswer} from "@/lib/adaptive/ask-setra-provider";
@@ -35,6 +36,7 @@ export async function GET(request:NextRequest){
 }
 
 export async function POST(request:NextRequest){
+  if (!adaptiveGenerationEnabled()) return adaptiveGenerationDisabledResponse();
   let state:NonNullable<Awaited<ReturnType<typeof requestState>>>|null=null;let turnId="";
   try{
     state=await requestState();if(!state)return NextResponse.json({error:"Please sign in to use Ask Setra."},{status:401});if(!hasFeature(state.access,"ask_setra_training"))return NextResponse.json({locked:true,requiredPlan:"adaptive"},{status:403});
