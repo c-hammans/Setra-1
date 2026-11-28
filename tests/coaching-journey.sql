@@ -21,6 +21,9 @@ begin
   perform set_config('request.jwt.claim.sub',athlete::text,true);
   perform public.respond_coach_client_invite(relationship,true);
   perform set_config('request.jwt.claim.sub',coach::text,true);
+  if exists(select 1 from public.list_coach_client_programs(relationship,week_start)) then
+    raise exception 'A newly accepted client unexpectedly has a program';
+  end if;
   perform public.save_endurance_template_v2(template,'audit-coach-template',0);
   assignment:=public.coach_assign_template(relationship,'endurance','coach-audit-repeats',week_start,'Preserve easy recoveries');
   perform public.coach_move_assignment(assignment,week_start+1);
